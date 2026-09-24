@@ -23,7 +23,7 @@ async function main() {
     await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "rafael.molina@nxtgen.app", password: "Nxtgen2026!" }),
+      body: JSON.stringify({ email: "rafael.molina@prx.app", password: "Prx2026!" }),
     });
   });
 
@@ -43,7 +43,7 @@ async function main() {
     await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "admin@ashens.store", password: "AdminNxtgen2026!" }),
+      body: JSON.stringify({ email: "admin@ashens.store", password: "AdminPrx2026!" }),
     });
   });
 

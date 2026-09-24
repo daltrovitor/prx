@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { userStore, verifyAdminRequest } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
+import { errorMessage } from "@/lib/errors";
+import type { AuthUserLike } from "@/lib/db-rows";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,7 +12,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 1. Try querying Supabase public.profiles for real registered members
-    let users: any[] = [];
+    let users: Array<Record<string, unknown>> = [];
     try {
       const { supabaseAdmin } = await import("@/lib/supabase/client");
       if (supabaseAdmin) {
@@ -21,14 +23,16 @@ export async function GET(req: NextRequest) {
 
         if (!error && dbProfiles && dbProfiles.length > 0) {
           // Fetch auth users to also read user_metadata.role
-          let authRolesMap = new Map<string, string>();
+          const authRolesMap = new Map<string, string>();
           try {
             const { data: authUsersData } = await supabaseAdmin.auth.admin.listUsers();
             if (authUsersData?.users) {
-              authUsersData.users.forEach((u: any) => {
-                if (u.user_metadata?.role) {
-                  authRolesMap.set(u.id, u.user_metadata.role);
-                  if (u.email) authRolesMap.set(u.email.toLowerCase(), u.user_metadata.role);
+              authUsersData.users.forEach((u: AuthUserLike) => {
+                // Only app_metadata is trusted: user_metadata can be edited by the user.
+                const trustedRole = u.app_metadata?.role;
+                if (typeof trustedRole === "string") {
+                  authRolesMap.set(u.id, trustedRole);
+                  if (u.email) authRolesMap.set(u.email.toLowerCase(), trustedRole);
                 }
               });
             }
@@ -44,8 +48,8 @@ export async function GET(req: NextRequest) {
               email: p.email,
               name: p.full_name || p.name || p.email.split("@")[0],
               role: effectiveRole,
-              nxtScore: p.nxt_score ?? 250,
-              nxtLevel: p.nxt_level ?? 1,
+              prxScore: p.nxt_score ?? 250,
+              prxLevel: p.nxt_level ?? 1,
               walletBalance: Number(p.wallet_balance || 0),
               createdAt: p.created_at,
               vouchersCount: userVouchers.length,
@@ -68,8 +72,8 @@ export async function GET(req: NextRequest) {
           email: u.email,
           name: u.fullName,
           role: u.role,
-          nxtScore: u.nxtScore,
-          nxtLevel: u.nxtLevel,
+          prxScore: u.prxScore,
+          prxLevel: u.prxLevel,
           walletBalance: u.walletBalance,
           createdAt: u.createdAt,
           vouchersCount: userVouchers.length,
@@ -83,9 +87,9 @@ export async function GET(req: NextRequest) {
       currentUserRole: auth.adminUser?.role,
       users,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao consultar usuários." },
+      { error: errorMessage(error) || "Erro ao consultar usuários." },
       { status: 500 }
     );
   }
@@ -99,7 +103,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, email, nxtLevel, nxtScore, role, walletBalance } = body;
+    const { id, email, prxLevel, prxScore, role, walletBalance } = body;
 
     const targetKey = id || email;
     if (!targetKey) {
@@ -110,7 +114,7 @@ export async function PUT(req: NextRequest) {
     }
 
     let userFound = false;
-    let returnUser: any = null;
+    let returnUser: Record<string, unknown> | null = null;
 
     // 1. Try updating Supabase public.profiles and auth.users
     try {
@@ -131,6 +135,7 @@ export async function PUT(req: NextRequest) {
         if (targetUserId && role !== undefined) {
           try {
             await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+              app_metadata: { role },
               user_metadata: { role },
             });
           } catch (metaErr) {
@@ -139,9 +144,9 @@ export async function PUT(req: NextRequest) {
         }
 
         // B) Update fields in profiles table
-        const updatePayload: Record<string, any> = {};
-        if (nxtLevel !== undefined) updatePayload.nxt_level = Number(nxtLevel);
-        if (nxtScore !== undefined) updatePayload.nxt_score = Number(nxtScore);
+        const updatePayload: Record<string, unknown> = {};
+        if (prxLevel !== undefined) updatePayload.nxt_level = Number(prxLevel);
+        if (prxScore !== undefined) updatePayload.nxt_score = Number(prxScore);
         if (role !== undefined) updatePayload.role = role;
         if (walletBalance !== undefined) updatePayload.wallet_balance = Number(walletBalance);
 
@@ -153,7 +158,9 @@ export async function PUT(req: NextRequest) {
             updateQuery = updateQuery.eq("email", email.toLowerCase());
           }
 
-          let { data: updatedProfile, error: updateError } = await updateQuery.select().maybeSingle();
+          const firstAttempt = await updateQuery.select().maybeSingle();
+          const updateError = firstAttempt.error;
+          let updatedProfile = firstAttempt.data;
 
           // If profiles update failed due to check constraint on 'role' (Postgres error 23514)
           if (updateError && updateError.code === "23514" && updatePayload.role) {
@@ -178,8 +185,8 @@ export async function PUT(req: NextRequest) {
               email: p.email,
               name: p.full_name || p.name || p.email.split("@")[0],
               role: role !== undefined ? role : p.role,
-              nxtLevel: updatedProfile?.nxt_level ?? p.nxt_level,
-              nxtScore: updatedProfile?.nxt_score ?? p.nxt_score,
+              prxLevel: updatedProfile?.nxt_level ?? p.nxt_level,
+              prxScore: updatedProfile?.nxt_score ?? p.nxt_score,
               walletBalance: Number(updatedProfile?.wallet_balance ?? p.wallet_balance ?? 0),
             };
           }
@@ -191,8 +198,8 @@ export async function PUT(req: NextRequest) {
 
     // 2. Also update in userStore (or fallback)
     const updatedStore = userStore.updateUser(targetKey, {
-      nxtLevel: nxtLevel !== undefined ? Number(nxtLevel) : undefined,
-      nxtScore: nxtScore !== undefined ? Number(nxtScore) : undefined,
+      prxLevel: prxLevel !== undefined ? Number(prxLevel) : undefined,
+      prxScore: prxScore !== undefined ? Number(prxScore) : undefined,
       role: role !== undefined ? role : undefined,
       walletBalance: walletBalance !== undefined ? Number(walletBalance) : undefined,
     });
@@ -205,8 +212,8 @@ export async function PUT(req: NextRequest) {
           email: updatedStore.email,
           name: updatedStore.fullName,
           role: updatedStore.role,
-          nxtLevel: updatedStore.nxtLevel,
-          nxtScore: updatedStore.nxtScore,
+          prxLevel: updatedStore.prxLevel,
+          prxScore: updatedStore.prxScore,
           walletBalance: updatedStore.walletBalance,
         };
       }
@@ -224,9 +231,9 @@ export async function PUT(req: NextRequest) {
       message: `Dados do membro ${returnUser.name} atualizados com sucesso!`,
       user: returnUser,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao atualizar dados do membro." },
+      { error: errorMessage(error) || "Erro ao atualizar dados do membro." },
       { status: 500 }
     );
   }

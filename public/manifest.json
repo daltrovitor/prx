@@ -1,24 +1,18 @@
 {
-  "name": "NXTGEN — Super App Alpha & Z",
-  "short_name": "NXTGEN",
-  "description": "The Future Pays More. O primeiro ecossistema de benefícios, experiências e fintech para as novas gerações.",
+  "name": "PRX — Experiências que conectam gerações",
+  "short_name": "PRX",
+  "description": "Benefícios, conta digital e eventos para as gerações Z e Alpha. PRX PASS, PRX BANK e PRX LIVE em um app.",
+  "lang": "pt-BR",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#05070E",
-  "theme_color": "#05070E",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "orientation": "portrait",
   "icons": [
-    {
-      "src": "/iconenxt.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/iconenxt.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/brand/prx-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/prx-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/prx-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/brand/prx-app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }

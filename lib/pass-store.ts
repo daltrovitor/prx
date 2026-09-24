@@ -284,7 +284,7 @@ class PassStore {
       newProgress = Math.min(mission.total, vouchersCount);
       if (newProgress >= mission.total) {
         completed = true;
-        message = `Missão resolvida! Você resgatou vantagens no marketplace NXT PASS. Recompensa de +${mission.xpReward} XP liberada!`;
+        message = `Missão resolvida! Você resgatou vantagens no marketplace PRX PASS. Recompensa de +${mission.xpReward} XP liberada!`;
       } else {
         return {
           success: false,
@@ -302,7 +302,7 @@ class PassStore {
     } else if (vType === "run_signup") {
       newProgress = mission.total;
       completed = true;
-      message = `Inscrição confirmada no circuito NXT RUN! Kit atleta reservado. Recompensa de +${mission.xpReward} XP desbloqueada.`;
+      message = `Inscrição confirmada no circuito PRX RUN! Kit atleta reservado. Recompensa de +${mission.xpReward} XP desbloqueada.`;
     } else if (vType === "bank_pix") {
       newProgress = mission.total;
       completed = true;
@@ -310,7 +310,7 @@ class PassStore {
     } else if (vType === "circle_connect") {
       newProgress = mission.total;
       completed = true;
-      message = `Frase de propósito registrada no NXT CIRCLE Unplug! Conexão real estabelecida. Recompensa de +${mission.xpReward} XP desbloqueada.`;
+      message = `Frase de propósito registrada no PRX CIRCLE Unplug! Conexão real estabelecida. Recompensa de +${mission.xpReward} XP desbloqueada.`;
     } else if (vType === "mentor_session") {
       newProgress = mission.total;
       completed = true;
@@ -322,7 +322,7 @@ class PassStore {
     } else if (vType === "event_checkin") {
       newProgress = mission.total;
       completed = true;
-      message = `Check-in presencial no evento NXT LIVE validado com sucesso! Recompensa de +${mission.xpReward} XP desbloqueada.`;
+      message = `Check-in presencial no evento PRX LIVE validado com sucesso! Recompensa de +${mission.xpReward} XP desbloqueada.`;
     } else {
       // manual
       newProgress = mission.total;
@@ -413,7 +413,7 @@ class PassStore {
     const newReferral: ReferralRecord = {
       id: `ref-${Date.now().toString(36)}`,
       referrerId,
-      referrerName: referrerName || "Membro NXTGEN",
+      referrerName: referrerName || "Membro PRX",
       referredUserId,
       referredUserName: referredUserName || "Novo Membro",
       createdAt: new Date().toISOString(),
@@ -544,9 +544,9 @@ class PassStore {
 }
 
 // Attach to globalThis to preserve state across Fast Refresh & Hot Reload in Dev
-const globalStore = (globalThis as unknown as { __nxtPassStore?: PassStore });
+const globalStore = (globalThis as unknown as { __prxPassStore?: PassStore });
 
-let storeInstance = globalStore.__nxtPassStore;
+let storeInstance = globalStore.__prxPassStore;
 if (!storeInstance) {
   storeInstance = new PassStore();
 } else {
@@ -558,5 +558,5 @@ if (!storeInstance) {
 export const passStore = storeInstance;
 
 if (process.env.NODE_ENV !== "production") {
-  globalStore.__nxtPassStore = passStore;
+  globalStore.__prxPassStore = passStore;
 }

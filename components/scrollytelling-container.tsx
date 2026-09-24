@@ -1,13 +1,22 @@
+// Hello World
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
-import Image from "next/image";
+import { PrxLogo } from "@/components/brand/prx-logo";
 import { useRouter } from "next/navigation";
 import { motion, useScroll, useTransform, useSpring, AnimatePresence } from "framer-motion";
 import Lenis from "lenis";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { Phone3DModel } from "@/components/phone-3d-model";
+import dynamic from "next/dynamic";
+
+// O modelo 3D (Three.js) é o trecho mais pesado da landing: carrega depois que a
+// página fica interativa, com um espaço reservado do mesmo tamanho (sem layout shift).
+const PHONE_BOX = "w-[340px] sm:w-[380px] md:w-[400px] h-[660px] sm:h-[740px] md:h-[780px]";
+const Phone3DModel = dynamic(() => import("@/components/phone-3d-model").then((m) => m.Phone3DModel), {
+  ssr: false,
+  loading: () => <div aria-hidden className={PHONE_BOX} />,
+});
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { errorMessage } from "@/lib/errors";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -163,7 +173,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
         { opacity: 1, y: 0, duration: 0.9, stagger: 0.12, ease: "power3.out", delay: 0.2 }
       );
 
-      // Section 2: NXT PASS benefits reveal on scroll
+      // Section 2: PRX PASS benefits reveal on scroll
       gsap.fromTo(
         [".gsap-pass-tag", ".gsap-pass-title", ".gsap-pass-desc"],
         { opacity: 0, y: 25 },
@@ -289,6 +299,18 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
   const [authPass, setAuthPass] = useState("");
   const [authName, setAuthName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [phoneReady, setPhoneReady] = useState(false);
+
+  // Monta o 3D quando o navegador estiver ocioso (ou após 2,5s no máximo).
+  useEffect(() => {
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(() => setPhoneReady(true), { timeout: 2500 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const t = window.setTimeout(() => setPhoneReady(true), 1200);
+    return () => window.clearTimeout(t);
+  }, []);
   const [rememberMe, setRememberMe] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -307,8 +329,8 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
       }
       // Quando res.success é verdadeiro, a página é redirecionada para a tela de contas do Google.
       // Mantemos o loading ativo sem emitir aviso prematuro de que a conexão já ocorreu.
-    } catch (err: any) {
-      setAuthErrorMsg(err.message || "Erro de conexão com o Google.");
+    } catch (err) {
+      setAuthErrorMsg(errorMessage(err) || "Erro de conexão com o Google.");
       setGoogleLoading(false);
     }
   };
@@ -341,8 +363,8 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
           setAuthErrorMsg(res.error || "Não foi possível criar a conta.");
         }
       }
-    } catch (err: any) {
-      setAuthErrorMsg(err.message || "Erro ao conectar com o servidor.");
+    } catch (err) {
+      setAuthErrorMsg(errorMessage(err) || "Erro ao conectar com o servidor.");
     } finally {
       setAuthLoading(false);
     }
@@ -381,6 +403,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
             }}
             className="transition-shadow pointer-events-none md:pointer-events-auto"
           >
+            {phoneReady ? (
             <Phone3DModel
               highlightBenefits={currentSection === 1}
               animateXp={currentSection >= 2}
@@ -390,6 +413,9 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
               rotationZ={rotateZ}
               className="pointer-events-none md:pointer-events-auto"
             />
+            ) : (
+              <div aria-hidden className={PHONE_BOX} />
+            )}
           </motion.div>
 
           {/* Simple static "Role para explorar" under the phone - ONLY on mobile */}
@@ -450,14 +476,14 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
             </div>
 
             {/* Scroll Indicator Sem Ícones Exagerados */}
-            <p className="pt-8 text-xs font-mono text-gray-500">
+            <p className="pt-8 text-xs font-mono text-gray-400">
               Role para explorar ↓
             </p>
           </div>
         </section>
 
         {/* -----------------------------------------------------------------------
-            SECTION 2: NXT PASS — CLUBE DE EXPERIÊNCIAS (Scroll 25% - 55%)
+            SECTION 2: PRX PASS — CLUBE DE EXPERIÊNCIAS (Scroll 25% - 55%)
             Phone moves to the Right -> Content on the Left
         ----------------------------------------------------------------------- */}
         <section
@@ -467,7 +493,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
           <div className="max-w-md lg:max-w-lg space-y-6 pointer-events-auto p-6 sm:p-0 rounded-3xl sm:rounded-none bg-card/90 sm:bg-transparent backdrop-blur-xl sm:backdrop-blur-none border border-border sm:border-none shadow-2xl sm:shadow-none transition-colors">
             
             <p className="gsap-pass-tag text-xs font-mono uppercase tracking-[0.25em] text-cyan-600 dark:text-cyan-400 font-semibold">
-              NXT PASS • Clube de Benefícios
+              PRX PASS • Clube de Benefícios
             </p>
 
             <h2 className="gsap-pass-title font-heading text-3xl sm:text-5xl font-bold text-foreground tracking-tight leading-tight">
@@ -510,7 +536,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
           <div className="max-w-md lg:max-w-lg space-y-6 pointer-events-auto text-left pl-0 md:pl-6 p-6 sm:p-0 rounded-3xl sm:rounded-none bg-card/90 sm:bg-transparent backdrop-blur-xl sm:backdrop-blur-none border border-border sm:border-none shadow-2xl sm:shadow-none transition-colors">
             
             <p className="gsap-gamify-tag text-xs font-mono uppercase tracking-[0.25em] text-purple-600 dark:text-purple-400 font-semibold">
-              NXT Score & Progressão
+              PRX Score & Progressão
             </p>
 
             <h2 className="gsap-gamify-title font-heading text-3xl sm:text-5xl font-bold text-foreground tracking-tight leading-tight">
@@ -521,7 +547,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
             </h2>
 
             <p className="gsap-gamify-desc text-sm sm:text-base text-muted-foreground leading-relaxed font-sans">
-              Cada hábito saudável pontua no seu <strong className="text-foreground">NXT Level</strong>: economizar, completar metas e participar dos eventos da comunidade. 
+              Cada hábito saudável pontua no seu <strong className="text-foreground">PRX Level</strong>: economizar, completar metas e participar dos eventos da comunidade. 
               Suba de nível e desbloqueie limites diferenciados, anuidade zero e benefícios maiores.
             </p>
 
@@ -537,7 +563,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
               </div>
 
               <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
-                <span>NXT Level 3</span>
+                <span>PRX Level 3</span>
                 <span className="text-foreground font-bold">2.150 / 3.000 XP</span>
               </div>
             </div>
@@ -558,7 +584,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                 Acesso à Plataforma
               </p>
               <h2 className="font-heading text-3xl sm:text-4xl font-bold text-foreground tracking-tight">
-                Entre no NXTGEN
+                Entre no PRX
               </h2>
               <p className="text-xs text-muted-foreground font-sans">
                 Acesse sua carteira de benefícios ou cadastre-se para começar.
@@ -568,7 +594,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
             {currentUser ? (
               <div className="p-6 rounded-3xl bg-card border border-purple-500/30 backdrop-blur-xl text-center space-y-4 shadow-2xl transition-colors">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-950/60 border border-purple-300 dark:border-purple-500/30 text-xs font-mono text-purple-800 dark:text-purple-300">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
                   <span>Sessão Ativa • {currentUser.name}</span>
                 </div>
                 <button
@@ -603,14 +629,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                   {/* Official Logo Header */}
                   <div className="text-center space-y-2 mb-6">
                     <div className="flex justify-center items-center">
-                      <Image
-                        src="/logonxtgen.png"
-                        alt="NXTGEN"
-                        width={2065}
-                        height={762}
-                        className="h-12 sm:h-14 w-auto object-contain drop-shadow-[0_0_25px_rgba(139,92,246,0.6)]"
-                        style={{ width: "auto" }}
-                      />
+                      <PrxLogo variant="full" title="PRX" className="h-10 sm:h-11 w-auto text-white drop-shadow-[0_0_25px_rgba(139,92,246,0.6)]" />
                     </div>
                     <p className="text-xs sm:text-sm text-muted-foreground font-sans">
                       Seu ecossistema de benefícios aguarda
@@ -671,6 +690,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -727,7 +747,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                         </>
                       ) : (
                         <>
-                          <span>{authTab === "login" ? "Entrar no NXTGEN" : "Criar Conta NXTGEN"}</span>
+                          <span>{authTab === "login" ? "Entrar no PRX" : "Criar Conta PRX"}</span>
                           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </>
                       )}
@@ -828,7 +848,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
               className="space-y-4"
             >
               <p className="text-[11px] font-mono uppercase tracking-[0.25em] text-purple-600 dark:text-purple-400 font-semibold flex items-center space-x-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-600 dark:bg-purple-400 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-600 dark:bg-purple-400" />
                 <span>BUILD. DON&apos;T BET.</span>
               </p>
               <h1 className="font-heading text-3xl sm:text-4xl font-bold tracking-tight text-foreground leading-[1.1]">
@@ -866,7 +886,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
             </motion.div>
           </section>
 
-          {/* Section 2: NXT PASS */}
+          {/* Section 2: PRX PASS */}
           <section id="mob-pass" className="scroll-mt-16 py-10 px-5 space-y-4">
             <motion.div
               initial={{ opacity: 0, y: 25 }}
@@ -876,7 +896,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
               className="space-y-2"
             >
               <p className="text-[11px] font-mono uppercase tracking-[0.25em] text-cyan-600 dark:text-cyan-400 font-semibold">
-                NXT PASS • Clube de Benefícios
+                PRX PASS • Clube de Benefícios
               </p>
               <h2 className="font-heading text-2xl font-bold text-foreground tracking-tight leading-tight">
                 Descontos reais. <br />
@@ -896,7 +916,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                 className="p-3.5 rounded-xl bg-card border border-border space-y-1 shadow-sm"
               >
                 <div className="flex items-center space-x-2">
-                  <span className="w-2 h-2 rounded-full bg-cyan-600 dark:bg-cyan-400 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-cyan-600 dark:bg-cyan-400" />
                   <h3 className="text-xs font-bold text-foreground">Salas VIP & Lounges</h3>
                 </div>
                 <p className="text-[11px] text-muted-foreground pl-4">Acesso a lounges em aeroportos e upgrades selecionados.</p>
@@ -910,7 +930,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                 className="p-3.5 rounded-xl bg-card border border-border space-y-1 shadow-sm"
               >
                 <div className="flex items-center space-x-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-600 dark:bg-purple-400 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-purple-600 dark:bg-purple-400" />
                   <h3 className="text-xs font-bold text-foreground">Cashback via Pix</h3>
                 </div>
                 <p className="text-[11px] text-muted-foreground pl-4">Economia real de 20% a 50% em estabelecimentos credenciados.</p>
@@ -924,7 +944,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                 className="p-3.5 rounded-xl bg-card border border-border space-y-1 shadow-sm"
               >
                 <div className="flex items-center space-x-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400" />
                   <h3 className="text-xs font-bold text-foreground">Cupons Digitais Protegidos</h3>
                 </div>
                 <p className="text-[11px] text-muted-foreground pl-4">Geração de códigos únicos para validação direta no balcão.</p>
@@ -942,7 +962,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
               className="space-y-2"
             >
               <p className="text-[11px] font-mono uppercase tracking-[0.25em] text-purple-600 dark:text-purple-400 font-semibold">
-                NXT Score & Progressão
+                PRX Score & Progressão
               </p>
               <h2 className="font-heading text-2xl font-bold text-foreground tracking-tight leading-tight">
                 As bets lucram com a perda. <br />
@@ -951,7 +971,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                 </span>
               </h2>
               <p className="text-xs text-muted-foreground leading-relaxed font-sans">
-                Cada hábito saudável pontua no seu <strong className="text-foreground">NXT Level</strong>: economizar, completar metas e participar dos eventos.
+                Cada hábito saudável pontua no seu <strong className="text-foreground">PRX Level</strong>: economizar, completar metas e participar dos eventos.
               </p>
             </motion.div>
 
@@ -976,7 +996,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                 />
               </div>
               <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
-                <span>NXT Level 3</span>
+                <span>PRX Level 3</span>
                 <span className="text-foreground font-bold">2.150 / 3.000 XP</span>
               </div>
             </motion.div>
@@ -995,7 +1015,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                 Acesso à Plataforma
               </p>
               <h2 className="font-heading text-2xl font-bold text-foreground tracking-tight">
-                {currentUser ? "Sua Conta NXTGEN" : authTab === "login" ? "Entre no NXTGEN" : "Crie sua Conta"}
+                {currentUser ? "Sua Conta PRX" : authTab === "login" ? "Entre no PRX" : "Crie sua Conta"}
               </h2>
               <p className="text-xs text-muted-foreground font-sans">
                 Acesse sua carteira de benefícios ou cadastre-se para começar.
@@ -1015,7 +1035,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                   </div>
                   <div>
                     <h3 className="font-heading text-foreground font-bold text-sm">{currentUser.name}</h3>
-                    <p className="text-xs font-mono text-muted-foreground">{currentUser.email} • Nível {currentUser.nxtLevel}</p>
+                    <p className="text-xs font-mono text-muted-foreground">{currentUser.email} • Nível {currentUser.prxLevel}</p>
                   </div>
                 </div>
                 <div className="space-y-2.5 font-mono text-xs">
@@ -1052,14 +1072,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                   {/* Official Logo Header */}
                   <div className="text-center space-y-1.5 mb-5">
                     <div className="flex justify-center items-center">
-                      <Image
-                        src="/logonxtgen.png"
-                        alt="NXTGEN"
-                        width={2065}
-                        height={762}
-                        className="h-10 sm:h-12 w-auto object-contain drop-shadow-[0_0_20px_rgba(139,92,246,0.6)]"
-                        style={{ width: "auto" }}
-                      />
+                      <PrxLogo variant="full" title="PRX" className="h-8 sm:h-9 w-auto text-white drop-shadow-[0_0_20px_rgba(139,92,246,0.6)]" />
                     </div>
                     <p className="text-xs text-muted-foreground font-sans">
                       Seu ecossistema de benefícios aguarda
@@ -1120,6 +1133,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                         className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1176,7 +1190,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                           </>
                         ) : (
                           <>
-                            <span>{authTab === "login" ? "Entrar no NXTGEN" : "Criar Conta NXTGEN"}</span>
+                            <span>{authTab === "login" ? "Entrar no PRX" : "Criar Conta PRX"}</span>
                             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                           </>
                         )}
@@ -1264,14 +1278,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
       <footer className="border-t border-border pt-8 pb-14 sm:py-8 px-6 sm:px-12 bg-background text-xs font-mono text-muted-foreground relative z-20 transition-colors">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
           <div className="flex items-center space-x-3">
-            <Image
-              src="/logonxtgen.png"
-              alt="NXTGEN"
-              width={2065}
-              height={762}
-              className="h-10 sm:h-12 md:h-14 w-auto object-contain opacity-95 hover:opacity-100 hover:scale-105 transition-all drop-shadow-[0_0_20px_rgba(139,92,246,0.3)]"
-              style={{ width: "auto" }}
-            />
+            <PrxLogo variant="full" title="PRX" className="h-8 sm:h-9 md:h-11 w-auto text-white opacity-95 hover:opacity-100 hover:scale-105 transition-all drop-shadow-[0_0_20px_rgba(139,92,246,0.3)]" />
           </div>
           <div className="flex flex-wrap justify-center items-center gap-6 text-muted-foreground">
             <button
@@ -1282,7 +1289,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
               }}
               className="hover:text-foreground transition-colors cursor-pointer"
             >
-              NXT PASS
+              PRX PASS
             </button>
             <button
               type="button"
@@ -1305,8 +1312,8 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
               Entrar
             </button>
           </div>
-          <div className="text-muted-foreground/70 text-center sm:text-right">
-            © 2026 NXTGEN. Todos os direitos reservados.
+          <div className="text-muted-foreground text-center sm:text-right">
+            © 2026 PRX. Todos os direitos reservados.
           </div>
         </div>
       </footer>

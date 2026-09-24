@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { calculatePrxLevel } from "@/lib/pass-data";
 import { getCurrentUser, userStore } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
 
-function calculateNxtLevel(score: number): number {
-  if (score < 500) return 1;
-  if (score < 1000) return 2;
-  if (score < 2000) return 3;
-  if (score < 3500) return 4;
-  if (score < 5500) return 5;
-  if (score < 8000) return 6;
-  return 7;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,18 +43,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: result.message }, { status: 400 });
     }
 
-    let updatedScore = user.nxtScore || 250;
-    let updatedLevel = user.nxtLevel || 1;
+    let updatedScore = user.prxScore || 250;
+    let updatedLevel = user.prxLevel || 1;
 
     // If newly completed and has XP to award
     if (result.completed && result.xpEarned > 0) {
       updatedScore += result.xpEarned;
-      updatedLevel = calculateNxtLevel(updatedScore);
+      updatedLevel = calculatePrxLevel(updatedScore);
 
       // Keep userStore in-memory synced
       userStore.updateUser(user.id, {
-        nxtScore: updatedScore,
-        nxtLevel: updatedLevel,
+        prxScore: updatedScore,
+        prxLevel: updatedLevel,
       });
 
       if (supabaseAdmin) {
@@ -109,13 +102,13 @@ export async function POST(req: NextRequest) {
       currentUser: {
         id: user.id,
         name: user.fullName,
-        nxtScore: updatedScore,
-        nxtLevel: updatedLevel,
+        prxScore: updatedScore,
+        prxLevel: updatedLevel,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao verificar missão." },
+      { error: errorMessage(error) || "Erro ao verificar missão." },
       { status: 500 }
     );
   }

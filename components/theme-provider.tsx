@@ -13,7 +13,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const STORAGE_KEY = "nxtgen-theme";
+const STORAGE_KEY = "prx-theme";
 
 function applyTheme(newTheme: Theme) {
   if (typeof document === "undefined") return;

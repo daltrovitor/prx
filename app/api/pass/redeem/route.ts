@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { Benefit } from "@/lib/pass-data";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
 
 function isUuid(id?: string | null): boolean {
   if (!id) return false;
@@ -19,9 +20,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Informe o ID do benefício." }, { status: 400 });
     }
 
-    const effectiveUserId = user?.id || "usr_demo_rafael";
-    const effectiveEmail = user?.email || "rafael.molina@nxtgen.app";
-    const effectiveName = user?.fullName || "Rafael Molina";
+    if (!user) {
+      return NextResponse.json({ error: "Entre na sua conta para resgatar benefícios." }, { status: 401 });
+    }
+
+    const effectiveUserId = user.id;
+    const effectiveEmail = user.email;
+    const effectiveName = user.fullName;
 
     // 1. Locate benefit from passStore or Supabase
     let benefit: Benefit | undefined = passStore.getBenefitById(benefitId);
@@ -46,7 +51,7 @@ export async function POST(req: NextRequest) {
             title: dbBen.title,
             description: dbBen.description || "",
             discountLabel: dbBen.discount_label,
-            minNxtLevel: dbBen.min_nxt_level || 1,
+            minPrxLevel: dbBen.min_nxt_level || 1,
             terms: Array.isArray(dbBen.terms)
               ? dbBen.terms
               : [dbBen.terms || "Apresente o QR Code no balcão ao pedir a conta."],
@@ -141,10 +146,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Generate fresh anti-tamper code & QR payload
-    const uniqueCode = `NXT-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(
+    const uniqueCode = `PRX-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(
       1000 + Math.random() * 9000
     )}`;
-    const qrPayload = `NXTGEN_PASS::${uniqueCode}::${benefit.partnerName.replace(/\s+/g, "")}`;
+    const qrPayload = `PRX_PASS::${uniqueCode}::${benefit.partnerName.replace(/\s+/g, "")}`;
     const formattedNow = new Date().toLocaleString("pt-BR", {
       day: "2-digit",
       month: "2-digit",
@@ -158,7 +163,7 @@ export async function POST(req: NextRequest) {
     // 4. Persist in Supabase if available
     if (supabaseAdmin) {
       try {
-        const payload: Record<string, any> = {
+        const payload: Record<string, unknown> = {
           code: uniqueCode,
           benefit_title: benefit.title,
           partner_name: benefit.partnerName,
@@ -189,8 +194,8 @@ export async function POST(req: NextRequest) {
         } else if (insertErr) {
           console.warn("Supabase voucher insert fallback:", insertErr.message);
         }
-      } catch (insertException: any) {
-        console.warn("Supabase voucher insert exception:", insertException.message);
+      } catch (insertException) {
+        console.warn("Supabase voucher insert exception:", errorMessage(insertException));
       }
     }
 
@@ -217,9 +222,9 @@ export async function POST(req: NextRequest) {
       message: "Benefício resgatado com sucesso!",
       voucher: newVoucher,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao resgatar benefício." },
+      { error: errorMessage(error) || "Erro ao resgatar benefício." },
       { status: 500 }
     );
   }

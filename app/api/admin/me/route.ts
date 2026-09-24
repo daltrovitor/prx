@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getCurrentUser, verifySessionToken, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { errorMessage } from "@/lib/errors";
 
 export async function GET(req: NextRequest) {
   try {
@@ -65,13 +66,13 @@ export async function GET(req: NextRequest) {
         email: currentUser.email,
         name: currentUser.fullName,
         role: currentUser.role,
-        nxtLevel: currentUser.nxtLevel,
-        nxtScore: currentUser.nxtScore,
+        prxLevel: currentUser.prxLevel,
+        prxScore: currentUser.prxScore,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { authenticated: false, isAdmin: false, error: error.message || "Erro ao consultar sessão administrativa." },
+      { authenticated: false, isAdmin: false, error: errorMessage(error) || "Erro ao consultar sessão administrativa." },
       { status: 200 }
     );
   }

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { sanitizeInput } from "@/lib/security";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { isReservedAdminEmail } from "@/lib/admin-allowlist";
+import { errorMessage } from "@/lib/errors";
 
 const SignupSchema = z.object({
   fullName: z.string().min(2, "Nome completo é obrigatório"),
@@ -22,7 +24,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Regra Fundamental NXTGEN: Máximo 29 anos (Gerações Alpha e Z)
+    // Regra Fundamental PRX: Máximo 29 anos (Gerações Alpha e Z)
     if (body.birthDate) {
       const birth = new Date(body.birthDate);
       const today = new Date();
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
       }
       if (age > 29) {
         return NextResponse.json(
-          { error: "O ecossistema NXTGEN é exclusivo para jovens até 29 anos (Gerações Alpha e Z)." },
+          { error: "O ecossistema PRX é exclusivo para jovens até 29 anos (Gerações Alpha e Z)." },
           { status: 403 }
         );
       }
@@ -43,11 +45,20 @@ export async function POST(req: NextRequest) {
     const email = sanitizeInput(parseResult.data.email.toLowerCase().trim());
     const password = parseResult.data.password;
 
+    // E-mails da lista de administradores não podem ser criados pelo cadastro público:
+    // como não há confirmação de e-mail, isso daria privilégio de admin a qualquer um.
+    if (isReservedAdminEmail(email)) {
+      return NextResponse.json(
+        { error: "Este e-mail já está cadastrado no sistema." },
+        { status: 400 }
+      );
+    }
+
     let userId = "";
-    const nxtScore = 250;
-    const nxtLevel = 1;
+    const prxScore = 250;
+    const prxLevel = 1;
     const walletBalance = 0;
-    const avatarUrl = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&q=80";
+    const avatarUrl = "";
 
     if (supabaseAdmin) {
       // 1. Create user directly in Supabase Auth with email pre-confirmed
@@ -58,8 +69,8 @@ export async function POST(req: NextRequest) {
         user_metadata: {
           full_name: fullName,
           role: "user",
-          nxt_score: nxtScore,
-          nxt_level: nxtLevel,
+          nxt_score: prxScore,
+          nxt_level: prxLevel,
           wallet_balance: walletBalance,
         },
       });
@@ -96,8 +107,8 @@ export async function POST(req: NextRequest) {
             email,
             full_name: fullName,
             role: "user",
-            nxt_score: nxtScore,
-            nxt_level: nxtLevel,
+            nxt_score: prxScore,
+            nxt_level: prxLevel,
             wallet_balance: walletBalance,
             avatar_url: avatarUrl,
             updated_at: new Date().toISOString(),
@@ -121,8 +132,8 @@ export async function POST(req: NextRequest) {
       passwordHash: "",
       salt: "",
       role: "user",
-      nxtScore,
-      nxtLevel,
+      prxScore,
+      prxLevel,
       avatarUrl,
       walletBalance,
       emailConfirmed: true,
@@ -140,8 +151,8 @@ export async function POST(req: NextRequest) {
         email,
         name: fullName,
         role: "user",
-        nxtScore,
-        nxtLevel,
+        prxScore,
+        prxLevel,
         walletBalance,
         avatarUrl,
       },
@@ -157,9 +168,9 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao registrar conta." },
+      { error: errorMessage(error) || "Erro ao registrar conta." },
       { status: 400 }
     );
   }

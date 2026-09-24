@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
+import { errorMessage } from "@/lib/errors";
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,9 +40,9 @@ export async function POST(req: NextRequest) {
           const authUser = signInData.user;
           let profileRole = "user";
           let fullName = authUser.user_metadata?.full_name || normalizedEmail.split("@")[0];
-          let nxtScore = 250;
-          let nxtLevel = 1;
-          let avatarUrl = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&q=80";
+          let prxScore = 250;
+          let prxLevel = 1;
+          let avatarUrl = "";
           let walletBalance = 0;
 
           if (supabaseAdmin) {
@@ -54,8 +55,8 @@ export async function POST(req: NextRequest) {
             if (profile) {
               profileRole = profile.role || "user";
               fullName = profile.full_name || fullName;
-              nxtScore = profile.nxt_score ?? 250;
-              nxtLevel = profile.nxt_level ?? 1;
+              prxScore = profile.nxt_score ?? 250;
+              prxLevel = profile.nxt_level ?? 1;
               avatarUrl = profile.avatar_url || avatarUrl;
               walletBalance = Number(profile.wallet_balance ?? 0);
             }
@@ -79,8 +80,8 @@ export async function POST(req: NextRequest) {
             passwordHash: "",
             salt: "",
             role: "partner",
-            nxtScore,
-            nxtLevel,
+            prxScore,
+            prxLevel,
             avatarUrl,
             walletBalance,
             emailConfirmed: true,
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest) {
       path: "/",
     });
 
-    response.cookies.set("nxtgen_remember", "1", {
+    response.cookies.set("prx_remember", "1", {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -150,9 +151,9 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro no processamento do login de parceiro." },
+      { error: errorMessage(error) || "Erro no processamento do login de parceiro." },
       { status: 500 }
     );
   }

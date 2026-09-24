@@ -1,6 +1,5 @@
 import crypto from "crypto";
-
-const HMAC_SECRET = process.env.JWT_SECRET_OR_HMAC_KEY || "nxtgen_production_hardened_secret_9988_xyz";
+import { getSessionSecret } from "@/lib/server-secrets";
 
 export interface DynamicQRToken {
   voucherId: string;
@@ -20,7 +19,7 @@ export function generateDynamicQRToken(voucherId: string, userId: string, partne
   const nonce = crypto.randomBytes(8).toString("hex");
   const payload = `${voucherId}:${userId}:${partnerId}:${timestamp}:${nonce}`;
   
-  const hmac = crypto.createHmac("sha256", HMAC_SECRET);
+  const hmac = crypto.createHmac("sha256", getSessionSecret());
   hmac.update(payload);
   const signature = hmac.digest("hex");
 
@@ -61,7 +60,7 @@ export function verifyDynamicQRToken(rawToken: string, expectedPartnerId?: strin
 
     // 3. Cryptographic Signature check (Protects against tampering)
     const payload = `${decoded.voucherId}:${decoded.userId}:${decoded.partnerId}:${decoded.timestamp}:${decoded.nonce}`;
-    const hmac = crypto.createHmac("sha256", HMAC_SECRET);
+    const hmac = crypto.createHmac("sha256", getSessionSecret());
     hmac.update(payload);
     const expectedSignature = hmac.digest("hex");
 

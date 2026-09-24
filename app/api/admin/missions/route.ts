@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
+import type { MissionRow } from "@/lib/db-rows";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest) {
         .order("created_at", { ascending: false });
 
       if (!error && dbMissions) {
-        const mapped = dbMissions.map((m: any) => {
+        const mapped = dbMissions.map((m: MissionRow) => {
           let vType = m.verification_type;
           if (!vType) {
             const t = (m.title || "").toLowerCase();
@@ -39,7 +41,7 @@ export async function GET(req: NextRequest) {
             progress: m.progress,
             isCompleted: m.is_completed,
             verificationType: vType,
-            category: m.category || (vType === "referral" ? "Comunidade" : "NXTGEN"),
+            category: m.category || (vType === "referral" ? "Comunidade" : "PRX"),
           };
         });
         return NextResponse.json({ success: true, missions: mapped });
@@ -49,9 +51,9 @@ export async function GET(req: NextRequest) {
     // 2. Fallback to passStore
     const missions = passStore.getMissions();
     return NextResponse.json({ success: true, missions });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao consultar missões." },
+      { error: errorMessage(error) || "Erro ao consultar missões." },
       { status: 500 }
     );
   }
@@ -78,7 +80,7 @@ export async function POST(req: NextRequest) {
     const currentProgress = Number(progress) || 0;
     const isCompleted = currentProgress >= targetTotal;
     const vType = verificationType || (title.toLowerCase().includes("convidar") || title.toLowerCase().includes("amigo") ? "referral" : "manual");
-    const cat = category || (vType === "referral" ? "Comunidade" : "NXTGEN");
+    const cat = category || (vType === "referral" ? "Comunidade" : "PRX");
 
     // 1. Try Supabase
     if (supabaseAdmin) {
@@ -133,9 +135,9 @@ export async function POST(req: NextRequest) {
       message: "Missão criada com sucesso!",
       mission: newMission,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao criar missão." },
+      { error: errorMessage(error) || "Erro ao criar missão." },
       { status: 500 }
     );
   }
@@ -159,7 +161,7 @@ export async function PUT(req: NextRequest) {
 
     // 1. Try Supabase
     if (supabaseAdmin && isUuid) {
-      const dbUpdates: Record<string, any> = {};
+      const dbUpdates: Record<string, unknown> = {};
       if (title !== undefined) dbUpdates.title = title.trim();
       if (description !== undefined) dbUpdates.description = description.trim();
       if (xpReward !== undefined) dbUpdates.xp_reward = Number(xpReward);
@@ -192,7 +194,7 @@ export async function PUT(req: NextRequest) {
     }
 
     // 2. Fallback to passStore
-    const updates: Record<string, any> = {};
+    const updates: Record<string, unknown> = {};
     if (title !== undefined) updates.title = title.trim();
     if (description !== undefined) updates.description = description.trim();
     if (xpReward !== undefined) updates.xpReward = Number(xpReward);
@@ -210,9 +212,9 @@ export async function PUT(req: NextRequest) {
       message: "Missão atualizada com sucesso!",
       mission: updated,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao atualizar missão." },
+      { error: errorMessage(error) || "Erro ao atualizar missão." },
       { status: 500 }
     );
   }
@@ -256,9 +258,9 @@ export async function DELETE(req: NextRequest) {
       success: true,
       message: "Missão removida com sucesso!",
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao excluir missão." },
+      { error: errorMessage(error) || "Erro ao excluir missão." },
       { status: 500 }
     );
   }

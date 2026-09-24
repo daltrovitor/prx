@@ -2,7 +2,7 @@ const BASE_URL = 'http://localhost:3000';
 
 async function runLivePenTest() {
   console.log('\n===============================================================');
-  console.log('🛡️  NXTGEN AUTH & CYBER-DEFENSE SUITE: PEN-TESTING EM TEMPO REAL');
+  console.log('🛡️  PRX AUTH & CYBER-DEFENSE SUITE: PEN-TESTING EM TEMPO REAL');
   console.log('===============================================================\n');
 
   let passed = 0;
@@ -38,7 +38,7 @@ async function runLivePenTest() {
   console.log('\nTESTE 2: Cadastro Válido Geração Z (21 anos) - Sem Confirmação de E-mail');
   let authCookie = '';
   let validUserId = '';
-  const testEmail = `genz_${Date.now()}@nxtgen.app`;
+  const testEmail = `genz_${Date.now()}@prx.app`;
   try {
     const res = await fetch(`${BASE_URL}/api/auth/signup`, {
       method: 'POST',
@@ -98,15 +98,15 @@ async function runLivePenTest() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'rafael.molina@nxtgen.app',
-        password: 'Nxtgen2026!'
+        email: 'rafael.molina@prx.app',
+        password: 'Prx2026!'
       })
     });
     const data = await res.json();
     if (res.ok && data.success && data.user) {
       const setCookie = res.headers.get('set-cookie');
       if (setCookie) demoCookie = setCookie.split(';')[0];
-      console.log(`   ✅ SUCESSO: Login autenticado! Bem-vindo ${data.user.name} (Nível ${data.user.nxtLevel})`);
+      console.log(`   ✅ SUCESSO: Login autenticado! Bem-vindo ${data.user.name} (Nível ${data.user.prxLevel})`);
       passed++;
     } else {
       console.error('   ❌ FALHA ao logar usuário demo:', data);
@@ -124,7 +124,7 @@ async function runLivePenTest() {
       headers: { ...(demoCookie ? { 'Cookie': demoCookie } : {}) }
     });
     const data = await res.json();
-    if (res.ok && data.user && data.user.email === 'rafael.molina@nxtgen.app') {
+    if (res.ok && data.user && data.user.email === 'rafael.molina@prx.app') {
       console.log(`   ✅ SUCESSO: Sessão validada no servidor! Usuário ativo: ${data.user.name}`);
       passed++;
     } else {

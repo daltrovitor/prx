@@ -1,3 +1,4 @@
+// Hello World
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getCurrentUser, AUTH_COOKIE_NAME } from "@/lib/auth";
@@ -5,11 +6,12 @@ import { getCurrentUser, AUTH_COOKIE_NAME } from "@/lib/auth";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ user: null }, { status: 401 });
+    // Visitante sem sessão não é erro: 200 com user null evita ruído no console do navegador.
+    return NextResponse.json({ user: null }, { headers: { "Cache-Control": "no-store" } });
   }
 
   const cookieStore = await cookies();
-  const rememberMe = cookieStore.get("nxtgen_remember")?.value !== "0";
+  const rememberMe = cookieStore.get("prx_remember")?.value !== "0";
 
   return NextResponse.json({
     user: {
@@ -17,13 +19,13 @@ export async function GET() {
       email: user.email,
       name: user.fullName,
       role: user.role,
-      nxtScore: user.nxtScore,
-      nxtLevel: user.nxtLevel,
+      prxScore: user.prxScore,
+      prxLevel: user.prxLevel,
       walletBalance: user.walletBalance,
       avatarUrl: user.avatarUrl,
     },
     rememberMe,
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST() {

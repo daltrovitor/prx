@@ -1,8 +1,8 @@
+// Hello World
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, AlertTriangle, CheckCircle2, AlertCircle, Info, X } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 export interface ConfirmOptions {
   title?: string;
@@ -33,7 +33,7 @@ const ConfirmToastContext = createContext<ConfirmToastContextType | undefined>(u
 
 export function ConfirmToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const timeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const removeToast = useCallback((id: string) => {
     const t = timeoutsRef.current.get(id);
@@ -120,107 +120,63 @@ export function ConfirmToastProvider({ children }: { children: React.ReactNode }
     <ConfirmToastContext.Provider value={{ confirmDelete, showToast }}>
       {children}
 
-      {/* Fixed Toast Container */}
+      {/* Pilha de notificações: cartões brancos, borda lateral indica o tipo. */}
       <aside
         aria-live="polite"
         aria-label="Notificações"
-        className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 max-w-md w-[calc(100vw-2rem)] sm:w-[420px] pointer-events-none"
+        className="pointer-events-none fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] right-4 z-[100] flex w-[calc(100vw-2rem)] max-w-md flex-col gap-3 sm:right-6 sm:w-[420px]"
       >
         <AnimatePresence mode="sync">
-          {toasts.map((toast) => (
-            <motion.div
-              key={toast.id}
-              initial={{ opacity: 0, y: 25, scale: 0.94 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 15, scale: 0.95 }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
-              className={`pointer-events-auto relative overflow-hidden rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${
-                toast.isConfirm || toast.type === "danger" || toast.type === "error"
-                  ? "bg-[#0E1017]/95 border-red-500/35 shadow-[0_10px_35px_rgba(0,0,0,0.7),0_0_25px_rgba(239,68,68,0.2)]"
-                  : toast.type === "success"
-                  ? "bg-[#0E1017]/95 border-emerald-500/35 shadow-[0_10px_35px_rgba(0,0,0,0.7),0_0_25px_rgba(16,185,129,0.2)]"
-                  : "bg-[#0E1017]/95 border-white/15 shadow-[0_10px_35px_rgba(0,0,0,0.7)]"
-              }`}
-            >
-              {/* Top Accent Gradient Bar */}
-              <div
-                className={`absolute top-0 left-0 right-0 h-[2px] ${
-                  toast.isConfirm || toast.type === "danger" || toast.type === "error"
-                    ? "bg-gradient-to-r from-red-500 via-rose-500 to-amber-500"
-                    : toast.type === "success"
-                    ? "bg-gradient-to-r from-emerald-500 via-teal-400 to-[#00F0FF]"
-                    : "bg-gradient-to-r from-[#8B24F0] to-[#00F0FF]"
+          {toasts.map((toast) => {
+            const danger = toast.isConfirm || toast.type === "danger" || toast.type === "error";
+            return (
+              <motion.div
+                key={toast.id}
+                role={toast.isConfirm ? "alertdialog" : "status"}
+                aria-label={toast.title || undefined}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ type: "spring", stiffness: 300, damping: 28 }}
+                className={`pointer-events-auto relative border border-[#e7e7ec] border-l-2 bg-white p-4 pr-12 text-[#0b0b10] shadow-[0_12px_32px_-12px_rgba(11,11,16,0.25)] ${
+                  danger ? "border-l-[#c8102e]" : toast.type === "success" ? "border-l-[#0f7b4f]" : "border-l-[#0b0b10]"
                 }`}
-              />
+              >
+                {toast.title && <p className="text-[15px] font-semibold">{toast.title}</p>}
+                <p className={`text-sm leading-relaxed text-[#5b5b66] ${toast.title ? "mt-1" : ""}`}>{toast.message}</p>
 
-              <div className="flex items-start gap-3">
-                {/* Icon */}
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
-                    toast.isConfirm || toast.type === "danger" || toast.type === "error"
-                      ? "bg-red-500/15 border-red-500/30 text-red-400"
-                      : toast.type === "success"
-                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
-                      : "bg-[#8B24F0]/15 border-[#8B24F0]/30 text-[#C084FC]"
-                  }`}
-                >
-                  {toast.isConfirm ? (
-                    <Trash2 className="w-4 h-4" />
-                  ) : toast.type === "success" ? (
-                    <CheckCircle2 className="w-4 h-4" />
-                  ) : toast.type === "error" ? (
-                    <AlertCircle className="w-4 h-4" />
-                  ) : (
-                    <Info className="w-4 h-4" />
-                  )}
-                </div>
+                {toast.isConfirm && (
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleUserDecision(toast, false)}
+                      className="min-h-10 flex-1 cursor-pointer rounded-[3px] border border-[#e7e7ec] px-3 text-sm font-medium transition-colors hover:border-[#0b0b10]"
+                    >
+                      {toast.cancelText}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUserDecision(toast, true)}
+                      className="min-h-10 flex-1 cursor-pointer rounded-[3px] bg-[#c8102e] px-3 text-sm font-medium text-white transition-colors hover:bg-[#a50d26]"
+                    >
+                      {toast.confirmText}
+                    </button>
+                  </div>
+                )}
 
-                {/* Content */}
-                <div className="flex-1 min-w-0 pr-6">
-                  {toast.title && (
-                    <h4 className="text-sm font-bold font-heading text-white leading-tight">
-                      {toast.title}
-                    </h4>
-                  )}
-                  <p className="text-xs text-white/80 mt-1 leading-relaxed break-words font-sans">
-                    {toast.message}
-                  </p>
-
-                  {/* Actions for Confirmation Toast */}
-                  {toast.isConfirm && (
-                    <div className="flex items-center gap-2 mt-3.5 pt-2 border-t border-white/10">
-                      <button
-                        type="button"
-                        onClick={() => handleUserDecision(toast, false)}
-                        className="flex-1 py-1.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-mono text-white/70 hover:text-white border border-white/10 transition-colors cursor-pointer"
-                      >
-                        {toast.cancelText || "Cancelar"}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleUserDecision(toast, true)}
-                        className="flex-1 py-1.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold font-heading text-white shadow-lg shadow-red-600/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>{toast.confirmText || "Sim, Excluir"}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Close Button */}
                 <button
                   type="button"
-                  onClick={() => (toast.isConfirm ? handleUserDecision(toast, false) : removeToast(toast.id))}
-                  className="absolute top-3.5 right-3.5 text-white/40 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Fechar"
+                  onClick={() => handleUserDecision(toast, false)}
+                  aria-label="Fechar notificação"
+                  className="absolute right-1 top-1 flex h-10 w-10 cursor-pointer items-center justify-center text-[#5b5b66] transition-colors hover:text-[#0b0b10]"
                 >
-                  <X className="w-4 h-4" />
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" aria-hidden="true">
+                    <path d="M5 5l14 14M19 5 5 19" />
+                  </svg>
                 </button>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </aside>
     </ConfirmToastContext.Provider>

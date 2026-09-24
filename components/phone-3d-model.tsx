@@ -140,7 +140,7 @@ function renderPhoneScreenCanvas(
   ctx.font = "bold 24px 'JetBrains Mono', monospace";
   ctx.fillStyle = isLight ? "#7C3AED" : "#d8b4fe";
   ctx.textAlign = "center";
-  ctx.fillText("NXT PASS", 65 + 185 / 2, 208);
+  ctx.fillText("PRX PASS", 65 + 185 / 2, 208);
 
   // Bell button circle
   const bellX = w - 90;
@@ -177,7 +177,7 @@ function renderPhoneScreenCanvas(
   ctx.font = "500 30px 'Inter', system-ui, sans-serif";
   ctx.fillText("Substitua impulsos por benefícios reais.", 65, 428);
 
-  // 5. Level Card (NXT Level 3)
+  // 5. Level Card (PRX Level 3)
   const cardX = 65;
   const cardY = 485;
   const cardW = w - 130;
@@ -208,7 +208,7 @@ function renderPhoneScreenCanvas(
 
   ctx.font = "800 66px 'Inter', system-ui, sans-serif";
   ctx.fillStyle = isLight ? "#0F172A" : "#ffffff";
-  ctx.fillText("NXT Level 3", cardX + 45, cardY + 145);
+  ctx.fillText("PRX Level 3", cardX + 45, cardY + 145);
 
   ctx.font = "600 26px 'Inter', system-ui, sans-serif";
   ctx.fillStyle = isLight ? "#7C3AED" : "#d8b4fe";

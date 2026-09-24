@@ -4,7 +4,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @theme inline {
+  --font-display: var(--font-display);
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
@@ -92,6 +105,85 @@
   color-scheme: light;
 }
 
+/* =========================================================================
+   PRX APP SURFACE — Modelo Padrão
+   Fundo branco puro, grafite de alto contraste, uma única cor de destaque
+   (violeta da marca) e cantos arquitetônicos de 2–4px. Ativado sempre que a
+   árvore contém .prx-app (dashboard, admin, parceiro, 404). A landing mantém
+   seu próprio tema escuro.
+   ========================================================================= */
+html:has(.prx-app) {
+  --background: #ffffff;
+  --foreground: #0b0b10;
+  --ink: #0b0b10;
+  --surface: #f7f7f9;
+  --line: #e7e7ec;
+  --card: #ffffff;
+  --card-foreground: #0b0b10;
+  --popover: #ffffff;
+  --popover-foreground: #0b0b10;
+  --primary: #6c0cf0;
+  --primary-foreground: #ffffff;
+  --secondary: #f7f7f9;
+  --secondary-foreground: #0b0b10;
+  --muted: #f7f7f9;
+  --muted-foreground: #5b5b66;
+  --accent: #6c0cf0;
+  --accent-foreground: #ffffff;
+  --destructive: #c8102e;
+  --success: #0f7b4f;
+  --warning: #8a5300;
+  --border: #e7e7ec;
+  --input: #d9d9e0;
+  --ring: #6c0cf0;
+  --radius: 0.25rem;
+  color-scheme: light;
+  background-color: #ffffff;
+}
+
+html:has(.prx-app) body {
+  background-color: #ffffff;
+  color: #0b0b10;
+}
+
+.prx-app {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01", "tnum";
+}
+
+.prx-app :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #6c0cf0;
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prx-app *,
+  .prx-app *::before,
+  .prx-app *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Se o JavaScript falhar, a abertura nunca prende a tela. */
+.prx-loader {
+  animation: prx-loader-failsafe 0.4s ease 9s forwards;
+}
+
+@keyframes prx-loader-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
 @layer base {
   * {
     border-color: var(--border);
@@ -160,52 +252,53 @@
 /* =========================================================================
    LIGHT MODE ADAPTATIONS & HIGH CONTRAST ELEVATION
    Polishes all cards, text gradients, alerts and inputs for light mode.
+   Scoped to the landing (.prx-landing): the app surfaces use their own light tokens.
    ========================================================================= */
 
-.light body {
+.light .prx-landing body:has(.prx-landing) {
   background-color: #F8FAFC !important;
   color: #0F172A !important;
 }
 
 /* Hardcoded dark surfaces become clean cards */
-.light .bg-\[\#000000\],
-.light .bg-black {
+.light .prx-landing .bg-\[\#000000\],
+.light .prx-landing .bg-black {
   background-color: #F8FAFC !important;
 }
 
-.light .bg-\[\#000000\]\/90 {
+.light .prx-landing .bg-\[\#000000\]\/90 {
   background-color: rgba(248, 250, 252, 0.92) !important;
 }
 
-.light .bg-\[\#090A0F\],
-.light .bg-\[\#0A0B0E\],
-.light .bg-\[\#08090E\],
-.light .bg-\[\#08090E\]\/85,
-.light .bg-\[\#06070B\],
-.light .bg-\[\#020205\],
-.light .bg-\[\#0A0B10\],
-.light .bg-\[\#0B0C12\],
-.light .bg-\[\#0E1018\],
-.light .bg-\[\#0B0D18\],
-.light .bg-\[\#0A0D18\],
-.light .bg-\[\#12141F\],
-.light .bg-\[\#0F121C\],
-.light .bg-\[\#0F121C\]\/90,
-.light .bg-\[\#13111C\],
-.light .bg-\[\#090A0F\]\/95 {
+.light .prx-landing .bg-\[\#090A0F\],
+.light .prx-landing .bg-\[\#0A0B0E\],
+.light .prx-landing .bg-\[\#08090E\],
+.light .prx-landing .bg-\[\#08090E\]\/85,
+.light .prx-landing .bg-\[\#06070B\],
+.light .prx-landing .bg-\[\#020205\],
+.light .prx-landing .bg-\[\#0A0B10\],
+.light .prx-landing .bg-\[\#0B0C12\],
+.light .prx-landing .bg-\[\#0E1018\],
+.light .prx-landing .bg-\[\#0B0D18\],
+.light .prx-landing .bg-\[\#0A0D18\],
+.light .prx-landing .bg-\[\#12141F\],
+.light .prx-landing .bg-\[\#0F121C\],
+.light .prx-landing .bg-\[\#0F121C\]\/90,
+.light .prx-landing .bg-\[\#13111C\],
+.light .prx-landing .bg-\[\#090A0F\]\/95 {
   background-color: #FFFFFF !important;
   border-color: #E2E8F0 !important;
   box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
-.light .bg-\[\#12151E\],
-.light .bg-\[\#141722\] {
+.light .prx-landing .bg-\[\#12151E\],
+.light .prx-landing .bg-\[\#141722\] {
   background-color: #F1F5F9 !important;
 }
 
 /* Scrollytelling desktop sections should NOT be boxed cards in light mode */
 @media (min-width: 640px) {
-  .light .sm\:bg-transparent {
+  .light .prx-landing .sm\:bg-transparent {
     background-color: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
@@ -213,153 +306,153 @@
 }
 
 /* Secondary dark buttons (e.g. Explorar Benefícios) */
-.light .bg-\[\#13151F\],
-.light .bg-\[\#121622\]\/80,
-.light .bg-\[\#121622\] {
+.light .prx-landing .bg-\[\#13151F\],
+.light .prx-landing .bg-\[\#121622\]\/80,
+.light .prx-landing .bg-\[\#121622\] {
   background-color: #F1F5F9 !important;
   color: #0F172A !important;
   border-color: #CBD5E1 !important;
 }
 
-.light .bg-\[\#13151F\]:hover,
-.light .bg-\[\#121622\]\/80:hover {
+.light .prx-landing .bg-\[\#13151F\]:hover,
+.light .prx-landing .bg-\[\#121622\]\/80:hover {
   background-color: #E2E8F0 !important;
   color: #000000 !important;
 }
 
 /* Subtle surfaces */
-.light .bg-white\/5 {
+.light .prx-landing .bg-white\/5 {
   background-color: rgba(15, 23, 42, 0.04) !important;
 }
 
-.light .bg-white\/10 {
+.light .prx-landing .bg-white\/10 {
   background-color: rgba(15, 23, 42, 0.08) !important;
 }
 
-.light .hover\:bg-white\/5:hover {
+.light .prx-landing .hover\:bg-white\/5:hover {
   background-color: rgba(15, 23, 42, 0.06) !important;
 }
 
-.light .hover\:bg-white\/10:hover {
+.light .prx-landing .hover\:bg-white\/10:hover {
   background-color: rgba(15, 23, 42, 0.1) !important;
 }
 
 /* Inner dark level/stat boxes (e.g. PassLevelBanner right card) */
-.light .bg-black\/60,
-.light .bg-black\/80 {
+.light .prx-landing .bg-black\/60,
+.light .prx-landing .bg-black\/80 {
   background-color: #F1F5F9 !important;
   border-color: #E2E8F0 !important;
 }
 
 /* Alert banners (Admin & Modals) */
-.light .bg-red-950\/40,
-.light .bg-red-950\/60 {
+.light .prx-landing .bg-red-950\/40,
+.light .prx-landing .bg-red-950\/60 {
   background-color: #FEF2F2 !important;
   border-color: #FECACA !important;
   color: #B91C1C !important;
 }
-.light .bg-red-950\/40 *,
-.light .bg-red-950\/60 * {
+.light .prx-landing .bg-red-950\/40 *,
+.light .prx-landing .bg-red-950\/60 * {
   color: #B91C1C !important;
 }
 
-.light .bg-emerald-950\/40,
-.light .bg-emerald-950\/60 {
+.light .prx-landing .bg-emerald-950\/40,
+.light .prx-landing .bg-emerald-950\/60 {
   background-color: #ECFDF5 !important;
   border-color: #A7F3D0 !important;
   color: #047857 !important;
 }
-.light .bg-emerald-950\/40 *,
-.light .bg-emerald-950\/60 * {
+.light .prx-landing .bg-emerald-950\/40 *,
+.light .prx-landing .bg-emerald-950\/60 * {
   color: #047857 !important;
 }
 
 /* Form Inputs & Modals */
-.light input.bg-\[\#030407\],
-.light select.bg-\[\#030407\],
-.light textarea.bg-\[\#030407\],
-.light .bg-\[\#030407\] {
+.light .prx-landing input.bg-\[\#030407\],
+.light .prx-landing select.bg-\[\#030407\],
+.light .prx-landing textarea.bg-\[\#030407\],
+.light .prx-landing .bg-\[\#030407\] {
   background-color: #F8FAFC !important;
   border-color: #CBD5E1 !important;
   color: #0F172A !important;
 }
 
-.light input.bg-\[\#030407\]:focus,
-.light select.bg-\[\#030407\]:focus,
-.light textarea.bg-\[\#030407\]:focus {
+.light .prx-landing input.bg-\[\#030407\]:focus,
+.light .prx-landing select.bg-\[\#030407\]:focus,
+.light .prx-landing textarea.bg-\[\#030407\]:focus {
   background-color: #FFFFFF !important;
   border-color: #7C3AED !important;
 }
 
 /* Auth Card (Landing Page & Login) */
-.light .gsap-auth-card {
+.light .prx-landing .gsap-auth-card {
   background-color: #FFFFFF !important;
   border-color: #E2E8F0 !important;
   box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15) !important;
   color: #0F172A !important;
 }
 
-.light .gsap-auth-card input,
-.light form input.bg-white\/5 {
+.light .prx-landing .gsap-auth-card input,
+.light .prx-landing form input.bg-white\/5 {
   background-color: #F8FAFC !important;
   border-color: #CBD5E1 !important;
   color: #0F172A !important;
 }
 
-.light .gsap-auth-card input::placeholder,
-.light form input.bg-white\/5::placeholder {
+.light .prx-landing .gsap-auth-card input::placeholder,
+.light .prx-landing form input.bg-white\/5::placeholder {
   color: #94A3B8 !important;
 }
 
-.light .gsap-auth-card input:focus,
-.light form input.bg-white\/5:focus {
+.light .prx-landing .gsap-auth-card input:focus,
+.light .prx-landing form input.bg-white\/5:focus {
   background-color: #FFFFFF !important;
   border-color: #7C3AED !important;
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.15) !important;
 }
 
 /* Borders */
-.light .border-white\/10,
-.light .border-white\/15,
-.light .border-white\/20,
-.light .border-white\/5 {
+.light .prx-landing .border-white\/10,
+.light .prx-landing .border-white\/15,
+.light .prx-landing .border-white\/20,
+.light .prx-landing .border-white\/5 {
   border-color: #E2E8F0 !important;
 }
 
 /* Typography contrast */
-.light .text-\[\#F3F4F6\],
-.light .text-white {
+.light .prx-landing .text-\[\#F3F4F6\],
+.light .prx-landing .text-white {
   color: #0F172A !important;
 }
 
-.light .text-gray-300,
-.light .text-gray-400 {
+.light .prx-landing .text-gray-300,
+.light .prx-landing .text-gray-400 {
   color: #475569 !important;
 }
 
-.light .text-gray-500 {
+.light .prx-landing .text-gray-500 {
   color: #64748B !important;
 }
 
-.light .placeholder-gray-500::placeholder {
+.light .prx-landing .placeholder-gray-500::placeholder {
   color: #94A3B8 !important;
 }
 
 /* High-contrast colors for text that was neon cyan or pastel purple in dark mode */
-.light .text-cyan-400 {
+.light .prx-landing .text-cyan-400 {
   color: #0284C7 !important;
 }
 
-.light .text-purple-400,
-.light .text-purple-300,
-.light .text-\[\#C084FC\] {
+.light .prx-landing .text-purple-400,
+.light .prx-landing .text-purple-300,
+.light .prx-landing .text-\[\#C084FC\] {
   color: #6D28D9 !important;
 }
 
 /* Hero & Section Gradients in Light Mode (fixes invisible white/neon gradients on white background) */
-.light .from-purple-400.via-violet-200.to-cyan-300,
-.light .from-purple-400.to-violet-300,
-.light .from-white.via-purple-200.to-violet-300 {
+.light .prx-landing .from-purple-400.via-violet-200.to-cyan-300,
+.light .prx-landing .from-purple-400.to-violet-300,
+.light .prx-landing .from-white.via-purple-200.to-violet-300 {
   --tw-gradient-from: #6D28D9 !important;
   --tw-gradient-to: #0284C7 !important;
   --tw-gradient-stops: var(--tw-gradient-from), #7C3AED, var(--tw-gradient-to) !important;
@@ -368,9 +461,9 @@
 /* Ensure bg-clip-text always preserves transparent fill to reveal the gradient */
 .bg-clip-text,
 [class*="bg-clip-text"],
-.light .bg-clip-text,
-.light [class*="bg-clip-text"],
-.light span[class*="bg-clip-text"] {
+.light .prx-landing .bg-clip-text,
+.light .prx-landing [class*="bg-clip-text"],
+.light .prx-landing span[class*="bg-clip-text"] {
   -webkit-text-fill-color: transparent !important;
   color: transparent !important;
   background-clip: text !important;
@@ -378,28 +471,23 @@
 }
 
 /* Ensure vibrant colored badges and buttons preserve white text */
-.light button.bg-\[\#8B24F0\],
-.light button.bg-\[\#8B24F0\] *,
-.light a.bg-\[\#8B24F0\],
-.light button[class*="from-"],
-.light button[class*="from-"] *,
-.light a[class*="from-"],
-.light a[class*="from-"] *,
-.light .bg-purple-600:not(.bg-clip-text),
-.light .bg-purple-700:not(.bg-clip-text),
-.light .bg-emerald-600:not(.bg-clip-text) {
+.light .prx-landing button.bg-\[\#8B24F0\],
+.light .prx-landing button.bg-\[\#8B24F0\] *,
+.light .prx-landing a.bg-\[\#8B24F0\],
+.light .prx-landing button[class*="from-"],
+.light .prx-landing button[class*="from-"] *,
+.light .prx-landing a[class*="from-"],
+.light .prx-landing a[class*="from-"] *,
+.light .prx-landing .bg-purple-600:not(.bg-clip-text),
+.light .prx-landing .bg-purple-700:not(.bg-clip-text),
+.light .prx-landing .bg-emerald-600:not(.bg-clip-text) {
   color: #FFFFFF !important;
 }
 
 /* Technical grid in light mode */
-.light .bg-tech-grid {
+.light .prx-landing .bg-tech-grid {
   background-image: 
     linear-gradient(to right, rgba(15, 23, 42, 0.03) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
 }
 
-/* NXTGEN Brand Logo in Light Mode */
-.light img[alt="NXTGEN"],
-.light .nxtgen-logo {
-  filter: invert(1) hue-rotate(180deg) brightness(0.85);
-}

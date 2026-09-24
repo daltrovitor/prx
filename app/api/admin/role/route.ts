@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { userStore, verifyAdminRequest } from "@/lib/auth";
 import { z } from "zod";
+import { errorMessage } from "@/lib/errors";
 
 const RoleUpdateSchema = z.object({
   emailOrId: z.string().min(1, "Identificador do usuário obrigatório"),
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     const { emailOrId, newRole } = parseResult.data;
 
     let supabaseSuccess = false;
-    let targetUser: any = null;
+    let targetUser: Record<string, unknown> | null = null;
 
     // 1. Try Supabase
     try {
@@ -42,7 +43,10 @@ export async function POST(req: NextRequest) {
 
         if (profile) {
           // Always update user_metadata in auth.users
+          // app_metadata é a fonte confiável do papel (só a service role escreve nele);
+          // user_metadata é mantido apenas para exibição legada.
           await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+            app_metadata: { role: newRole },
             user_metadata: { role: newRole },
           });
 
@@ -89,9 +93,9 @@ export async function POST(req: NextRequest) {
       message: `Papel do usuário ${targetUser?.email || emailOrId} alterado com sucesso para '${newRole}'!`,
       user: targetUser,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao atualizar papel." },
+      { error: errorMessage(error) || "Erro ao atualizar papel." },
       { status: 500 }
     );
   }

@@ -1,9 +1,10 @@
+// Hello World
+import type { Metadata } from "next";
 import NotFoundPage from "@/components/ui/page-not-found";
-import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "404 - Página Não Encontrada | NXTGEN",
-  description: "A página que você está procurando não existe ou foi movida.",
+  title: "Página não encontrada",
+  description: "A página que você procura não existe ou foi movida.",
 };
 
 export default function NotFound() {

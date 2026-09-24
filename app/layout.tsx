@@ -1,90 +1,93 @@
+// Hello World
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import type { ReactNode } from "react";
+import { Bricolage_Grotesque, Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ThemeProvider, ThemeScript } from "@/components/theme-provider";
+import { ConfirmToastProvider } from "@/components/ui/confirm-toast";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap",
 });
 
+/* Títulos da landing (mantidos como estão). */
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-heading",
   weight: ["500", "600", "700"],
+  display: "swap",
+});
+
+/* Display editorial do app. */
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["500", "600", "700"],
+  display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
   weight: ["400", "500", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "NXTGEN • The Future Pays More | Build. Don't Bet.",
-  description: "Ecossistema financeiro, de benefícios e experiências para as Gerações Alpha e Z. Substituímos a monetização de impulsos por recompensas reais.",
-  manifest: "/manifest.json",
-  icons: {
-    icon: [
-      { url: "/iconenxt.png" },
-      { url: "/iconenxt.png", sizes: "32x32", type: "image/png" },
-      { url: "/iconenxt.png", sizes: "192x192", type: "image/png" },
-      { url: "/iconenxt.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [
-      { url: "/iconenxt.png" },
-    ],
-    shortcut: "/iconenxt.png",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nxtgen.viraweb.online"),
+  title: {
+    default: "PRX · Experiências que conectam gerações",
+    template: "%s · PRX",
   },
+  description:
+    "PRX reúne benefícios, conta digital e eventos para as gerações Z e Alpha. PRX PASS, PRX BANK e PRX LIVE em um app. Build. Don't bet.",
+  applicationName: "PRX",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
-    title: "NXTGEN",
+    statusBarStyle: "default",
+    title: "PRX",
+  },
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: "PRX",
+    title: "PRX · Experiências que conectam gerações",
+    description: "Benefícios, conta digital e eventos para as gerações Z e Alpha, em um app.",
+  },
+  twitter: {
+    card: "summary",
+    title: "PRX · Experiências que conectam gerações",
+    description: "Benefícios, conta digital e eventos para as gerações Z e Alpha, em um app.",
   },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: "#08090C",
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: "#ffffff",
 };
 
-import { AuthProvider } from "@/hooks/use-auth";
-import { ThemeProvider, ThemeScript } from "@/components/theme-provider";
-import { FloatingThemeToggle } from "@/components/theme-toggle";
-import { ConfirmToastProvider } from "@/components/ui/confirm-toast";
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html
       lang="pt-BR"
       suppressHydrationWarning
-      className={cn(
-        "dark h-full antialiased",
-        inter.variable,
-        spaceGrotesk.variable,
-        jetbrainsMono.variable
-      )}
+      className={cn("dark h-full antialiased", inter.variable, spaceGrotesk.variable, bricolage.variable, jetbrainsMono.variable)}
     >
       <head>
         <ThemeScript />
       </head>
-      <body
-        suppressHydrationWarning
-        className="min-h-full flex flex-col bg-background text-foreground transition-colors duration-200"
-      >
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider>
           <AuthProvider>
-            <ConfirmToastProvider>
-              {children}
-              <FloatingThemeToggle />
-            </ConfirmToastProvider>
+            <ConfirmToastProvider>{children}</ConfirmToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
