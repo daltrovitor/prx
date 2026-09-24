@@ -123,19 +123,19 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   { className, ...rest },
   ref
 ) {
-  return <input ref={ref} className={cn(controlBase, "h-12", className)} {...rest} />;
+  return <input ref={ref} suppressHydrationWarning className={cn(controlBase, "h-12", className)} {...rest} />;
 });
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select(
   { className, ...rest },
   ref
 ) {
-  return <select ref={ref} className={cn(controlBase, "h-12 cursor-pointer pr-8", className)} {...rest} />;
+  return <select ref={ref} suppressHydrationWarning className={cn(controlBase, "h-12 cursor-pointer pr-8", className)} {...rest} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className, ...rest }, ref) {
-    return <textarea ref={ref} className={cn(controlBase, "min-h-24 py-3 resize-y", className)} {...rest} />;
+    return <textarea ref={ref} suppressHydrationWarning className={cn(controlBase, "min-h-24 py-3 resize-y", className)} {...rest} />;
   }
 );
 
