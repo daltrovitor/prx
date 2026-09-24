@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifySessionToken, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
 
 async function verifyAdminAuth() {
   const cookieStore = await cookies();
@@ -119,9 +120,9 @@ export async function POST(req: NextRequest) {
       url: base64Data,
       fileName: file.name,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro inesperado ao fazer upload." },
+      { error: errorMessage(error) || "Erro inesperado ao fazer upload." },
       { status: 500 }
     );
   }

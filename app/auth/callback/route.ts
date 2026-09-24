@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
 
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
@@ -42,15 +43,15 @@ export async function GET(req: NextRequest) {
           authUser.user_metadata?.full_name ||
           authUser.user_metadata?.name ||
           email.split("@")[0] ||
-          "Membro NXTGEN";
+          "Membro PRX";
         const avatarUrl =
           authUser.user_metadata?.avatar_url ||
           authUser.user_metadata?.picture ||
-          "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&q=80";
+          "";
 
         let role = "user";
-        let nxtScore = 300;
-        let nxtLevel = 1;
+        let prxScore = 300;
+        let prxLevel = 1;
         let walletBalance = 0;
 
         if (supabaseAdmin) {
@@ -75,8 +76,8 @@ export async function GET(req: NextRequest) {
 
           if (profile) {
             role = profile.role || "user";
-            nxtScore = profile.nxt_score ?? 300;
-            nxtLevel = profile.nxt_level ?? 1;
+            prxScore = profile.nxt_score ?? 300;
+            prxLevel = profile.nxt_level ?? 1;
             walletBalance = Number(profile.wallet_balance ?? 0);
           }
         }
@@ -87,16 +88,16 @@ export async function GET(req: NextRequest) {
           fullName,
           passwordHash: "",
           salt: "",
-          role: role as any,
-          nxtScore,
-          nxtLevel,
+          role: asMemberRole(role),
+          prxScore,
+          prxLevel,
           avatarUrl,
           walletBalance,
           emailConfirmed: true,
           createdAt: authUser.created_at || new Date().toISOString(),
         };
 
-        const rememberPending = cookieStore.get("nxtgen_remember_pending")?.value;
+        const rememberPending = cookieStore.get("prx_remember_pending")?.value;
         const rememberMe = rememberPending !== "0";
 
         const tokenExpSeconds = rememberMe ? 365 * 24 * 60 * 60 : 24 * 60 * 60;
@@ -104,7 +105,7 @@ export async function GET(req: NextRequest) {
 
         const response = NextResponse.redirect(`${origin}/`);
         
-        const cookieOptions: any = {
+        const cookieOptions: SessionCookieOptions = {
           name: AUTH_COOKIE_NAME,
           value: token,
           httpOnly: true,
@@ -120,7 +121,7 @@ export async function GET(req: NextRequest) {
         response.cookies.set(cookieOptions);
 
         response.cookies.set({
-          name: "nxtgen_remember",
+          name: "prx_remember",
           value: rememberMe ? "1" : "0",
           path: "/",
           sameSite: "lax",
@@ -129,7 +130,7 @@ export async function GET(req: NextRequest) {
 
         // Delete the temporary pending cookie
         response.cookies.set({
-          name: "nxtgen_remember_pending",
+          name: "prx_remember_pending",
           value: "",
           path: "/",
           maxAge: 0,

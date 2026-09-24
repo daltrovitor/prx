@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { calculatePrxLevel } from "@/lib/pass-data";
 import { getCurrentUser } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
+import type { ProfileRow } from "@/lib/db-rows";
 
-function calculateNxtLevel(score: number): number {
-  if (score < 500) return 1;
-  if (score < 1000) return 2;
-  if (score < 2000) return 3;
-  if (score < 3500) return 4;
-  if (score < 5500) return 5;
-  if (score < 8000) return 6;
-  return 7;
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,7 +30,7 @@ export async function GET(req: NextRequest) {
         if (meta?.referred_by_id) {
           referredBy = {
             id: meta.referred_by_id,
-            name: meta.referred_by_name || "Membro NXTGEN",
+            name: meta.referred_by_name || "Membro PRX",
           };
         }
       } catch {}
@@ -56,9 +50,9 @@ export async function GET(req: NextRequest) {
         createdAt: r.createdAt,
       })),
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao carregar dados de indicação." },
+      { error: errorMessage(error) || "Erro ao carregar dados de indicação." },
       { status: 500 }
     );
   }
@@ -104,7 +98,7 @@ export async function POST(req: NextRequest) {
     if (supabaseAdmin) {
       try {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawReferrerId);
-        let prof: any = null;
+        let prof: ProfileRow | null = null;
 
         if (isUuid) {
           // Exact UUID match
@@ -145,7 +139,7 @@ export async function POST(req: NextRequest) {
         if (prof) {
           referrerProfile = {
             id: prof.id,
-            name: prof.full_name || "Membro NXTGEN",
+            name: prof.full_name || "Membro PRX",
             score: prof.nxt_score || 250,
             level: prof.nxt_level || 1,
           };
@@ -182,25 +176,8 @@ export async function POST(req: NextRequest) {
         referrerProfile = {
           id: stored.id,
           name: stored.fullName,
-          score: stored.nxtScore,
-          level: stored.nxtLevel,
-        };
-      }
-    }
-
-    // Fallback demo user if not found in DB or store
-    if (!referrerProfile) {
-      if (
-        cleanInput === "usr_demo_rafael" ||
-        cleanInput === "rafael" ||
-        cleanInput === "rafael.molina@nxtgen.app" ||
-        cleanInput.startsWith("usr_demo")
-      ) {
-        referrerProfile = {
-          id: "usr_demo_rafael",
-          name: "Rafael Molina",
-          score: 2150,
-          level: 3,
+          score: stored.prxScore,
+          level: stored.prxLevel,
         };
       }
     }
@@ -270,13 +247,13 @@ export async function POST(req: NextRequest) {
     const missionXp = refResult.xpEarned || 0;
     const totalReferrerXpBonus = baseReferralXp + missionXp;
     const newReferrerScore = (referrerProfile.score || 250) + totalReferrerXpBonus;
-    const newReferrerLevel = calculateNxtLevel(newReferrerScore);
+    const newReferrerLevel = calculatePrxLevel(newReferrerScore);
 
     // 6. Calculate & Update XP for Invited Friend (+100 XP Welcome Bonus se novo)
     const friendWelcomeXp = alreadyHadReferrer ? 0 : 100;
-    const currentFriendScore = user.nxtScore || 250;
+    const currentFriendScore = user.prxScore || 250;
     const newFriendScore = currentFriendScore + friendWelcomeXp;
-    const newFriendLevel = calculateNxtLevel(newFriendScore);
+    const newFriendLevel = calculatePrxLevel(newFriendScore);
 
     // Update in Supabase for both parties
     if (supabaseAdmin) {
@@ -334,12 +311,12 @@ export async function POST(req: NextRequest) {
     try {
       const { userStore } = await import("@/lib/auth");
       userStore.updateUser(user.id, {
-        nxtScore: newFriendScore,
-        nxtLevel: newFriendLevel,
+        prxScore: newFriendScore,
+        prxLevel: newFriendLevel,
       });
       userStore.updateUser(referrerProfile.id, {
-        nxtScore: newReferrerScore,
-        nxtLevel: newReferrerLevel,
+        prxScore: newReferrerScore,
+        prxLevel: newReferrerLevel,
       });
     } catch {}
 
@@ -355,13 +332,13 @@ export async function POST(req: NextRequest) {
       currentUser: {
         id: user.id,
         name: user.fullName,
-        nxtScore: newFriendScore,
-        nxtLevel: newFriendLevel,
+        prxScore: newFriendScore,
+        prxLevel: newFriendLevel,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao processar código de indicação." },
+      { error: errorMessage(error) || "Erro ao processar código de indicação." },
       { status: 500 }
     );
   }

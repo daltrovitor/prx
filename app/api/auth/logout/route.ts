@@ -11,7 +11,7 @@ export async function POST() {
     expires: new Date(0),
   });
   response.cookies.set({
-    name: "nxtgen_remember",
+    name: "prx_remember",
     value: "",
     path: "/",
     expires: new Date(0),

@@ -4,6 +4,8 @@ import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/l
 import { checkRateLimit, sanitizeInput } from "@/lib/security";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
+import { errorMessage } from "@/lib/errors";
+import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
 
 const LoginSchema = z.object({
   email: z.string().email("E-mail inválido"),
@@ -70,10 +72,10 @@ export async function POST(req: NextRequest) {
             fullName: profile?.full_name || authUser.user_metadata?.full_name || email.split("@")[0],
             passwordHash: "",
             salt: "",
-            role: (profile?.role as any) || authUser.user_metadata?.role || "user",
-            nxtScore: profile?.nxt_score ?? 250,
-            nxtLevel: profile?.nxt_level ?? 1,
-            avatarUrl: profile?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&q=80",
+            role: asMemberRole(profile?.role || authUser.app_metadata?.role),
+            prxScore: profile?.nxt_score ?? 250,
+            prxLevel: profile?.nxt_level ?? 1,
+            avatarUrl: profile?.avatar_url || "",
             walletBalance: Number(profile?.wallet_balance ?? 0),
             emailConfirmed: true,
             createdAt: authUser.created_at || new Date().toISOString(),
@@ -114,17 +116,18 @@ export async function POST(req: NextRequest) {
         email: authenticatedUser.email,
         name: authenticatedUser.fullName,
         role: authenticatedUser.role,
-        nxtScore: authenticatedUser.nxtScore,
-        nxtLevel: authenticatedUser.nxtLevel,
+        prxScore: authenticatedUser.prxScore,
+        prxLevel: authenticatedUser.prxLevel,
         walletBalance: authenticatedUser.walletBalance,
         avatarUrl: authenticatedUser.avatarUrl,
       },
     });
 
-    const cookieConfig: any = {
+    const cookieConfig: SessionCookieOptions = {
       name: AUTH_COOKIE_NAME,
       value: token,
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
       path: "/",
       sameSite: "lax",
     };
@@ -136,7 +139,7 @@ export async function POST(req: NextRequest) {
     response.cookies.set(cookieConfig);
 
     response.cookies.set({
-      name: "nxtgen_remember",
+      name: "prx_remember",
       value: rememberMe ? "1" : "0",
       path: "/",
       sameSite: "lax",
@@ -144,9 +147,9 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro no processamento do login." },
+      { error: errorMessage(error) || "Erro no processamento do login." },
       { status: 500 }
     );
   }

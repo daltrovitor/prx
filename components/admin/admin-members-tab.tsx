@@ -1,19 +1,24 @@
+// Hello World
 "use client";
 
-import React, { useState } from "react";
-import { UserCheck, Edit3, Ticket, Check, X, Shield, RefreshCw } from "lucide-react";
+import { useMemo, useState, type FormEvent } from "react";
+import { Button, EmptyState, Field, Input, Notice, Select, Sheet, Tag, formatBRL } from "@/components/app/ui";
+import { IconSearch } from "@/components/icons/prx-icons";
+import type { SystemVoucher } from "@/lib/pass-store";
+
+export type MemberRole = "user" | "partner" | "staff" | "admin";
 
 export interface AdminUser {
   id: string;
   email: string;
   name: string;
-  role: "user" | "partner" | "staff" | "admin";
-  nxtScore: number;
-  nxtLevel: number;
+  role: MemberRole;
+  prxScore: number;
+  prxLevel: number;
   walletBalance: number;
   createdAt: string;
   vouchersCount: number;
-  vouchers: any[];
+  vouchers: SystemVoucher[];
 }
 
 interface AdminMembersTabProps {
@@ -21,392 +26,206 @@ interface AdminMembersTabProps {
   onRefresh: () => Promise<void>;
 }
 
+const ROLE_LABEL: Record<MemberRole, string> = { user: "Membro", partner: "Parceiro", staff: "Equipe", admin: "Admin" };
+
+interface ApiResult {
+  success?: boolean;
+  error?: string;
+}
+
 export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
-  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
-  const [selectedUserVouchers, setSelectedUserVouchers] = useState<AdminUser | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [inspecting, setInspecting] = useState<AdminUser | null>(null);
+  const [form, setForm] = useState({ level: 1, score: 0, balance: 0, role: "user" as MemberRole });
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // Form states for editing
-  const [formLevel, setFormLevel] = useState<number>(1);
-  const [formScore, setFormScore] = useState<number>(0);
-  const [formBalance, setFormBalance] = useState<number>(0);
-  const [formRole, setFormRole] = useState<"user" | "partner" | "staff" | "admin">("user");
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q));
+  }, [users, query]);
 
-  const handleOpenEdit = (u: AdminUser) => {
-    setEditingUser(u);
-    setFormLevel(u.nxtLevel);
-    setFormScore(u.nxtScore);
-    setFormBalance(u.walletBalance);
-    setFormRole(u.role);
+  function openEdit(user: AdminUser) {
+    setEditing(user);
+    setForm({ level: user.prxLevel, score: user.prxScore, balance: user.walletBalance, role: user.role });
     setFeedback(null);
-  };
+  }
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingUser) return;
-    setIsSaving(true);
-    setFeedback(null);
-
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (!editing) return;
+    setSaving(true);
     try {
       const res = await fetch("/api/admin/users", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: editingUser.id,
-          nxtLevel: formLevel,
-          nxtScore: formScore,
-          walletBalance: formBalance,
-          role: formRole,
-        }),
+        body: JSON.stringify({ id: editing.id, prxLevel: form.level, prxScore: form.score, walletBalance: form.balance, role: form.role }),
       });
-
-      const data = await res.json();
+      const data = (await res.json()) as ApiResult;
       if (!res.ok || !data.success) {
-        setFeedback({ type: "error", text: data.error || "Erro ao atualizar membro." });
+        setFeedback({ ok: false, text: data.error || "Não foi possível atualizar o membro." });
         return;
       }
-
-      setFeedback({
-        type: "success",
-        text: `Membro ${editingUser.name} atualizado para Level ${formLevel} e ${formScore} XP com sucesso!`,
-      });
-
+      setFeedback({ ok: true, text: `${editing.name} atualizado: nível ${form.level}, ${form.score.toLocaleString("pt-BR")} XP.` });
+      setEditing(null);
       await onRefresh();
-      setEditingUser(null);
-    } catch (err: any) {
-      setFeedback({ type: "error", text: err.message || "Falha na requisição." });
+    } catch {
+      setFeedback({ ok: false, text: "Sem conexão com o servidor." });
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
-  };
+  }
 
-  const handleToggleVoucherStatus = async (voucherId: string, currentStatus: string) => {
-    const newStatus = currentStatus === "valid" ? "used" : "valid";
-    try {
-      const res = await fetch("/api/admin/vouchers", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: voucherId, status: newStatus }),
-      });
-      if (res.ok) {
-        await onRefresh();
-        // Update current drawer view
-        if (selectedUserVouchers) {
-          setSelectedUserVouchers((prev) => {
-            if (!prev) return null;
-            return {
-              ...prev,
-              vouchers: prev.vouchers.map((v) =>
-                v.id === voucherId ? { ...v, status: newStatus } : v
-              ),
-            };
-          });
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  async function toggleVoucher(voucher: SystemVoucher) {
+    const status = voucher.status === "valid" ? "used" : "valid";
+    const res = await fetch("/api/admin/vouchers", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: voucher.id, status }),
+    });
+    if (!res.ok) return;
+    setInspecting((prev) => (prev ? { ...prev, vouchers: prev.vouchers.map((v) => (v.id === voucher.id ? { ...v, status } : v)) } : prev));
+    await onRefresh();
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header Info */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <section aria-labelledby="members-title" className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold font-heading text-foreground">Membros do NXT PASS</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Visualize os membros ativos, altere seus níveis (1-10), pontuações de XP e gerencie vouchers resgatados
-          </p>
+          <h2 id="members-title" className="font-display text-2xl font-semibold tracking-[-0.03em] text-ink">
+            Membros
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">Níveis, XP, papel de acesso e vouchers de cada conta.</p>
         </div>
-
-        <button
-          onClick={onRefresh}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-card hover:bg-muted border border-border text-xs font-mono text-foreground transition-colors cursor-pointer self-start sm:self-auto"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Atualizar Membros</span>
-        </button>
+        <div className="relative w-full sm:w-72">
+          <IconSearch size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <label htmlFor="member-search" className="sr-only">
+            Buscar membro
+          </label>
+          <Input id="member-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Nome ou e-mail" className="pl-11" />
+        </div>
       </div>
 
-      {feedback && (
-        <div
-          className={`p-3.5 rounded-xl border text-xs flex items-center justify-between ${
-            feedback.type === "success"
-              ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
-              : "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-500/30 text-red-800 dark:text-red-300"
-          }`}
-        >
-          <span>{feedback.text}</span>
-          <button onClick={() => setFeedback(null)} className="text-muted-foreground hover:text-foreground">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {feedback && <Notice tone={feedback.ok ? "success" : "error"}>{feedback.text}</Notice>}
 
-      {/* Users Table */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+      {filtered.length === 0 ? (
+        <EmptyState title="Nenhum membro encontrado" body={query ? "Tente outro nome ou e-mail." : "Os cadastros aparecem aqui."} />
+      ) : (
+        <div className="overflow-x-auto border border-line">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-muted-foreground font-mono">
-                <th className="py-3 px-4">Membro</th>
-                <th className="py-3 px-4">Papel (Role)</th>
-                <th className="py-3 px-4">Nível NXT</th>
-                <th className="py-3 px-4">XP Acumulado</th>
-                <th className="py-3 px-4">Saldo Carteira</th>
-                <th className="py-3 px-4">Vouchers</th>
-                <th className="py-3 px-4 text-right">Ações</th>
+              <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">
+                <th scope="col" className="px-4 py-3 font-medium">Membro</th>
+                <th scope="col" className="px-4 py-3 font-medium">Papel</th>
+                <th scope="col" className="px-4 py-3 font-medium">Nível</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">XP</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Carteira</th>
+                <th scope="col" className="px-4 py-3 font-medium">Vouchers</th>
+                <th scope="col" className="px-4 py-3">
+                  <span className="sr-only">Ações</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border text-foreground">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <div className="font-semibold text-foreground font-heading">{u.name}</div>
-                    <div className="text-[11px] text-muted-foreground font-mono">{u.email}</div>
+            <tbody className="divide-y divide-line">
+              {filtered.map((user) => (
+                <tr key={user.id} className="transition-colors hover:bg-surface/60">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-ink">{user.name}</p>
+                    <p className="text-[13px] text-muted-foreground">{user.email}</p>
                   </td>
-
-                  <td className="py-3.5 px-4">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider ${
-                        u.role === "admin"
-                          ? "bg-purple-100 dark:bg-[#8B24F0]/20 text-purple-700 dark:text-[#C084FC] border border-purple-300 dark:border-[#8B24F0]/40"
-                          : u.role === "partner"
-                          ? "bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40"
-                          : "bg-muted text-muted-foreground border border-border"
-                      }`}
-                    >
-                      {u.role === "admin" && <Shield className="w-3 h-3" />}
-                      {u.role}
-                    </span>
+                  <td className="px-4 py-3">
+                    <Tag tone={user.role === "admin" ? "ink" : user.role === "partner" ? "accent" : "neutral"}>{ROLE_LABEL[user.role] ?? user.role}</Tag>
                   </td>
-
-                  <td className="py-3.5 px-4 font-mono">
-                    <span className="inline-block px-2.5 py-1 rounded-lg bg-purple-100 dark:bg-[#8B24F0]/15 border border-purple-300 dark:border-[#8B24F0]/30 text-purple-800 dark:text-white font-bold">
-                      LVL {u.nxtLevel}
-                    </span>
+                  <td className="px-4 py-3 tabular-nums text-ink">{user.prxLevel}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-ink">{user.prxScore.toLocaleString("pt-BR")}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-ink">{formatBRL(Number(user.walletBalance || 0))}</td>
+                  <td className="px-4 py-3">
+                    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => setInspecting(user)}>
+                      {(() => {
+                        const count = user.vouchersCount || user.vouchers?.length || 0;
+                        return `${count} ${count === 1 ? "resgate" : "resgates"}`;
+                      })()}
+                    </Button>
                   </td>
-
-                  <td className="py-3.5 px-4 font-mono">
-                    <span className="text-purple-600 dark:text-[#C084FC] font-bold">{u.nxtScore.toLocaleString()}</span> <span className="text-muted-foreground">XP</span>
-                  </td>
-
-                  <td className="py-3.5 px-4 font-mono text-foreground font-medium">
-                    R$ {Number(u.walletBalance || 0).toFixed(2)}
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <button
-                      onClick={() => setSelectedUserVouchers(u)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card hover:bg-muted border border-border text-foreground font-mono text-[11px] transition-colors cursor-pointer"
-                    >
-                      <Ticket className="w-3.5 h-3.5 text-purple-600 dark:text-[#8B24F0]" />
-                      <span>{u.vouchersCount || (u.vouchers?.length ?? 0)} resgates</span>
-                    </button>
-                  </td>
-
-                  <td className="py-3.5 px-4 text-right">
-                    <button
-                      onClick={() => handleOpenEdit(u)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#8B24F0] hover:bg-[#781DD6] text-white text-xs font-semibold font-heading tracking-wide transition-all cursor-pointer shadow-md shadow-[#8B24F0]/20"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Alterar Level</span>
-                    </button>
+                  <td className="px-4 py-3 text-right">
+                    <Button variant="secondary" size="sm" onClick={() => openEdit(user)}>
+                      Editar
+                    </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* MODAL: Edit Member Level & XP */}
-      {editingUser && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#0B0C12] text-white border border-white/15 rounded-2xl p-6 shadow-2xl space-y-5 text-left">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div>
-                <h3 className="text-lg font-bold font-heading text-white">
-                  Alterar Membro
-                </h3>
-                <p className="text-xs text-white/50">{editingUser.name} ({editingUser.email})</p>
-              </div>
-              <button
-                onClick={() => setEditingUser(null)}
-                className="text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEdit} className="space-y-4">
-              {/* Level Selector */}
-              <div className="space-y-1">
-                <label className="text-xs font-mono text-white/80 font-medium">
-                  NXT Level (Nível do Membro)
-                </label>
-                <select
-                  value={formLevel}
-                  onChange={(e) => setFormLevel(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#030407] border border-white/15 text-sm text-white font-mono focus:border-[#8B24F0] focus:outline-none transition-colors"
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((lvl) => (
-                    <option key={lvl} value={lvl} className="bg-[#0B0C12] text-white">
-                      Level {lvl} {lvl === 1 ? "(Iniciante)" : lvl >= 5 ? "(Elite/Black)" : "(Avançado)"}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-white/40">
-                  Ao alterar o nível, os benefícios liberados no dashboard do usuário mudam instantaneamente.
-                </p>
-              </div>
-
-              {/* XP Score */}
-              <div className="space-y-1">
-                <label className="text-xs font-mono text-white/80 font-medium">
-                  Pontuação de XP (nxtScore)
-                </label>
-                <input
-                  type="number"
-                  value={formScore}
-                  onChange={(e) => setFormScore(Number(e.target.value))}
-                  min={0}
-                  step={50}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#030407] border border-white/15 text-sm text-white font-mono focus:border-[#8B24F0] focus:outline-none transition-colors"
-                />
-              </div>
-
-              {/* Wallet Balance */}
-              <div className="space-y-1">
-                <label className="text-xs font-mono text-white/80 font-medium">
-                  Saldo em Carteira (R$)
-                </label>
-                <input
-                  type="number"
-                  value={formBalance}
-                  onChange={(e) => setFormBalance(Number(e.target.value))}
-                  min={0}
-                  step={0.5}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#030407] border border-white/15 text-sm text-white font-mono focus:border-[#8B24F0] focus:outline-none transition-colors"
-                />
-              </div>
-
-              {/* Role */}
-              <div className="space-y-1">
-                <label className="text-xs font-mono text-white/80 font-medium">
-                  Papel de Acesso (Role)
-                </label>
-                <select
-                  value={formRole}
-                  onChange={(e) => setFormRole(e.target.value as "user" | "partner" | "staff" | "admin")}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#030407] border border-white/15 text-sm text-white font-mono focus:border-[#8B24F0] focus:outline-none transition-colors"
-                >
-                  <option value="user" className="bg-[#0B0C12] text-white">Usuário Comum (user)</option>
-                  <option value="partner" className="bg-[#0B0C12] text-white">Parceiro Credenciado (partner)</option>
-                  <option value="admin" className="bg-[#0B0C12] text-white">Administrador (admin)</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setEditingUser(null)}
-                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-white/70 hover:text-white transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex-1 py-2.5 rounded-xl bg-[#8B24F0] hover:bg-[#781DD6] disabled:opacity-50 text-xs font-bold font-heading text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-[#8B24F0]/25"
-                >
-                  {isSaving ? "Salvando..." : "Salvar Alterações"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
 
-      {/* DRAWER/MODAL: Member Vouchers Inspector */}
-      {selectedUserVouchers && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="max-w-lg w-full bg-[#0B0C12] text-white border border-white/15 rounded-2xl p-6 shadow-2xl space-y-4 text-left max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div>
-                <h3 className="text-lg font-bold font-heading text-white">
-                  Vouchers de {selectedUserVouchers.name}
-                </h3>
-                <p className="text-xs text-white/50">{selectedUserVouchers.email}</p>
-              </div>
-              <button
-                onClick={() => setSelectedUserVouchers(null)}
-                className="text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <Sheet
+        open={Boolean(editing)}
+        onClose={() => setEditing(null)}
+        title="Editar membro"
+        description={editing ? `${editing.name} · ${editing.email}` : undefined}
+        footer={
+          <Button block type="submit" form="member-form" disabled={saving}>
+            {saving ? "Salvando…" : "Salvar alterações"}
+          </Button>
+        }
+      >
+        <form id="member-form" onSubmit={save} className="grid gap-5 sm:grid-cols-2">
+          <Field label="Nível" hint="Muda os benefícios liberados na hora.">
+            {(id, describedBy) => (
+              <Select id={id} aria-describedby={describedBy} value={form.level} onChange={(e) => setForm({ ...form, level: Number(e.target.value) })}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((lvl) => (
+                  <option key={lvl} value={lvl}>
+                    Nível {lvl}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          <Field label="XP (PRX Score)">
+            {(id) => <Input id={id} type="number" min={0} step={50} value={form.score} onChange={(e) => setForm({ ...form, score: Number(e.target.value) })} />}
+          </Field>
+          <Field label="Saldo em carteira (R$)">
+            {(id) => <Input id={id} type="number" min={0} step={0.5} value={form.balance} onChange={(e) => setForm({ ...form, balance: Number(e.target.value) })} />}
+          </Field>
+          <Field label="Papel de acesso">
+            {(id) => (
+              <Select id={id} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as MemberRole })}>
+                <option value="user">Membro</option>
+                <option value="partner">Parceiro credenciado</option>
+                <option value="admin">Administrador</option>
+              </Select>
+            )}
+          </Field>
+        </form>
+      </Sheet>
 
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-              {(!selectedUserVouchers.vouchers || selectedUserVouchers.vouchers.length === 0) ? (
-                <p className="text-xs text-white/50 py-6 text-center">
-                  Este membro ainda não resgatou nenhum voucher.
-                </p>
-              ) : (
-                selectedUserVouchers.vouchers.map((v) => (
-                  <div
-                    key={v.id}
-                    className="p-3.5 rounded-xl bg-[#030407] border border-white/10 flex items-center justify-between gap-3"
-                  >
-                    <div>
-                      <div className="font-mono text-xs font-bold text-white tracking-wider">
-                        {v.code}
-                      </div>
-                      <div className="text-xs text-white/70 font-medium mt-0.5">
-                        {v.partnerName} • {v.benefitTitle || v.discountLabel}
-                      </div>
-                      <div className="text-[10px] text-white/40 font-mono mt-0.5">
-                        Resgatado em: {v.redeemedAt}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded uppercase ${
-                          v.status === "valid"
-                            ? "bg-emerald-950/60 text-emerald-400 border border-emerald-500/30"
-                            : "bg-white/5 text-white/40 border border-white/10"
-                        }`}
-                      >
-                        {v.status === "valid" ? "Válido" : "Utilizado"}
-                      </span>
-
-                      <button
-                        onClick={() => handleToggleVoucherStatus(v.id, v.status)}
-                        className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-[11px] font-mono text-white/70 hover:text-white border border-white/10 transition-colors cursor-pointer"
-                        title="Alternar entre Válido e Utilizado"
-                      >
-                        {v.status === "valid" ? "Validar" : "Reativar"}
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-white/10 text-right">
-              <button
-                onClick={() => setSelectedUserVouchers(null)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-mono text-white transition-colors cursor-pointer"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <Sheet open={Boolean(inspecting)} onClose={() => setInspecting(null)} title={inspecting ? `Vouchers de ${inspecting.name}` : "Vouchers"} description={inspecting?.email}>
+        {inspecting && (!inspecting.vouchers || inspecting.vouchers.length === 0) ? (
+          <EmptyState title="Nenhum resgate" body="Este membro ainda não gerou vouchers." />
+        ) : (
+          <ul className="divide-y divide-line border-y border-line">
+            {inspecting?.vouchers.map((voucher) => (
+              <li key={voucher.id} className="flex items-center justify-between gap-4 py-3.5">
+                <div className="min-w-0">
+                  <p className="font-mono text-sm text-ink">{voucher.code}</p>
+                  <p className="truncate text-[13px] text-muted-foreground">
+                    {voucher.partnerName} · {voucher.benefitTitle || voucher.discountLabel} · {voucher.redeemedAt}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Tag tone={voucher.status === "valid" ? "success" : "neutral"}>{voucher.status === "valid" ? "Válido" : "Usado"}</Tag>
+                  <Button variant="secondary" size="sm" onClick={() => toggleVoucher(voucher)}>
+                    {voucher.status === "valid" ? "Marcar usado" : "Reativar"}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Sheet>
+    </section>
   );
 }

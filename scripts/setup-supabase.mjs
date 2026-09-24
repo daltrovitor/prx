@@ -13,14 +13,14 @@ const supabaseAdmin = createClient(envVars.URL, envVars.SERVICE_ROLE_KEY, {
 });
 
 async function testCreateUser() {
-  const demoEmail = "rafael.molina@nxtgen.app";
+  const demoEmail = "rafael.molina@prx.app";
   const { data: existing } = await supabaseAdmin.auth.admin.listUsers();
   const found = existing?.users?.find(u => u.email === demoEmail);
 
   if (!found) {
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email: demoEmail,
-      password: "Nxtgen2026!",
+      password: "Prx2026!",
       email_confirm: true, // No email confirmation required!
       user_metadata: {
         full_name: "Rafael Molina",
@@ -39,7 +39,7 @@ async function testCreateUser() {
   const client = createClient(envVars.URL, envVars.ANON_KEY);
   const { data: signInData, error: signInErr } = await client.auth.signInWithPassword({
     email: demoEmail,
-    password: "Nxtgen2026!"
+    password: "Prx2026!"
   });
   console.log("Sign in test:", {
     success: !!signInData.session,

@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
+import { errorMessage } from "@/lib/errors";
+import type { SessionCookieOptions } from "@/lib/db-rows";
 
+/**
+ * Login Google simulado — SOMENTE para desenvolvimento local.
+ *
+ * Esta rota aceita o e-mail enviado no corpo sem nenhuma prova de identidade.
+ * Em produção isso permitiria entrar na conta de qualquer pessoa, por isso ela
+ * responde 404. O login Google real passa pelo Supabase OAuth (/auth/callback).
+ */
 export async function POST(req: NextRequest) {
+  if (!DEMO_ACCOUNTS_ENABLED) {
+    return NextResponse.json(
+      { error: "Login com Google indisponível. Tente novamente em instantes." },
+      { status: 404 }
+    );
+  }
   try {
-    let body: any = {};
+    let body: { email?: string; name?: string; fullName?: string; avatarUrl?: string; rememberMe?: boolean } = {};
     try {
       body = await req.json();
     } catch {
@@ -13,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     const email = (body.email || "usuario.google@gmail.com").toLowerCase().trim();
     const name = (body.name || body.fullName || "Usuário Google").trim();
-    const avatarUrl = body.avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&q=80";
+    const avatarUrl = body.avatarUrl || "";
 
     let authenticatedUser: StoredUser | null = null;
 
@@ -34,8 +50,8 @@ export async function POST(req: NextRequest) {
             passwordHash: "",
             salt: "",
             role: existingProfile.role || "user",
-            nxtScore: existingProfile.nxt_score ?? 300,
-            nxtLevel: existingProfile.nxt_level ?? 1,
+            prxScore: existingProfile.nxt_score ?? 300,
+            prxLevel: existingProfile.nxt_level ?? 1,
             avatarUrl: existingProfile.avatar_url || avatarUrl,
             walletBalance: Number(existingProfile.wallet_balance ?? 0),
             emailConfirmed: true,
@@ -81,8 +97,8 @@ export async function POST(req: NextRequest) {
               passwordHash: "",
               salt: "",
               role: "user",
-              nxtScore: 300,
-              nxtLevel: 1,
+              prxScore: 300,
+              prxLevel: 1,
               avatarUrl,
               walletBalance: 0,
               emailConfirmed: true,
@@ -113,14 +129,14 @@ export async function POST(req: NextRequest) {
         email: authenticatedUser.email,
         name: authenticatedUser.fullName,
         role: authenticatedUser.role,
-        nxtScore: authenticatedUser.nxtScore,
-        nxtLevel: authenticatedUser.nxtLevel,
+        prxScore: authenticatedUser.prxScore,
+        prxLevel: authenticatedUser.prxLevel,
         walletBalance: authenticatedUser.walletBalance,
         avatarUrl: authenticatedUser.avatarUrl,
       },
     });
 
-    const cookieOptions: any = {
+    const cookieOptions: SessionCookieOptions = {
       name: AUTH_COOKIE_NAME,
       value: token,
       httpOnly: true,
@@ -136,7 +152,7 @@ export async function POST(req: NextRequest) {
     response.cookies.set(cookieOptions);
 
     response.cookies.set({
-      name: "nxtgen_remember",
+      name: "prx_remember",
       value: rememberMe ? "1" : "0",
       path: "/",
       sameSite: "lax",
@@ -144,9 +160,9 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (err: any) {
+  } catch (err) {
     return NextResponse.json(
-      { error: err.message || "Falha na autenticação com o Google." },
+      { error: errorMessage(err) || "Falha na autenticação com o Google." },
       { status: 500 }
     );
   }

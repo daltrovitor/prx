@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getCurrentUser, verifySessionToken, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { errorMessage } from "@/lib/errors";
 
 export async function GET(req: NextRequest) {
   try {
@@ -68,9 +69,9 @@ export async function GET(req: NextRequest) {
         avatarUrl: currentUser.avatarUrl,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { authenticated: false, isPartner: false, error: error.message || "Erro ao consultar sessão do parceiro." },
+      { authenticated: false, isPartner: false, error: errorMessage(error) || "Erro ao consultar sessão do parceiro." },
       { status: 200 }
     );
   }

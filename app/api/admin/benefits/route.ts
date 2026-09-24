@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
+import type { BenefitRow } from "@/lib/db-rows";
 
 // Safety alias in case any handler calls verifyAdminAuth
 const verifyAdminAuth = (req?: NextRequest) => verifyAdminRequest(req);
@@ -21,18 +23,18 @@ export async function GET(req: NextRequest) {
         .order("created_at", { ascending: false });
 
       if (!error && dbBenefits) {
-        const mapped = dbBenefits.map((b: any) => ({
+        const mapped = dbBenefits.map((b: BenefitRow) => ({
           id: b.id,
           partnerId: b.partner_id || b.id,
           partnerName: b.partner_name,
-          partnerLogo: b.partner_logo,
-          partnerBanner: b.partner_banner,
+          partnerLogo: b.partner_logo ?? "",
+          partnerBanner: b.partner_banner ?? "",
           partnerLocation: b.partner_location || "São Paulo, SP",
           categoryId: b.category_id,
           title: b.title,
           description: b.description || "",
           discountLabel: b.discount_label,
-          minNxtLevel: b.min_nxt_level || 1,
+          minPrxLevel: b.min_nxt_level || 1,
           terms: Array.isArray(b.terms) ? b.terms : [b.terms || "Apresente o QR Code no balcão."],
         }));
         passStore.setBenefits(mapped);
@@ -43,9 +45,9 @@ export async function GET(req: NextRequest) {
     // 2. Fallback to passStore
     const benefits = passStore.getBenefits();
     return NextResponse.json({ success: true, benefits });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao consultar benefícios." },
+      { error: errorMessage(error) || "Erro ao consultar benefícios." },
       { status: 500 }
     );
   }
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
       title,
       description,
       discountLabel,
-      minNxtLevel,
+      minPrxLevel,
       terms,
     } = body;
 
@@ -95,7 +97,7 @@ export async function POST(req: NextRequest) {
             title: title.trim(),
             description: description?.trim() || "",
             discount_label: discountLabel.trim(),
-            min_nxt_level: Number(minNxtLevel) || 1,
+            min_nxt_level: Number(minPrxLevel) || 1,
             terms: termsArray,
             is_active: true,
           })
@@ -114,7 +116,7 @@ export async function POST(req: NextRequest) {
             title: inserted.title,
             description: inserted.description,
             discountLabel: inserted.discount_label,
-            minNxtLevel: inserted.min_nxt_level,
+            minPrxLevel: inserted.min_nxt_level,
             terms: inserted.terms,
           };
           // Also keep memory store synced
@@ -127,10 +129,10 @@ export async function POST(req: NextRequest) {
           });
         }
         if (error) {
-          console.warn("[Admin Benefits API] Supabase insert failed, falling back to passStore:", error.message);
+          console.warn("[Admin Benefits API] Supabase insert failed, falling back to passStore:", errorMessage(error));
         }
-      } catch (err: any) {
-        console.warn("[Admin Benefits API] Supabase insert exception, falling back to passStore:", err.message);
+      } catch (err) {
+        console.warn("[Admin Benefits API] Supabase insert exception, falling back to passStore:", errorMessage(err));
       }
     }
 
@@ -145,7 +147,7 @@ export async function POST(req: NextRequest) {
       title: title.trim(),
       description: description?.trim() || "",
       discountLabel: discountLabel.trim(),
-      minNxtLevel: Number(minNxtLevel) || 1,
+      minPrxLevel: Number(minPrxLevel) || 1,
       terms: termsArray,
     });
 
@@ -154,9 +156,9 @@ export async function POST(req: NextRequest) {
       message: "Benefício criado com sucesso!",
       benefit: newBenefit,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao criar benefício." },
+      { error: errorMessage(error) || "Erro ao criar benefício." },
       { status: 500 }
     );
   }
@@ -179,7 +181,7 @@ export async function PUT(req: NextRequest) {
     // 1. Try Supabase
     if (supabaseAdmin) {
       try {
-        const dbUpdates: Record<string, any> = {};
+        const dbUpdates: Record<string, unknown> = {};
         if (updates.partnerName) dbUpdates.partner_name = updates.partnerName.trim();
         if (updates.partnerLogo !== undefined) dbUpdates.partner_logo = updates.partnerLogo;
         if (updates.partnerBanner !== undefined) dbUpdates.partner_banner = updates.partnerBanner;
@@ -188,7 +190,7 @@ export async function PUT(req: NextRequest) {
         if (updates.title) dbUpdates.title = updates.title.trim();
         if (updates.description !== undefined) dbUpdates.description = updates.description.trim();
         if (updates.discountLabel) dbUpdates.discount_label = updates.discountLabel.trim();
-        if (updates.minNxtLevel !== undefined) dbUpdates.min_nxt_level = Number(updates.minNxtLevel);
+        if (updates.minPrxLevel !== undefined) dbUpdates.min_nxt_level = Number(updates.minPrxLevel);
         if (updates.terms) dbUpdates.terms = Array.isArray(updates.terms) ? updates.terms : [updates.terms];
 
         const { data: updated, error } = await supabaseAdmin
@@ -207,10 +209,10 @@ export async function PUT(req: NextRequest) {
           });
         }
         if (error) {
-          console.warn("[Admin Benefits API] Supabase update warning:", error.message);
+          console.warn("[Admin Benefits API] Supabase update warning:", errorMessage(error));
         }
-      } catch (err: any) {
-        console.warn("[Admin Benefits API] Supabase update exception:", err.message);
+      } catch (err) {
+        console.warn("[Admin Benefits API] Supabase update exception:", errorMessage(err));
       }
     }
 
@@ -225,9 +227,9 @@ export async function PUT(req: NextRequest) {
       message: "Benefício atualizado com sucesso!",
       benefit: updated,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao atualizar benefício." },
+      { error: errorMessage(error) || "Erro ao atualizar benefício." },
       { status: 500 }
     );
   }
@@ -259,10 +261,10 @@ export async function DELETE(req: NextRequest) {
           });
         }
         if (error) {
-          console.warn("[Admin Benefits API] Supabase delete warning:", error.message);
+          console.warn("[Admin Benefits API] Supabase delete warning:", errorMessage(error));
         }
-      } catch (err: any) {
-        console.warn("[Admin Benefits API] Supabase delete exception:", err.message);
+      } catch (err) {
+        console.warn("[Admin Benefits API] Supabase delete exception:", errorMessage(err));
       }
     }
 
@@ -276,9 +278,9 @@ export async function DELETE(req: NextRequest) {
       success: true,
       message: "Benefício removido com sucesso!",
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao excluir benefício." },
+      { error: errorMessage(error) || "Erro ao excluir benefício." },
       { status: 500 }
     );
   }

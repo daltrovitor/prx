@@ -1,9 +1,31 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
+import { getSessionSecret, DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
+import { isAllowlistedAdmin } from "@/lib/admin-allowlist";
+import { asMemberRole } from "@/lib/db-rows";
 
-const JWT_SECRET = process.env.JWT_SECRET_OR_HMAC_KEY || "nxtgen_production_hardened_secret_9988_xyz";
-const AUTH_COOKIE_NAME = "nxtgen_session";
+const AUTH_COOKIE_NAME = "prx_session";
+
+/** Conteúdo assinado do token de sessão. */
+export interface SessionPayload {
+  sub: string;
+  email: string;
+  name?: string;
+  role?: string;
+  iat?: number;
+  exp?: number;
+}
+
+/**
+ * Papel confiável de um usuário do Supabase Auth.
+ * app_metadata só pode ser escrito com a service role; user_metadata é editável
+ * pelo próprio usuário via API pública e por isso nunca concede privilégio.
+ */
+function trustedAuthRole(authUser: { app_metadata?: Record<string, unknown> } | null | undefined): string | undefined {
+  const role = authUser?.app_metadata?.role;
+  return typeof role === "string" ? role : undefined;
+}
 
 export interface StoredUser {
   id: string;
@@ -12,8 +34,8 @@ export interface StoredUser {
   passwordHash: string;
   salt: string;
   role: "user" | "partner" | "staff" | "admin";
-  nxtScore: number;
-  nxtLevel: number;
+  prxScore: number;
+  prxLevel: number;
   avatarUrl: string;
   walletBalance: number;
   emailConfirmed: boolean;
@@ -21,25 +43,28 @@ export interface StoredUser {
 }
 
 const DEFAULT_DEMO_USER = {
-  id: "usr_demo_rafael",
-  name: "Rafael Molina",
-  email: "rafael.molina@nxtgen.app",
-  nxtScore: 2150,
-  nxtLevel: 3,
-  avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&q=80",
+  id: "usr_demo_member",
+  name: "Membro Demo",
+  email: "membro@prx.dev",
+  prxScore: 2150,
+  prxLevel: 3,
+  avatarUrl: "",
   walletBalance: 124.5,
 };
 
-// In-Memory User Store seeded with Rafael Molina
+// Armazenamento em memória com contas de demonstração (apenas desenvolvimento local).
 class UserStore {
   private users: Map<string, StoredUser> = new Map();
 
   constructor() {
-    // Hash default demo user password
-    const salt = crypto.randomBytes(16).toString("hex");
-    const passwordHash = this.hashPassword("Nxtgen2026!", salt);
+    // Contas de demonstração só em desenvolvimento: em produção as senhas
+    // abaixo estariam publicadas no repositório.
+    if (!DEMO_ACCOUNTS_ENABLED) return;
 
-    // 1. Normal user (role: 'user')
+    const salt = crypto.randomBytes(16).toString("hex");
+    const passwordHash = this.hashPassword("Prx2026!", salt);
+
+    // 1. Membro comum (role: 'user')
     const initialUser: StoredUser = {
       id: DEFAULT_DEMO_USER.id,
       email: DEFAULT_DEMO_USER.email.toLowerCase(),
@@ -47,79 +72,46 @@ class UserStore {
       passwordHash,
       salt,
       role: "user",
-      nxtScore: DEFAULT_DEMO_USER.nxtScore,
-      nxtLevel: DEFAULT_DEMO_USER.nxtLevel,
+      prxScore: DEFAULT_DEMO_USER.prxScore,
+      prxLevel: DEFAULT_DEMO_USER.prxLevel,
       avatarUrl: DEFAULT_DEMO_USER.avatarUrl,
       walletBalance: DEFAULT_DEMO_USER.walletBalance,
-      emailConfirmed: true, // No email confirmation required!
+      emailConfirmed: true,
       createdAt: new Date().toISOString(),
     };
     this.users.set(initialUser.email, initialUser);
 
-    // 2. Administrator accounts (role: 'admin') - verified role separation
+    // 2. Administrador (role: 'admin')
     const adminSalt = crypto.randomBytes(16).toString("hex");
-    const adminPassHash = this.hashPassword("AdminNxtgen2026!", adminSalt);
     const adminUser: StoredUser = {
-      id: "usr_admin_master",
-      email: "admin@ashens.store",
-      fullName: "Administrador Master NXTGEN",
-      passwordHash: adminPassHash,
+      id: "usr_demo_admin",
+      email: "admin@prx.dev",
+      fullName: "Admin Demo",
+      passwordHash: this.hashPassword("AdminPrx2026!", adminSalt),
       salt: adminSalt,
       role: "admin",
-      nxtScore: 9999,
-      nxtLevel: 5,
-      avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&q=80",
-      walletBalance: 15000.00,
+      prxScore: 9999,
+      prxLevel: 5,
+      avatarUrl: "",
+      walletBalance: 0,
       emailConfirmed: true,
       createdAt: new Date().toISOString(),
     };
     this.users.set(adminUser.email, adminUser);
 
-    const adminUser2: StoredUser = {
-      id: "usr_admin_nxtgen",
-      email: "admin@nxtgen.app",
-      fullName: "Admin NXTGEN",
-      passwordHash: adminPassHash,
-      salt: adminSalt,
-      role: "admin",
-      nxtScore: 9999,
-      nxtLevel: 5,
-      avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&q=80",
-      walletBalance: 15000.00,
-      emailConfirmed: true,
-      createdAt: new Date().toISOString(),
-    };
-    this.users.set(adminUser2.email, adminUser2);
-
-    const adminUser3: StoredUser = {
-      id: "6bbefe27-ecaa-4cd6-ab89-988d054dd5b3",
-      email: "adminv@nxtgen.com",
-      fullName: "Vitor Admin",
-      passwordHash: adminPassHash,
-      salt: adminSalt,
-      role: "admin",
-      nxtScore: 9999,
-      nxtLevel: 5,
-      avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&q=80",
-      walletBalance: 15000.00,
-      emailConfirmed: true,
-      createdAt: new Date().toISOString(),
-    };
-    this.users.set(adminUser3.email, adminUser3);
-
     // 3. Partner demo account (role: 'partner')
     const partnerSalt = crypto.randomBytes(16).toString("hex");
-    const partnerPassHash = this.hashPassword("PartnerNxtgen2026!", partnerSalt);
+    const partnerPassHash = this.hashPassword("PartnerPrx2026!", partnerSalt);
     const partnerUser: StoredUser = {
       id: "usr_partner_demo",
-      email: "partner@nxtgen.app",
-      fullName: "Parceiro Oficial NXTGEN",
+      email: "parceiro@prx.dev",
+      fullName: "Parceiro Demo",
       passwordHash: partnerPassHash,
       salt: partnerSalt,
       role: "partner",
-      nxtScore: 1500,
-      nxtLevel: 3,
-      avatarUrl: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200&h=200&fit=crop&q=80",
+      prxScore: 1500,
+      prxLevel: 3,
+      avatarUrl: "",
       walletBalance: 0,
       emailConfirmed: true,
       createdAt: new Date().toISOString(),
@@ -153,12 +145,12 @@ class UserStore {
 
   updateUser(
     idOrEmail: string,
-    updates: Partial<Pick<StoredUser, "nxtLevel" | "nxtScore" | "role" | "walletBalance">>
+    updates: Partial<Pick<StoredUser, "prxLevel" | "prxScore" | "role" | "walletBalance">>
   ): StoredUser | null {
     const user = this.findByEmail(idOrEmail) || this.findById(idOrEmail);
     if (!user) return null;
-    if (updates.nxtLevel !== undefined) user.nxtLevel = Number(updates.nxtLevel);
-    if (updates.nxtScore !== undefined) user.nxtScore = Number(updates.nxtScore);
+    if (updates.prxLevel !== undefined) user.prxLevel = Number(updates.prxLevel);
+    if (updates.prxScore !== undefined) user.prxScore = Number(updates.prxScore);
     if (updates.role !== undefined) user.role = updates.role;
     if (updates.walletBalance !== undefined) user.walletBalance = Number(updates.walletBalance);
     this.users.set(user.email, user);
@@ -183,9 +175,9 @@ class UserStore {
       passwordHash,
       salt,
       role: "user",
-      nxtScore: 250, // Welcome bonus score
-      nxtLevel: 1,
-      avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&q=80",
+      prxScore: 250, // Welcome bonus score
+      prxLevel: 1,
+      avatarUrl: "",
       walletBalance: 0,
       emailConfirmed: true, // Auto-confirm without email confirmation!
       createdAt: new Date().toISOString(),
@@ -216,9 +208,9 @@ class UserStore {
       passwordHash,
       salt,
       role: "user",
-      nxtScore: 300, // Welcome bonus score
-      nxtLevel: 1,
-      avatarUrl: avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&q=80",
+      prxScore: 300, // Welcome bonus score
+      prxLevel: 1,
+      avatarUrl: avatarUrl || "",
       walletBalance: 0,
       emailConfirmed: true,
       createdAt: new Date().toISOString(),
@@ -248,7 +240,7 @@ export function createSessionToken(user: StoredUser, maxAgeSeconds: number = 7 *
   ).toString("base64url");
 
   const signature = crypto
-    .createHmac("sha256", JWT_SECRET)
+    .createHmac("sha256", getSessionSecret())
     .update(`${header}.${payload}`)
     .digest("base64url");
 
@@ -258,14 +250,14 @@ export function createSessionToken(user: StoredUser, maxAgeSeconds: number = 7 *
 /**
  * Verify JWT session token
  */
-export function verifySessionToken(token: string): { valid: boolean; payload?: any } {
+export function verifySessionToken(token: string): { valid: boolean; payload?: SessionPayload } {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return { valid: false };
 
     const [header, payload, signature] = parts;
     const expectedSig = crypto
-      .createHmac("sha256", JWT_SECRET)
+      .createHmac("sha256", getSessionSecret())
       .update(`${header}.${payload}`)
       .digest("base64url");
 
@@ -338,21 +330,17 @@ export async function getCurrentUser(req?: NextRequest): Promise<StoredUser | nu
         }
 
         if (profile) {
-          let userRole = (profile.role as any) || verification.payload.role || "user";
+          let userRole = asMemberRole(profile.role || verification.payload.role);
           const userEmail = (profile.email || verification.payload.email || "").toLowerCase().trim();
-          if (
-            userRole !== "admin" &&
-            (userEmail === "adminv@nxtgen.com" ||
-             userEmail === "admin@nxtgen.app" ||
-             userEmail === "vitorrocketleague@gmail.com")
-          ) {
+          if (userRole !== "admin" && isAllowlistedAdmin(userEmail)) {
             userRole = "admin";
           }
           if (userRole === "user" && isUuid) {
             try {
               const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
-              if (authUser?.user?.user_metadata?.role) {
-                userRole = authUser.user.user_metadata.role;
+              const appRole = trustedAuthRole(authUser?.user);
+              if (appRole) {
+                userRole = asMemberRole(appRole);
               }
             } catch {}
           }
@@ -360,13 +348,13 @@ export async function getCurrentUser(req?: NextRequest): Promise<StoredUser | nu
           return {
             id: profile.id,
             email: profile.email || verification.payload.email || "",
-            fullName: profile.full_name || profile.name || verification.payload.name || "Membro NXTGEN",
+            fullName: profile.full_name || profile.name || verification.payload.name || "Membro PRX",
             passwordHash: "",
             salt: "",
             role: userRole,
-            nxtScore: profile.nxt_score ?? 250,
-            nxtLevel: profile.nxt_level ?? 1,
-            avatarUrl: profile.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&q=80",
+            prxScore: profile.nxt_score ?? 250,
+            prxLevel: profile.nxt_level ?? 1,
+            avatarUrl: profile.avatar_url || "",
             walletBalance: Number(profile.wallet_balance ?? 0),
             emailConfirmed: true,
             createdAt: profile.created_at || new Date().toISOString(),
@@ -394,7 +382,7 @@ export async function verifyAdminRequest(req?: NextRequest): Promise<{
   authorized: boolean;
   status: number;
   error?: string;
-  adminUser?: any;
+  adminUser?: SessionPayload;
 }> {
   let token: string | undefined;
 
@@ -427,11 +415,7 @@ export async function verifyAdminRequest(req?: NextRequest): Promise<{
 
   // 2. Admin email whitelist
   const userEmail = (payload.email || "").toLowerCase().trim();
-  if (
-    userEmail === "adminv@nxtgen.com" ||
-    userEmail === "admin@nxtgen.app" ||
-    userEmail === "vitorrocketleague@gmail.com"
-  ) {
+  if (isAllowlistedAdmin(userEmail)) {
     role = "admin";
   }
 
@@ -463,7 +447,7 @@ export async function verifyAdminRequest(req?: NextRequest): Promise<{
           role = "admin";
         } else if (isUuid) {
           const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(payload.sub);
-          if (authUser?.user?.user_metadata?.role === "admin") {
+          if (trustedAuthRole(authUser?.user) === "admin") {
             role = "admin";
           }
         }
@@ -497,7 +481,7 @@ export async function verifyPartnerRequest(req?: NextRequest): Promise<{
   authorized: boolean;
   status: number;
   error?: string;
-  partnerUser?: any;
+  partnerUser?: SessionPayload;
 }> {
   let token: string | undefined;
 
@@ -534,7 +518,7 @@ export async function verifyPartnerRequest(req?: NextRequest): Promise<{
       const { supabaseAdmin } = await import("@/lib/supabase/client");
       if (supabaseAdmin) {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.sub);
-        let p: any = null;
+        let p: { role?: string | null } | null = null;
         if (isUuid) {
           const { data } = await supabaseAdmin
             .from("profiles")
@@ -555,7 +539,7 @@ export async function verifyPartnerRequest(req?: NextRequest): Promise<{
           role = "partner";
         } else if (isUuid) {
           const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(payload.sub);
-          if (authUser?.user?.user_metadata?.role === "partner") {
+          if (trustedAuthRole(authUser?.user) === "partner") {
             role = "partner";
           }
         }

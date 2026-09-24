@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { passStore, SystemVoucher } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
+import type { BenefitRow, MissionRow, VoucherRow } from "@/lib/db-rows";
+import type { Benefit, MissionVerificationType, PassMission } from "@/lib/pass-data";
 
 function isUuid(id?: string | null): boolean {
   if (!id) return false;
@@ -11,8 +14,8 @@ function isUuid(id?: string | null): boolean {
 export async function GET(req: NextRequest) {
   try {
     const user = await getCurrentUser(req);
-    let benefits: any[] = [];
-    let missions: any[] = [];
+    let benefits: Benefit[] = [];
+    let missions: PassMission[] = [];
     let userVouchers: SystemVoucher[] = [];
     let supabaseBenefitsQueried = false;
     let supabaseMissionsQueried = false;
@@ -27,18 +30,18 @@ export async function GET(req: NextRequest) {
 
         if (!resBenefits.error && Array.isArray(resBenefits.data)) {
           supabaseBenefitsQueried = true;
-          benefits = resBenefits.data.map((b: any) => ({
+          benefits = resBenefits.data.map((b: BenefitRow) => ({
             id: b.id,
             partnerId: b.partner_id || b.id,
             partnerName: b.partner_name,
-            partnerLogo: b.partner_logo,
-            partnerBanner: b.partner_banner,
+            partnerLogo: b.partner_logo ?? "",
+            partnerBanner: b.partner_banner ?? "",
             partnerLocation: b.partner_location || "São Paulo, SP",
             categoryId: b.category_id,
             title: b.title,
             description: b.description || "",
             discountLabel: b.discount_label,
-            minNxtLevel: b.min_nxt_level || 1,
+            minPrxLevel: b.min_nxt_level || 1,
             terms: Array.isArray(b.terms) ? b.terms : [b.terms || "Apresente o QR Code no balcão."],
           }));
 
@@ -48,8 +51,8 @@ export async function GET(req: NextRequest) {
 
         if (resMissions.data) {
           supabaseMissionsQueried = true;
-          missions = resMissions.data.map((m: any) => {
-            let vType = m.verification_type;
+          missions = resMissions.data.map((m: MissionRow) => {
+            let vType = (m.verification_type || undefined) as MissionVerificationType | undefined;
             if (!vType) {
               const t = (m.title || "").toLowerCase();
               if (t.includes("convidar") || t.includes("amigo")) vType = "referral";
@@ -63,13 +66,13 @@ export async function GET(req: NextRequest) {
             return {
               id: m.id,
               title: m.title,
-              description: m.description,
+              description: m.description ?? "",
               xpReward: m.xp_reward,
               total: m.total,
               progress: m.progress || 0,
               isCompleted: m.is_completed || false,
               verificationType: vType,
-              category: m.category || (vType === "referral" ? "Comunidade" : "NXTGEN"),
+              category: m.category || (vType === "referral" ? "Comunidade" : "PRX"),
             };
           });
 
@@ -98,17 +101,17 @@ export async function GET(req: NextRequest) {
           const { data: dbVouchers, error: voucherErr } = await voucherQuery;
 
           if (!voucherErr && dbVouchers && dbVouchers.length > 0) {
-            userVouchers = dbVouchers.map((v: any) => ({
+            userVouchers = dbVouchers.map((v: VoucherRow) => ({
               id: v.id,
               code: v.code,
-              benefitId: v.benefit_id,
-              benefitTitle: v.benefit_title,
+              benefitId: v.benefit_id ?? "",
+              benefitTitle: v.benefit_title ?? "",
               partnerId: v.partner_id || v.id,
-              partnerName: v.partner_name,
-              discountLabel: v.discount_label,
+              partnerName: v.partner_name ?? "",
+              discountLabel: v.discount_label ?? "",
               status: v.status,
-              qrPayload: v.qr_payload,
-              redeemedAt: new Date(v.redeemed_at || v.created_at).toLocaleString("pt-BR", {
+              qrPayload: v.qr_payload ?? "",
+              redeemedAt: new Date(v.redeemed_at || v.created_at || Date.now()).toLocaleString("pt-BR", {
                 day: "2-digit",
                 month: "2-digit",
                 hour: "2-digit",
@@ -226,7 +229,7 @@ export async function GET(req: NextRequest) {
           if (!referredBy && meta?.referred_by_id) {
             referredBy = {
               id: meta.referred_by_id,
-              name: meta.referred_by_name || "Membro NXTGEN",
+              name: meta.referred_by_name || "Membro PRX",
             };
           }
         } catch {}
@@ -253,16 +256,16 @@ export async function GET(req: NextRequest) {
             id: user.id,
             email: user.email,
             name: user.fullName,
-            nxtLevel: user.nxtLevel,
-            nxtScore: user.nxtScore,
+            prxLevel: user.prxLevel,
+            prxScore: user.prxScore,
             role: user.role,
             walletBalance: user.walletBalance,
           }
         : null,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao consultar dados do NXT Pass." },
+      { error: errorMessage(error) || "Erro ao consultar dados do PRX Pass." },
       { status: 500 }
     );
   }

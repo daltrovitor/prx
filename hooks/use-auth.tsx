@@ -1,215 +1,200 @@
+// Hello World
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: "user" | "partner" | "staff" | "admin";
-  nxtScore: number;
-  nxtLevel: number;
+  prxScore: number;
+  prxLevel: number;
   walletBalance: number;
   avatarUrl: string;
 }
 
+type AuthResult = { success: boolean; error?: string };
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, pass: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
-  signup: (fullName: string, email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
-  loginWithGoogle: (rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, pass: string, rememberMe?: boolean) => Promise<AuthResult>;
+  signup: (fullName: string, email: string, pass: string) => Promise<AuthResult>;
+  loginWithGoogle: (rememberMe?: boolean) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const REMEMBER_KEY = "prx_remember_me";
+const TAB_KEY = "prx_tab_active";
+
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message ? err.message : fallback;
+}
+
+/* Acesso protegido ao storage: em aba privada ou com cookies bloqueados, falha em silêncio. */
+const storage = {
+  remembered: () => safe(() => localStorage.getItem(REMEMBER_KEY) === "true", false),
+  tabActive: () => safe(() => sessionStorage.getItem(TAB_KEY) === "true", false),
+  mark: (remember: boolean) =>
+    safe(() => {
+      if (remember) localStorage.setItem(REMEMBER_KEY, "true");
+      else localStorage.removeItem(REMEMBER_KEY);
+      sessionStorage.setItem(TAB_KEY, "true");
+    }, undefined),
+  clear: () =>
+    safe(() => {
+      localStorage.removeItem(REMEMBER_KEY);
+      sessionStorage.removeItem(TAB_KEY);
+    }, undefined),
+};
+
+function safe<T>(fn: () => T, fallback: T): T {
+  try {
+    return fn();
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Resolve a sessão atual. Contas sem "lembrar de mim" encerram quando a aba
+ * é fechada; administradores e parceiros nunca são deslogados automaticamente.
+ */
+async function resolveSession(): Promise<User | null> {
+  try {
+    const res = await fetch("/api/auth/me", { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { user?: User | null; rememberMe?: boolean };
+    const user = data.user;
+    if (!user) return null;
+
+    if (user.role === "admin" || user.role === "partner") {
+      storage.mark(true);
+      return user;
+    }
+
+    const remembered = typeof data.rememberMe === "boolean" ? data.rememberMe : storage.remembered();
+    if (!remembered && !storage.tabActive() && !storage.remembered()) {
+      await fetch("/api/auth/logout", { method: "POST" });
+      storage.clear();
+      return null;
+    }
+
+    storage.mark(remembered);
+    return user;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
-  const refreshUser = async () => {
-    try {
-      const isRemembered = typeof window !== "undefined" && localStorage.getItem("nxtgen_remember_me") === "true";
-      const isTabActive = typeof window !== "undefined" && sessionStorage.getItem("nxtgen_tab_active") === "true";
-
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.user) {
-          // Never auto-logout administrative or partner accounts
-          if (data.user.role === "admin" || data.user.role === "partner") {
-            if (typeof window !== "undefined") {
-              sessionStorage.setItem("nxtgen_tab_active", "true");
-              localStorage.setItem("nxtgen_remember_me", "true");
-            }
-            setUser(data.user);
-            setLoading(false);
-            return;
-          }
-
-          const serverRemembered = typeof data.rememberMe === "boolean" ? data.rememberMe : isRemembered;
-          // Only auto-logout if rememberMe is explicitly false AND tab is not active
-          if (serverRemembered === false && !isTabActive && !isRemembered) {
-            await fetch("/api/auth/logout", { method: "POST" });
-            if (typeof window !== "undefined") {
-              localStorage.removeItem("nxtgen_remember_me");
-              sessionStorage.removeItem("nxtgen_tab_active");
-            }
-            setUser(null);
-            setLoading(false);
-            return;
-          }
-
-          if (typeof window !== "undefined") {
-            sessionStorage.setItem("nxtgen_tab_active", "true");
-            if (serverRemembered) {
-              localStorage.setItem("nxtgen_remember_me", "true");
-            } else {
-              localStorage.removeItem("nxtgen_remember_me");
-            }
-          }
-          setUser(data.user);
-          setLoading(false);
-          return;
-        }
-      }
-      setUser(null);
-    } catch {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    refreshUser();
+  const refreshUser = useCallback(async () => {
+    setUser(await resolveSession());
+    setLoading(false);
   }, []);
 
-  const login = async (email: string, pass: string, rememberMe: boolean = true) => {
+  useEffect(() => {
+    let active = true;
+    resolveSession().then((sessionUser) => {
+      if (!active) return;
+      setUser(sessionUser);
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const login = useCallback(async (email: string, pass: string, rememberMe = true): Promise<AuthResult> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password: pass, rememberMe }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || "Falha no login" };
-      }
-
-      if (typeof window !== "undefined") {
-        if (rememberMe) {
-          localStorage.setItem("nxtgen_remember_me", "true");
-        } else {
-          localStorage.removeItem("nxtgen_remember_me");
-        }
-        sessionStorage.setItem("nxtgen_tab_active", "true");
-      }
-
+      const data = (await res.json()) as { user?: User; error?: string };
+      if (!res.ok || !data.user) return { success: false, error: data.error || "Falha no login" };
+      storage.mark(rememberMe);
       setUser(data.user);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || "Erro de conexão" };
+    } catch (err) {
+      return { success: false, error: errorMessage(err, "Erro de conexão") };
     }
-  };
+  }, []);
 
-  const signup = async (fullName: string, email: string, pass: string) => {
+  const signup = useCallback(async (fullName: string, email: string, pass: string): Promise<AuthResult> => {
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullName, email, password: pass }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || "Falha ao criar conta" };
-      }
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("nxtgen_remember_me", "true");
-        sessionStorage.setItem("nxtgen_tab_active", "true");
-      }
-
+      const data = (await res.json()) as { user?: User; error?: string };
+      if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta" };
+      storage.mark(true);
       setUser(data.user);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || "Erro de conexão" };
+    } catch (err) {
+      return { success: false, error: errorMessage(err, "Erro de conexão") };
     }
-  };
+  }, []);
 
-  const loginWithGoogle = async (rememberMe: boolean = true) => {
+  const loginWithGoogle = useCallback(async (rememberMe = true): Promise<AuthResult> => {
     try {
-      if (typeof window !== "undefined") {
-        if (rememberMe) {
-          localStorage.setItem("nxtgen_remember_me", "true");
-          document.cookie = "nxtgen_remember_pending=1; path=/; max-age=1800; SameSite=Lax";
-        } else {
-          localStorage.removeItem("nxtgen_remember_me");
-          document.cookie = "nxtgen_remember_pending=0; path=/; max-age=1800; SameSite=Lax";
-        }
-        sessionStorage.setItem("nxtgen_tab_active", "true");
-      }
+      storage.mark(rememberMe);
+      document.cookie = `prx_remember_pending=${rememberMe ? 1 : 0}; path=/; max-age=1800; SameSite=Lax`;
 
       const { supabase, isUsingLiveSupabase } = await import("@/lib/supabase/client");
       if (isUsingLiveSupabase && supabase) {
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            redirectTo: `${origin}/auth/callback`,
-            queryParams: {
-              access_type: "offline",
-              prompt: "consent",
-            },
+            redirectTo: `${window.location.origin}/auth/callback`,
+            queryParams: { access_type: "offline", prompt: "consent" },
           },
         });
-        if (error) {
-          return { success: false, error: error.message };
-        }
-        if (data?.url && typeof window !== "undefined") {
-          window.location.href = data.url;
-        }
+        if (error) return { success: false, error: error.message };
+        if (data?.url) window.location.href = data.url;
         return { success: true };
       }
 
-      // Fallback demo endpoint if Supabase client not present
+      // Sem Supabase no navegador: fluxo simulado, disponível só em desenvolvimento local.
       const res = await fetch("/api/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rememberMe }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || "Falha ao autenticar com o Google" };
-      }
+      const data = (await res.json()) as { user?: User; error?: string };
+      if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao autenticar com o Google" };
       setUser(data.user);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || "Erro ao conectar com o Google" };
+    } catch (err) {
+      return { success: false, error: errorMessage(err, "Erro ao conectar com o Google") };
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("nxtgen_remember_me");
-        sessionStorage.removeItem("nxtgen_tab_active");
-      }
+      storage.clear();
       setUser(null);
     }
-  };
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, signup, loginWithGoogle, logout, refreshUser }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user, loading, login, signup, loginWithGoogle, logout, refreshUser }),
+    [user, loading, login, signup, loginWithGoogle, logout, refreshUser]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

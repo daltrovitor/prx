@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
+import type { VoucherRow } from "@/lib/db-rows";
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,7 +28,7 @@ export async function GET(req: NextRequest) {
 
       const { data: dbVouchers, error } = await query;
       if (!error && dbVouchers) {
-        const mapped = dbVouchers.map((v: any) => ({
+        const mapped = dbVouchers.map((v: VoucherRow) => ({
           id: v.id,
           code: v.code,
           benefitId: v.benefit_id,
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
           discountLabel: v.discount_label,
           status: v.status,
           qrPayload: v.qr_payload,
-          redeemedAt: new Date(v.redeemed_at || v.created_at).toLocaleString("pt-BR", {
+          redeemedAt: new Date(v.redeemed_at || v.created_at || Date.now()).toLocaleString("pt-BR", {
             day: "2-digit",
             month: "2-digit",
             hour: "2-digit",
@@ -57,9 +59,9 @@ export async function GET(req: NextRequest) {
       : passStore.getVouchers();
 
     return NextResponse.json({ success: true, vouchers });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao consultar vouchers." },
+      { error: errorMessage(error) || "Erro ao consultar vouchers." },
       { status: 500 }
     );
   }
@@ -115,9 +117,9 @@ export async function PUT(req: NextRequest) {
       message: `Status do voucher ${updated.code} alterado para '${status === "used" ? "Utilizado" : "Válido"}'.`,
       voucher: updated,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao atualizar voucher." },
+      { error: errorMessage(error) || "Erro ao atualizar voucher." },
       { status: 500 }
     );
   }
@@ -159,9 +161,9 @@ export async function DELETE(req: NextRequest) {
       success: true,
       message: "Voucher excluído com sucesso!",
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Erro ao excluir voucher." },
+      { error: errorMessage(error) || "Erro ao excluir voucher." },
       { status: 500 }
     );
   }
