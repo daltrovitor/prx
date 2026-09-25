@@ -110,14 +110,14 @@ export function MissionsPanel({ missions, userId, referralCode, onChanged, onSco
             const isReferral = mission.verificationType === "referral";
             const current = notice?.id === mission.id ? notice : null;
             return (
-              <li key={mission.id} className="flex flex-col justify-between gap-6 bg-white p-5 sm:p-6">
-                <div className="space-y-3">
+              <li key={mission.id} className="flex flex-col justify-between gap-5 sm:gap-6 bg-card p-4 sm:p-6">
+                <div className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <Tag>{mission.category || (isReferral ? "Comunidade" : "PRX")}</Tag>
-                    <span className="font-mono text-[13px] text-primary">+{mission.xpReward} XP</span>
+                    <span className="font-mono text-xs sm:text-[13px] text-primary">+{mission.xpReward} XP</span>
                   </div>
-                  <h2 className="text-[17px] font-semibold leading-snug tracking-[-0.01em] text-ink">{mission.title}</h2>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{mission.description}</p>
+                  <h2 className="text-base sm:text-[17px] font-semibold leading-snug tracking-[-0.01em] text-ink">{mission.title}</h2>
+                  <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground">{mission.description}</p>
                 </div>
 
                 <div className="space-y-4">

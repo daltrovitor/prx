@@ -10,6 +10,7 @@ import { AdminVouchersTab } from "@/components/admin/admin-vouchers-tab";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { Button, Segmented } from "@/components/app/ui";
 import { IconExternal, IconLogout, IconRefresh } from "@/components/icons/prx-icons";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { Benefit, PassMission } from "@/lib/pass-data";
 import type { SystemVoucher } from "@/lib/pass-store";
 import { useMainSiteUrl } from "@/lib/site";
@@ -130,18 +131,19 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   ];
 
   return (
-    <div className="prx-app min-h-dvh bg-white text-ink">
-      <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur">
+    <div className="prx-app min-h-dvh bg-background text-foreground">
+      <header className="sticky top-0 z-30 border-b border-line bg-card/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-4">
             <PrxLogo variant="compact" title="PRX" className="h-6 w-auto text-ink sm:h-7" />
             <span className="hidden border-l border-line pl-4 text-sm font-medium text-muted-foreground sm:inline">Admin</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <span className="hidden text-right text-[13px] leading-tight md:block">
               <span className="block font-medium text-ink">{admin?.name || "Administrador"}</span>
               <span className="block text-muted-foreground">{admin?.email}</span>
             </span>
+            <ThemeToggle />
             <a
               href={homeUrl}
               target="_blank"

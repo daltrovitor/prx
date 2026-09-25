@@ -22,6 +22,7 @@ import { PassScreen } from "@/components/app/screens/pass-screen";
 import { BankScreen } from "@/components/app/screens/bank-screen";
 import { LiveScreen } from "@/components/app/screens/live-screen";
 import { ProfileScreen } from "@/components/app/screens/profile-screen";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -75,7 +76,7 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
   const member = pass.member;
 
   return (
-    <div className="prx-app min-h-dvh bg-white text-ink">
+    <div className="prx-app min-h-dvh bg-background text-foreground">
       <a
         href="#conteudo"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:bg-ink focus:px-4 focus:py-3 focus:text-white"
@@ -84,7 +85,7 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
       </a>
 
       {/* Trilho lateral (desktop) */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-white px-4 py-7 lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-card px-4 py-7 lg:flex">
         <button type="button" onClick={() => go("home")} className="cursor-pointer self-start px-2" aria-label="PRX — ir para o início">
           <PrxLogo variant="compact" title="" className="h-7 w-auto text-ink" />
         </button>
@@ -127,10 +128,13 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
               <p className="truncate text-[13px] text-muted-foreground">Nível {member.prxLevel || 1}</p>
             </div>
           </div>
+          <div className="mt-3">
+            <ThemeToggle showLabel className="w-full justify-start rounded-[3px] border-line text-[14px]" />
+          </div>
           <button
             type="button"
             onClick={onLogout}
-            className="mt-3 flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[3px] px-3 text-[15px] text-muted-foreground transition-colors hover:bg-surface hover:text-ink"
+            className="mt-2 flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[3px] px-3 text-[15px] text-muted-foreground transition-colors hover:bg-surface hover:text-ink"
           >
             <IconLogout size={20} />
             Sair
@@ -139,23 +143,26 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
       </aside>
 
       {/* Barra superior (mobile e tablet) */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-white/95 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-card/95 px-3 min-[380px]:px-4 backdrop-blur lg:hidden">
         <button type="button" onClick={() => go("home")} className="-ml-1 flex min-h-12 cursor-pointer items-center px-1" aria-label="PRX — ir para o início">
           <PrxLogo variant="compact" title="" className="h-6 w-auto text-ink" />
         </button>
-        <button
-          type="button"
-          onClick={() => go("pass", "missions")}
-          className="flex min-h-12 cursor-pointer items-center gap-2 pl-3 text-[13px] text-muted-foreground"
-          aria-label={`Nível ${member.prxLevel || 1}, ${member.prxScore.toLocaleString("pt-BR")} XP. Ver missões`}
-        >
-          <span className="font-mono text-ink">{member.prxScore.toLocaleString("pt-BR")} XP</span>
-          <span className="bg-ink px-1.5 py-0.5 font-mono text-[12px] leading-5 text-white">LV {member.prxLevel || 1}</span>
-        </button>
+        <div className="flex items-center gap-1.5 min-[360px]:gap-2">
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => go("pass", "missions")}
+            className="flex min-h-12 cursor-pointer items-center gap-1.5 pl-1 text-xs min-[360px]:text-[13px] text-muted-foreground"
+            aria-label={`Nível ${member.prxLevel || 1}, ${member.prxScore.toLocaleString("pt-BR")} XP. Ver missões`}
+          >
+            <span className="font-mono text-ink hidden min-[360px]:inline">{member.prxScore.toLocaleString("pt-BR")} XP</span>
+            <span className="bg-ink px-1.5 py-0.5 font-mono text-[11px] min-[360px]:text-[12px] leading-5 text-white">LV {member.prxLevel || 1}</span>
+          </button>
+        </div>
       </header>
 
       <main id="conteudo" className="lg:pl-60">
-        <div className="mx-auto w-full max-w-[1120px] px-4 pb-32 pt-6 sm:px-6 lg:px-12 lg:pb-20 lg:pt-12">
+        <div className="mx-auto w-full max-w-[1120px] px-3.5 min-[380px]:px-4 pb-28 min-[380px]:pb-32 pt-5 sm:px-6 lg:px-12 lg:pb-20 lg:pt-12">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={tab}
@@ -179,7 +186,7 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
       {/* Barra de abas inferior (mobile e tablet), no estilo dos apps sociais */}
       <nav
         aria-label="Seções do app"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-card/95 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden"
       >
         <ul className="mx-auto grid max-w-lg grid-cols-5">
           {NAV.map(({ tab: itemTab, label, Icon }) => {
@@ -191,19 +198,19 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
                   onClick={() => go(itemTab)}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex h-[60px] w-full cursor-pointer flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
-                    active ? "text-ink" : "text-muted-foreground"
+                    "relative flex h-[58px] min-[380px]:h-[62px] w-full cursor-pointer flex-col items-center justify-center gap-1 text-[10px] min-[360px]:text-[11px] font-medium transition-colors select-none",
+                    active ? "text-ink font-semibold" : "text-muted-foreground"
                   )}
                 >
                   {active && (
                     <motion.span
                       layoutId="tabbar-indicator"
-                      className="absolute left-1/2 top-0 h-[2px] w-8 -translate-x-1/2 bg-primary"
+                      className="absolute left-1/2 top-0 h-[2.5px] w-7 min-[380px]:w-8 -translate-x-1/2 bg-primary"
                       transition={{ type: "spring", stiffness: 300, damping: 28 }}
                     />
                   )}
                   <motion.span whileTap={{ scale: 0.88 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}>
-                    <Icon size={23} strokeWidth={active ? 2.2 : 1.7} />
+                    <Icon size={21} strokeWidth={active ? 2.2 : 1.7} />
                   </motion.span>
                   {label}
                 </button>

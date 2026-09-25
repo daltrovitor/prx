@@ -30,10 +30,10 @@ const buttonBase =
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary: "bg-primary text-white hover:bg-[#5708c9]",
-  ink: "bg-ink text-white hover:bg-[#23232c]",
-  secondary: "bg-white text-ink border border-line hover:border-ink",
+  ink: "bg-ink text-background hover:opacity-90",
+  secondary: "bg-card text-ink border border-line hover:border-ink",
   ghost: "text-ink hover:bg-surface",
-  danger: "bg-white text-destructive border border-line hover:border-destructive",
+  danger: "bg-card text-destructive border border-line hover:border-destructive",
 };
 
 const buttonSizes: Record<ButtonSize, string> = {
@@ -89,8 +89,8 @@ export function IconButton({
 /* -------------------------------------------------------------------------- */
 
 const controlBase =
-  "w-full rounded-[3px] border border-input bg-white px-3.5 text-[15px] text-ink placeholder:text-[#8a8a96] " +
-  "transition-colors hover:border-[#b9b9c4] focus:border-primary focus:outline-none focus-visible:outline-none " +
+  "w-full rounded-[3px] border border-input bg-card px-3.5 text-[15px] text-ink placeholder:text-[#8a8a96] " +
+  "transition-colors hover:border-[#b9b9c4] dark:hover:border-[#3d3d52] focus:border-primary focus:outline-none focus-visible:outline-none " +
   "focus:ring-2 focus:ring-primary/20 disabled:bg-surface disabled:text-muted-foreground";
 
 interface FieldProps {
@@ -195,8 +195,8 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
             aria-labelledby={titleId}
             tabIndex={-1}
             className={cn(
-              "relative flex max-h-[92dvh] w-full flex-col bg-white outline-none",
-              "rounded-t-[6px] sm:rounded-[4px] sm:border sm:border-line",
+              "relative flex max-h-[92dvh] w-full flex-col bg-card text-card-foreground outline-none",
+              "rounded-t-[8px] sm:rounded-[4px] sm:border sm:border-line shadow-2xl",
               size === "lg" ? "sm:max-w-2xl" : "sm:max-w-lg"
             )}
             initial={{ y: "100%" }}
@@ -204,20 +204,20 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 300, damping: 32 }}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-line px-5 pb-4 pt-5 sm:px-6">
-              <div className="min-w-0">
-                <h2 id={titleId} className="font-display text-xl font-semibold leading-tight tracking-[-0.02em] text-ink">
+            <div className="flex items-start justify-between gap-3 border-b border-line px-4 pb-3.5 pt-4 sm:px-6 sm:pb-4 sm:pt-5">
+              <div className="min-w-0 pr-2">
+                <h2 id={titleId} className="font-display text-lg sm:text-xl font-semibold leading-tight tracking-[-0.02em] text-ink">
                   {title}
                 </h2>
-                {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+                {description && <p className="mt-1 text-xs sm:text-sm text-muted-foreground">{description}</p>}
               </div>
-              <IconButton label="Fechar" onClick={onClose} className="-mr-3 -mt-2 shrink-0">
+              <IconButton label="Fechar" onClick={onClose} className="-mr-2 -mt-1 shrink-0 h-10 w-10 sm:h-12 sm:w-12">
                 <IconClose size={20} />
               </IconButton>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 overscroll-y-contain">{children}</div>
             {footer && (
-              <div className="border-t border-line px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">{footer}</div>
+              <div className="border-t border-line px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4">{footer}</div>
             )}
           </motion.div>
         </div>
@@ -244,7 +244,10 @@ export function Segmented<T extends string>({ value, onChange, options, label, c
     <div
       role="tablist"
       aria-label={label}
-      className={cn("flex gap-1 overflow-x-auto scrollbar-none border-b border-line", className)}
+      className={cn(
+        "-mx-4 flex gap-1 overflow-x-auto scrollbar-none px-4 sm:mx-0 sm:px-0 border-b border-line overscroll-x-contain touch-pan-x",
+        className
+      )}
     >
       {options.map((option) => {
         const active = option.value === value;
@@ -254,10 +257,13 @@ export function Segmented<T extends string>({ value, onChange, options, label, c
             role="tab"
             type="button"
             aria-selected={active}
-            onClick={() => onChange(option.value)}
+            onClick={(e) => {
+              onChange(option.value);
+              (e.currentTarget as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+            }}
             className={cn(
-              "relative min-h-12 shrink-0 px-3 text-sm font-medium whitespace-nowrap cursor-pointer transition-colors",
-              active ? "text-ink" : "text-muted-foreground hover:text-ink"
+              "relative min-h-11 sm:min-h-12 shrink-0 px-3 sm:px-3.5 text-[13px] sm:text-sm font-medium whitespace-nowrap cursor-pointer transition-colors select-none",
+              active ? "text-ink font-semibold" : "text-muted-foreground hover:text-ink"
             )}
           >
             {option.label}
@@ -267,13 +273,14 @@ export function Segmented<T extends string>({ value, onChange, options, label, c
             {active && (
               <motion.span
                 layoutId={`seg-${groupId}`}
-                className="absolute inset-x-2 -bottom-px h-[2px] bg-ink"
+                className="absolute inset-x-2 -bottom-px h-[2px] bg-primary sm:bg-ink"
                 transition={{ type: "spring", stiffness: 300, damping: 28 }}
               />
             )}
           </button>
         );
       })}
+      <span aria-hidden className="w-2 shrink-0 sm:hidden" />
     </div>
   );
 }
@@ -311,7 +318,7 @@ export function Tag({ children, tone = "neutral", className }: { children: React
     accent: "bg-primary/[0.08] text-primary",
     success: "bg-success/[0.09] text-success",
     warning: "bg-warning/[0.09] text-warning",
-    ink: "bg-ink text-white",
+    ink: "bg-ink text-background",
   } as const;
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-[2px] px-1.5 py-0.5 text-[12px] font-medium leading-5", tones[tone], className)}>

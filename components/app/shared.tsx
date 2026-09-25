@@ -55,7 +55,7 @@ export function EventDate({ iso, tone = "light", size = "md" }: { iso: string; t
 /** Célula de métrica usada na grade de KPIs. */
 export function StatCell({ label, value, children, className }: { label: string; value: ReactNode; children?: ReactNode; className?: string }) {
   return (
-    <div className={cn("flex flex-col justify-between gap-4 bg-white p-5 sm:p-6", className)}>
+    <div className={cn("flex flex-col justify-between gap-4 bg-card p-5 sm:p-6", className)}>
       <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
       <div>
         <p className="font-display text-[34px] font-semibold leading-none tracking-[-0.04em] text-ink tabular-nums">{value}</p>

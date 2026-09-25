@@ -23,26 +23,34 @@ function parseHash(hash: string): { tab: AppTab; sub: string | null } {
 }
 
 /**
- * Navegação do app por hash (#bank/pix). O domínio principal é uma rota única
- * (o proxy redireciona qualquer caminho para "/"), então o hash dá ao usuário
- * botão voltar, links diretos e estado preservado no recarregamento.
+ * Navegação do app com rotas ocultas: todo o roteamento é mantido em estado
+ * interno do cliente e o navegador permanece na raiz ("/") sem exibir parâmetros,
+ * subpastas ou hash na barra de endereços.
  */
 export function AppNavProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<{ tab: AppTab; sub: string | null }>({ tab: "home", sub: null });
 
   useEffect(() => {
-    const sync = () => setState(parseHash(window.location.hash));
+    const sync = () => {
+      if (window.location.hash) {
+        setState(parseHash(window.location.hash));
+        try {
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        } catch {}
+      }
+    };
     sync();
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
 
   const go = useCallback((tab: AppTab, sub: string | null = null) => {
-    const hash = sub ? `#${tab}/${encodeURIComponent(sub)}` : `#${tab}`;
-    if (window.location.hash !== hash) {
-      window.history.pushState(null, "", hash);
-    }
     setState({ tab, sub });
+    if (window.location.hash) {
+      try {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      } catch {}
+    }
   }, []);
 
   const value = useMemo(() => ({ ...state, go }), [state, go]);

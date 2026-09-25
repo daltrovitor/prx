@@ -31,13 +31,13 @@ export function ProfileScreen({ pass, initials, onLogout, onViewShowcase }: Prof
   return (
     <div className="space-y-12">
       <header className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex items-center gap-5">
-          <span className="flex h-20 w-20 shrink-0 items-center justify-center bg-ink font-display text-3xl font-semibold tracking-[-0.03em] text-white">
+        <div className="flex items-center gap-4 sm:gap-5">
+          <span className="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center bg-[#0b0b10] dark:bg-primary font-display text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white">
             {initials}
           </span>
           <div className="min-w-0">
-            <h1 className="truncate font-display text-4xl font-semibold leading-none tracking-[-0.04em] text-ink sm:text-5xl">{member.name || "Membro PRX"}</h1>
-            <p className="mt-2 truncate text-[15px] text-muted-foreground">
+            <h1 className="truncate font-display text-2xl min-[360px]:text-3xl sm:text-5xl font-semibold leading-none tracking-[-0.04em] text-ink">{member.name || "Membro PRX"}</h1>
+            <p className="mt-1.5 sm:mt-2 truncate text-xs sm:text-[15px] text-muted-foreground">
               {member.email} · {ROLE_LABEL[member.role] ?? "Membro"}
             </p>
           </div>
@@ -76,9 +76,9 @@ export function ProfileScreen({ pass, initials, onLogout, onViewShowcase }: Prof
         </ul>
       </section>
 
-      <div className="flex flex-col items-start gap-8 border-t border-line pt-8 sm:flex-row sm:items-center sm:justify-between">
-        <PrxLogo variant="full" title="PRX — Experiências que conectam gerações" className="h-12 w-auto text-ink" />
-        <Button variant="danger" onClick={onLogout}>
+      <div className="flex flex-col items-start gap-6 border-t border-line pt-8 sm:flex-row sm:items-center sm:justify-between">
+        <PrxLogo variant="full" title="PRX — Experiências que conectam gerações" className="h-9 sm:h-12 w-auto text-ink" />
+        <Button variant="danger" onClick={onLogout} className="w-full sm:w-auto">
           Sair da conta
         </Button>
       </div>
@@ -88,9 +88,9 @@ export function ProfileScreen({ pass, initials, onLogout, onViewShowcase }: Prof
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-white p-5">
-      <p className="text-[13px] text-muted-foreground">{label}</p>
-      <p className="mt-2 font-display text-3xl font-semibold tracking-[-0.04em] text-ink tabular-nums">{value}</p>
+    <div className="bg-card p-3.5 sm:p-5">
+      <p className="text-xs sm:text-[13px] text-muted-foreground">{label}</p>
+      <p className="mt-1 sm:mt-2 font-display text-xl sm:text-3xl font-semibold tracking-[-0.04em] text-ink tabular-nums">{value}</p>
     </div>
   );
 }

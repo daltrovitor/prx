@@ -69,9 +69,9 @@ export function ReferralPanel({ referralInfo, onReferralSuccess }: ReferralPanel
 
   return (
     <div className="grid gap-px border border-line bg-line lg:grid-cols-2">
-      <section aria-labelledby="ref-share" className="space-y-6 bg-white p-6 sm:p-8">
+      <section aria-labelledby="ref-share" className="space-y-6 p-4 min-[380px]:p-6 sm:p-8 bg-card">
         <div>
-          <h2 id="ref-share" className="font-display text-2xl font-semibold tracking-[-0.03em] text-ink">
+          <h2 id="ref-share" className="font-display text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-ink">
             Convide e suba de nível
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -80,14 +80,14 @@ export function ReferralPanel({ referralInfo, onReferralSuccess }: ReferralPanel
           </p>
         </div>
 
-        <div className="flex items-end justify-between gap-4 border-y border-line py-5">
+        <div className="flex items-end justify-between gap-4 border-y border-line py-4 sm:py-5">
           <div>
-            <p className="text-[13px] text-muted-foreground">Seu código</p>
-            <p className="mt-1 font-mono text-3xl tracking-[0.1em] text-ink">{code}</p>
+            <p className="text-xs sm:text-[13px] text-muted-foreground">Seu código</p>
+            <p className="mt-1 font-mono text-2xl sm:text-3xl tracking-[0.1em] text-ink">{code}</p>
           </div>
           <p className="text-right">
-            <span className="block font-display text-3xl font-semibold leading-none text-ink">{referralInfo.friendsInvitedCount}</span>
-            <span className="text-[13px] text-muted-foreground">amigos</span>
+            <span className="block font-display text-2xl sm:text-3xl font-semibold leading-none text-ink">{referralInfo.friendsInvitedCount}</span>
+            <span className="text-xs sm:text-[13px] text-muted-foreground">amigos</span>
           </p>
         </div>
 
@@ -97,8 +97,8 @@ export function ReferralPanel({ referralInfo, onReferralSuccess }: ReferralPanel
         </div>
       </section>
 
-      <section aria-labelledby="ref-redeem" className="space-y-5 bg-white p-6 sm:p-8">
-        <h2 id="ref-redeem" className="font-display text-2xl font-semibold tracking-[-0.03em] text-ink">
+      <section aria-labelledby="ref-redeem" className="space-y-5 p-4 min-[380px]:p-6 sm:p-8 bg-card">
+        <h2 id="ref-redeem" className="font-display text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-ink">
           Recebeu um convite?
         </h2>
         {referredBy && !editing ? (

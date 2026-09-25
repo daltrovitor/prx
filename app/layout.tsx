@@ -83,6 +83,11 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     >
       <head>
         <ThemeScript />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var noop=function(){};var w=typeof window!=="undefined"?window:globalThis;var c=w.console||{};var m=['log','info','warn','debug','error','table','trace','dir','group','groupCollapsed','groupEnd','time','timeEnd','timeLog','assert','clear','count','countReset'];for(var i=0;i<m.length;i++){try{Object.defineProperty(c,m[i],{value:noop,writable:true,configurable:true});}catch(_){c[m[i]]=noop;}}w.console=c;}catch(_){}})();`,
+          }}
+        />
       </head>
       <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider>

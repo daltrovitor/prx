@@ -194,10 +194,8 @@ export function useConfirmToast() {
         }
         return false;
       },
-      showToast: (type: string, message: string) => {
-        if (typeof window !== "undefined") {
-          console.log(`[Toast ${type}]: ${message}`);
-        }
+      showToast: (_type: string, _message: string) => {
+        // Silencioso por padrão
       },
     };
   }

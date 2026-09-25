@@ -7,6 +7,7 @@ import { PrxLogo } from "@/components/brand/prx-logo";
 import { QrScanner } from "@/components/app/qr-scanner";
 import { Button, EmptyState, Field, Input, Notice, Segmented, Sheet, Tag } from "@/components/app/ui";
 import { IconCheck, IconLogout, IconRefresh } from "@/components/icons/prx-icons";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export interface PartnerUser {
   id: string;
@@ -147,8 +148,8 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
   }
 
   return (
-    <div className="prx-app min-h-dvh bg-white text-ink">
-      <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur">
+    <div className="prx-app min-h-dvh bg-background text-foreground">
+      <header className="sticky top-0 z-30 border-b border-line bg-card/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-4">
             <PrxLogo variant="compact" title="PRX" className="h-6 w-auto text-ink sm:h-7" />
@@ -159,6 +160,7 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
               <span className="block font-medium text-ink">{user.name}</span>
               <span className="block text-muted-foreground">{user.email}</span>
             </span>
+            <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={onLogout} aria-label="Sair do portal">
               <IconLogout size={18} />
               <span className="hidden sm:inline">Sair</span>

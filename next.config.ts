@@ -29,6 +29,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**" },
     ],
   },
+  devIndicators: false,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production",
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

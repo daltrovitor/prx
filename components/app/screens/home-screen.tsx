@@ -50,12 +50,12 @@ export function HomeScreen({ pass, firstName }: HomeScreenProps) {
   ];
 
   return (
-    <div className="space-y-12 lg:space-y-16">
+    <div className="space-y-10 sm:space-y-12 lg:space-y-16">
       <motion.header initial="hidden" animate="show" custom={0} variants={reveal}>
-        <h1 className="font-display text-[44px] font-semibold leading-[0.95] tracking-[-0.045em] text-ink sm:text-6xl lg:text-7xl">
+        <h1 className="font-display text-3xl min-[380px]:text-4xl sm:text-6xl lg:text-7xl font-semibold leading-[0.95] tracking-[-0.045em] text-ink">
           Olá, {firstName}.
         </h1>
-        <p className="mt-3 max-w-md text-[15px] text-muted-foreground">
+        <p className="mt-2.5 max-w-md text-sm sm:text-[15px] text-muted-foreground">
           Seu saldo, seus benefícios e o que vem por aí, em um lugar só.
         </p>
       </motion.header>
@@ -69,9 +69,9 @@ export function HomeScreen({ pass, firstName }: HomeScreenProps) {
         variants={reveal}
         className="grid gap-px border border-line bg-line lg:grid-cols-12"
       >
-        <div className="flex flex-col justify-between gap-10 bg-ink p-6 text-white sm:p-8 lg:col-span-7">
+        <div className="flex flex-col justify-between gap-6 sm:gap-10 bg-[#0b0b10] dark:bg-[#12121c] p-5 min-[380px]:p-6 text-white sm:p-8 lg:col-span-7">
           <div className="flex items-start justify-between gap-4">
-            <p className="text-[13px] font-medium text-white/70">
+            <p className="text-xs sm:text-[13px] font-medium text-white/70">
               Saldo PRX BANK{BANK_MODE === "sandbox" ? " · demonstração" : ""}
             </p>
             <button
@@ -79,12 +79,12 @@ export function HomeScreen({ pass, firstName }: HomeScreenProps) {
               onClick={toggleHidden}
               aria-label={hidden ? "Mostrar saldo" : "Ocultar saldo"}
               aria-pressed={hidden}
-              className="-mr-3 -mt-3 flex h-12 w-12 cursor-pointer items-center justify-center text-white/80 transition-colors hover:text-white"
+              className="-mr-2 -mt-2 flex h-10 w-10 sm:h-12 sm:w-12 cursor-pointer items-center justify-center text-white/80 transition-colors hover:text-white"
             >
               {hidden ? <IconEyeOff size={20} /> : <IconEye size={20} />}
             </button>
           </div>
-          <p className="font-display text-5xl font-semibold leading-none tracking-[-0.05em] tabular-nums sm:text-6xl">
+          <p className="font-display text-3xl min-[380px]:text-4xl sm:text-6xl font-semibold leading-none tracking-[-0.05em] tabular-nums break-words">
             {hidden ? "R$ ••••" : formatBRL(bank.balance)}
           </p>
           <div className="grid grid-cols-4 gap-px bg-white/10">
@@ -93,16 +93,16 @@ export function HomeScreen({ pass, firstName }: HomeScreenProps) {
                 key={label}
                 type="button"
                 onClick={onClick}
-                className="flex min-h-[72px] cursor-pointer flex-col items-start justify-between gap-2 bg-ink p-3 text-left text-[13px] font-medium transition-colors hover:bg-[#1b1b24]"
+                className="flex min-h-[64px] sm:min-h-[72px] cursor-pointer flex-col items-center justify-center p-2 min-[360px]:p-2.5 sm:p-3 sm:items-start text-center sm:text-left transition-colors hover:bg-white/10 bg-[#0b0b10] dark:bg-[#12121c]"
               >
-                <Icon size={20} />
-                {label}
+                <Icon size={19} />
+                <span className="mt-1.5 text-[11px] min-[360px]:text-[12px] sm:text-[13px] font-medium leading-none truncate max-w-full">{label}</span>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="grid gap-px bg-line sm:grid-cols-3 lg:col-span-5 lg:grid-cols-1">
+        <div className="grid gap-px bg-line grid-cols-1 min-[520px]:grid-cols-3 lg:col-span-5 lg:grid-cols-1">
           <StatCell label="Vouchers ativos" value={activeVouchers.length}>
             <TextLink onClick={() => go("pass", "vouchers")}>{activeVouchers.length > 0 ? "Mostrar no balcão" : "Explorar benefícios"}</TextLink>
           </StatCell>
@@ -121,20 +121,20 @@ export function HomeScreen({ pass, firstName }: HomeScreenProps) {
       </motion.section>
 
       {/* Meio: o que fazer agora */}
-      <motion.div initial="hidden" animate="show" custom={2} variants={reveal} className="grid gap-12 lg:grid-cols-12 lg:gap-10">
+      <motion.div initial="hidden" animate="show" custom={2} variants={reveal} className="grid gap-8 sm:gap-12 lg:grid-cols-12 lg:gap-10">
         {nextEvent && (
           <section aria-labelledby="home-next-event" className="lg:col-span-7">
             <SectionHeader id="home-next-event" title="Próximo na PRX LIVE" action={<TextLink onClick={() => go("live", "eventos")}>Agenda</TextLink>} />
             <button
               type="button"
               onClick={() => go("live", "eventos")}
-              className="group mt-5 flex w-full cursor-pointer flex-col-reverse items-start justify-between gap-6 border border-line p-6 text-left transition-colors hover:border-ink sm:flex-row sm:items-end sm:p-7"
+              className="group mt-4 sm:mt-5 flex w-full cursor-pointer flex-col-reverse items-start justify-between gap-4 sm:gap-6 border border-line p-4 min-[380px]:p-5 sm:p-7 text-left transition-colors hover:border-ink sm:flex-row sm:items-end"
             >
-              <div className="min-w-0 space-y-5">
-                <p className="font-mono text-[12px] tracking-[0.08em] text-primary">{SERIES_LABEL[nextEvent.series].toUpperCase()}</p>
+              <div className="min-w-0 space-y-3 sm:space-y-5">
+                <p className="font-mono text-[11px] sm:text-[12px] tracking-[0.08em] text-primary">{SERIES_LABEL[nextEvent.series].toUpperCase()}</p>
                 <div>
-                  <p className="font-display text-2xl font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-3xl">{nextEvent.title}</p>
-                  <p className="mt-1.5 text-sm text-muted-foreground">
+                  <p className="font-display text-xl min-[380px]:text-2xl font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-3xl">{nextEvent.title}</p>
+                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
                     {nextEvent.venue} · {nextEvent.city}
                   </p>
                 </div>
@@ -182,19 +182,19 @@ export function HomeScreen({ pass, firstName }: HomeScreenProps) {
       {benefits.length > 0 && (
         <motion.section aria-label="Benefícios em destaque" initial="hidden" animate="show" custom={3} variants={reveal}>
           <SectionHeader title="No PASS agora" action={<TextLink onClick={() => go("pass")}>Catálogo</TextLink>} />
-          <ul className="-mx-4 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 scrollbar-none sm:mx-0 sm:px-0">
+          <ul className="-mx-3.5 min-[380px]:-mx-4 mt-4 sm:mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3.5 min-[380px]:px-4 pb-2 scrollbar-none sm:mx-0 sm:px-0 touch-pan-x">
             {benefits.slice(0, 8).map((benefit) => (
-              <li key={benefit.id} className="w-[72%] shrink-0 snap-start sm:w-[260px]">
+              <li key={benefit.id} className="w-[78%] min-[420px]:w-[260px] shrink-0 snap-start">
                 <button
                   type="button"
                   onClick={() => go("pass", `beneficio:${benefit.id}`)}
-                  className="flex h-full w-full cursor-pointer flex-col justify-between gap-8 border border-line p-5 text-left transition-colors hover:border-ink"
+                  className="flex h-full w-full cursor-pointer flex-col justify-between gap-6 sm:gap-8 border border-line p-4 sm:p-5 text-left transition-colors hover:border-ink"
                 >
-                  <span className="font-display text-[28px] font-semibold leading-none tracking-[-0.04em] text-primary">{benefit.discountLabel}</span>
-                  <span>
-                    <span className="block text-[15px] font-medium text-ink">{benefit.partnerName}</span>
-                    <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{benefit.title}</span>
-                  </span>
+                  <span className="font-display text-2xl sm:text-[28px] font-semibold leading-none tracking-[-0.04em] text-primary">{benefit.discountLabel}</span>
+                  <div>
+                    <span className="block text-sm sm:text-[15px] font-medium text-ink">{benefit.partnerName}</span>
+                    <span className="mt-0.5 block truncate text-xs sm:text-[13px] text-muted-foreground">{benefit.title}</span>
+                  </div>
                 </button>
               </li>
             ))}
