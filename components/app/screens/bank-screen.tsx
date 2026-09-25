@@ -58,7 +58,7 @@ export function BankScreen({ member }: { member: User }) {
   return (
     <div className="space-y-10">
       <header className="space-y-4">
-        <h1 className="font-display text-5xl font-semibold leading-[0.95] tracking-[-0.045em] text-ink sm:text-6xl">PRX BANK</h1>
+        <h1 className="font-display text-4xl min-[380px]:text-5xl sm:text-6xl font-semibold leading-[0.95] tracking-[-0.045em] text-ink">PRX BANK</h1>
         {BANK_MODE === "sandbox" && (
           <SandboxNotice>
             Modo demonstração: nenhum dinheiro real é movimentado. A conta digital, o Pix e os cartões passam a operar de verdade
@@ -68,20 +68,20 @@ export function BankScreen({ member }: { member: User }) {
       </header>
 
       <section aria-label="Saldo" className="grid gap-px border border-line bg-line md:grid-cols-12">
-        <div className="flex flex-col justify-between gap-8 bg-ink p-6 text-white sm:p-8 md:col-span-7">
+        <div className="flex flex-col justify-between gap-6 sm:gap-8 bg-[#0b0b10] dark:bg-[#12121c] p-5 min-[380px]:p-6 text-white sm:p-8 md:col-span-7">
           <div className="flex items-start justify-between">
-            <p className="text-[13px] font-medium text-white/70">Saldo disponível</p>
+            <p className="text-xs sm:text-[13px] font-medium text-white/70">Saldo disponível</p>
             <button
               type="button"
               onClick={toggleHidden}
               aria-label={hidden ? "Mostrar saldo" : "Ocultar saldo"}
               aria-pressed={hidden}
-              className="-mr-3 -mt-3 flex h-12 w-12 cursor-pointer items-center justify-center text-white/80 hover:text-white"
+              className="-mr-2 -mt-2 flex h-10 w-10 sm:h-12 sm:w-12 cursor-pointer items-center justify-center text-white/80 hover:text-white"
             >
               {hidden ? <IconEyeOff size={20} /> : <IconEye size={20} />}
             </button>
           </div>
-          <p className="font-display text-5xl font-semibold leading-none tracking-[-0.05em] tabular-nums sm:text-6xl">
+          <p className="font-display text-3xl min-[380px]:text-4xl sm:text-6xl font-semibold leading-none tracking-[-0.05em] tabular-nums break-words">
             {hidden ? "R$ ••••" : formatBRL(bank.balance)}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -94,15 +94,15 @@ export function BankScreen({ member }: { member: User }) {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-px bg-line md:col-span-5 md:grid-cols-1">
-          <div className="min-w-0 bg-white p-4 sm:p-6">
-            <p className="text-[13px] text-muted-foreground">Entradas (30d)</p>
-            <p className="mt-2 break-words font-display text-xl font-semibold tracking-[-0.03em] text-primary tabular-nums sm:text-3xl">
+          <div className="min-w-0 bg-card p-3.5 sm:p-6">
+            <p className="text-xs sm:text-[13px] text-muted-foreground">Entradas (30d)</p>
+            <p className="mt-1.5 sm:mt-2 break-words font-display text-lg min-[360px]:text-xl font-semibold tracking-[-0.03em] text-primary tabular-nums sm:text-3xl">
               {hidden ? "••••" : formatBRL(last30.income)}
             </p>
           </div>
-          <div className="min-w-0 bg-white p-4 sm:p-6">
-            <p className="text-[13px] text-muted-foreground">Saídas (30d)</p>
-            <p className="mt-2 break-words font-display text-xl font-semibold tracking-[-0.03em] text-ink tabular-nums sm:text-3xl">
+          <div className="min-w-0 bg-card p-3.5 sm:p-6">
+            <p className="text-xs sm:text-[13px] text-muted-foreground">Saídas (30d)</p>
+            <p className="mt-1.5 sm:mt-2 break-words font-display text-lg min-[360px]:text-xl font-semibold tracking-[-0.03em] text-ink tabular-nums sm:text-3xl">
               {hidden ? "••••" : formatBRL(last30.outcome)}
             </p>
           </div>
@@ -142,14 +142,14 @@ function StatementPanel({ bank, hidden }: { bank: BankState; hidden: boolean }) 
   return (
     <section aria-label="Extrato" className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div role="group" aria-label="Período" className="flex gap-2">
+        <div role="group" aria-label="Período" className="-mx-3.5 px-3.5 min-[380px]:-mx-4 min-[380px]:px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto scrollbar-none touch-pan-x">
           {([7, 30, 90] as const).map((p) => (
             <FilterChip key={p} active={period === p} onClick={() => setPeriod(p)}>
               {p} dias
             </FilterChip>
           ))}
         </div>
-        <div role="group" aria-label="Tipo de movimentação" className="flex gap-2">
+        <div role="group" aria-label="Tipo de movimentação" className="-mx-3.5 px-3.5 min-[380px]:-mx-4 min-[380px]:px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto scrollbar-none touch-pan-x">
           {(
             [
               ["all", "Tudo"],
@@ -191,7 +191,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       onClick={onClick}
       className={cn(
         "min-h-10 cursor-pointer rounded-[2px] border px-3.5 text-sm transition-colors",
-        active ? "border-ink bg-ink text-white" : "border-line text-muted-foreground hover:border-ink hover:text-ink"
+        active ? "border-primary bg-primary text-white" : "border-line text-muted-foreground hover:border-ink hover:text-ink"
       )}
     >
       {children}
@@ -575,9 +575,9 @@ function CardsPanel({ bank, setBank, holder }: { bank: BankState; setBank: Updat
                 return (
                   <li key={stage.stage} className="relative flex gap-4 pb-6 last:pb-0">
                     {index < PHYSICAL_CARD_STAGES.length - 1 && (
-                      <span aria-hidden className={cn("absolute left-[7px] top-5 h-[calc(100%-12px)] w-px", index < stageIndex ? "bg-ink" : "bg-line")} />
+                      <span aria-hidden className={cn("absolute left-[7px] top-5 h-[calc(100%-12px)] w-px", index < stageIndex ? "bg-primary" : "bg-line")} />
                     )}
-                    <span aria-hidden className={cn("mt-1 h-[15px] w-[15px] shrink-0 border-2", done ? "border-ink bg-ink" : "border-line bg-white")} />
+                    <span aria-hidden className={cn("mt-1 h-[15px] w-[15px] shrink-0 border-2", done ? "border-primary bg-primary" : "border-line bg-surface")} />
                     <div>
                       <p className={cn("text-[15px] font-medium", done ? "text-ink" : "text-muted-foreground")}>{stage.label}</p>
                       <p className="text-[13px] text-muted-foreground">
@@ -703,10 +703,10 @@ function KeysPanel({ bank, setBank }: { bank: BankState; setBank: Updater }) {
         ) : (
           <ul className="divide-y divide-line border-y border-line">
             {bank.pixKeys.map((k) => (
-              <li key={k.id} className="flex items-center justify-between gap-4 py-3.5">
-                <div className="min-w-0">
-                  <p className="text-[13px] text-muted-foreground">{PIX_KEY_LABEL[k.type]}</p>
-                  <p className="truncate font-mono text-[15px] text-ink">{k.value}</p>
+              <li key={k.id} className="flex items-center justify-between gap-3 sm:gap-4 py-3.5">
+                <div className="min-w-0 pr-2">
+                  <p className="text-xs sm:text-[13px] text-muted-foreground">{PIX_KEY_LABEL[k.type]}</p>
+                  <p className="break-all font-mono text-sm sm:text-[15px] text-ink">{k.value}</p>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <CopyButton value={k.value} />

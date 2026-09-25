@@ -43,8 +43,8 @@ export function LiveScreen({ member }: { member: User }) {
   return (
     <div className="space-y-10">
       <header className="space-y-4">
-        <h1 className="font-display text-5xl font-semibold leading-[0.95] tracking-[-0.045em] text-ink sm:text-6xl">PRX LIVE</h1>
-        <p className="max-w-md text-[15px] text-muted-foreground">Eventos, corridas e o palco das startups. Ingresso na carteira, QR na portaria.</p>
+        <h1 className="font-display text-4xl min-[380px]:text-5xl sm:text-6xl font-semibold leading-[0.95] tracking-[-0.045em] text-ink">PRX LIVE</h1>
+        <p className="max-w-md text-sm sm:text-[15px] text-muted-foreground">Eventos, corridas e o palco das startups. Ingresso na carteira, QR na portaria.</p>
       </header>
 
       <Segmented
@@ -131,7 +131,7 @@ function EventsPanel({ member, onBought }: { member: User; onBought: () => void 
 
   return (
     <section aria-label="Agenda de eventos" className="space-y-6">
-      <div role="group" aria-label="Séries" className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0">
+      <div role="group" aria-label="Séries" className="-mx-3.5 px-3.5 min-[380px]:-mx-4 min-[380px]:px-4 flex gap-2 overflow-x-auto scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0 touch-pan-x overscroll-x-contain">
         {(["all", "founders", "session", "ctrl", "talks"] as const).map((value) => (
           <button
             key={value}
@@ -139,8 +139,8 @@ function EventsPanel({ member, onBought }: { member: User; onBought: () => void 
             aria-pressed={series === value}
             onClick={() => setSeries(value)}
             className={cn(
-              "min-h-10 shrink-0 cursor-pointer rounded-[2px] border px-3.5 text-sm whitespace-nowrap transition-colors",
-              series === value ? "border-ink bg-ink text-white" : "border-line text-muted-foreground hover:border-ink hover:text-ink"
+              "min-h-10 shrink-0 cursor-pointer rounded-[2px] border px-3 sm:px-3.5 text-xs sm:text-sm whitespace-nowrap transition-colors",
+              series === value ? "border-primary bg-primary text-white" : "border-line text-muted-foreground hover:border-ink hover:text-ink"
             )}
           >
             {value === "all" ? "Todos" : SERIES_LABEL[value]}
@@ -157,15 +157,15 @@ function EventsPanel({ member, onBought }: { member: User; onBought: () => void 
               <button
                 type="button"
                 onClick={() => open(event)}
-                className="group grid w-full cursor-pointer grid-cols-[auto_1fr] items-start gap-5 py-6 text-left sm:grid-cols-[120px_1fr_auto] sm:items-center sm:gap-8"
+                className="group grid w-full cursor-pointer grid-cols-[auto_1fr] items-start gap-4 py-5 text-left sm:grid-cols-[120px_1fr_auto] sm:items-center sm:gap-8 sm:py-6"
               >
                 <EventDate iso={event.startsAt} />
-                <div className="min-w-0 space-y-2">
-                  <p className="font-mono text-[12px] tracking-[0.08em] text-primary">{SERIES_LABEL[event.series].toUpperCase()}</p>
-                  <p className="font-display text-2xl font-semibold leading-tight tracking-[-0.03em] text-ink group-hover:underline group-hover:underline-offset-4">
+                <div className="min-w-0 space-y-1.5 sm:space-y-2">
+                  <p className="font-mono text-[11px] sm:text-[12px] tracking-[0.08em] text-primary">{SERIES_LABEL[event.series].toUpperCase()}</p>
+                  <p className="font-display text-xl sm:text-2xl font-semibold leading-tight tracking-[-0.03em] text-ink group-hover:underline group-hover:underline-offset-4">
                     {event.title}
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {event.venue} · {event.city}
                   </p>
                 </div>
@@ -238,12 +238,12 @@ function EventsPanel({ member, onBought }: { member: User; onBought: () => void 
                       key={value}
                       className={cn(
                         "flex min-h-16 cursor-pointer flex-col justify-center border px-3 py-2 transition-colors",
-                        method === value ? "border-ink bg-ink text-white" : "border-line text-ink hover:border-ink"
+                        method === value ? "border-primary bg-primary text-white" : "border-line text-ink hover:border-ink"
                       )}
                     >
                       <input type="radio" name="pay" value={value} checked={method === value} onChange={() => setMethod(value)} className="sr-only" />
                       <span className="text-sm font-medium">{label}</span>
-                      <span className={cn("text-[12px]", method === value ? "text-white/70" : "text-muted-foreground")}>{detail}</span>
+                      <span className={cn("text-[12px]", method === value ? "text-white/80" : "text-muted-foreground")}>{detail}</span>
                     </label>
                   ))}
                 </div>
@@ -327,7 +327,7 @@ function TicketsPanel({ member, onBrowse }: { member: User; onBrowse: () => void
                 onClick={() => setOpen(ticket)}
                 className="flex w-full cursor-pointer items-stretch border border-line text-left transition-colors hover:border-ink"
               >
-                <div className="flex flex-col justify-between bg-ink p-5">
+                <div className="flex flex-col justify-between bg-[#0b0b10] dark:bg-[#12121c] p-5">
                   <EventDate iso={event.startsAt} tone="dark" />
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col justify-between gap-4 p-5">
@@ -382,20 +382,20 @@ function RunPanel({ member }: { member: User }) {
     <div className="grid gap-12 lg:grid-cols-12">
       {upcoming && (
         <section aria-labelledby="run-next" className="space-y-6 lg:col-span-7">
-          <div className="flex items-start justify-between gap-6 border-b border-line pb-6">
+          <div className="flex items-start justify-between gap-4 sm:gap-6 border-b border-line pb-6">
             <div>
-              <h2 id="run-next" className="font-display text-3xl font-semibold tracking-[-0.03em] text-ink">
+              <h2 id="run-next" className="font-display text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-ink">
                 {upcoming.title}
               </h2>
-              <p className="mt-1.5 text-sm text-muted-foreground">{upcoming.location}</p>
-              <p className="mt-1 text-sm text-muted-foreground">Retirada do kit: {upcoming.kitPickup}</p>
+              <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground">{upcoming.location}</p>
+              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Retirada do kit: {upcoming.kitPickup}</p>
             </div>
             <EventDate iso={upcoming.startsAt} />
           </div>
 
           {registration ? (
             <div className="grid gap-6 sm:grid-cols-[200px_1fr]">
-              <div className="border border-line p-2">
+              <div className="border border-line p-2 max-w-[220px] sm:max-w-none mx-auto sm:mx-0 w-full">
                 {kitQr ? <Image src={kitQr} alt={`QR Code de retirada do kit ${registration.kitCode}`} width={280} height={280} unoptimized className="h-auto w-full" /> : <div className="aspect-square bg-surface" />}
               </div>
               <div className="space-y-4">
@@ -431,7 +431,7 @@ function RunPanel({ member }: { member: User }) {
                       key={m}
                       className={cn(
                         "flex min-h-14 cursor-pointer items-center justify-center border font-display text-2xl font-semibold uppercase tracking-[-0.02em] transition-colors",
-                        modality === m ? "border-ink bg-ink text-white" : "border-line text-ink hover:border-ink"
+                        modality === m ? "border-primary bg-primary text-white" : "border-line text-ink hover:border-ink"
                       )}
                     >
                       <input type="radio" name="modality" value={m} checked={modality === m} onChange={() => setModality(m)} className="sr-only" />

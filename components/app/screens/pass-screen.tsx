@@ -81,23 +81,23 @@ export function PassScreen({ pass }: { pass: PassData }) {
 
   return (
     <div className="space-y-10">
-      <header className="grid gap-8 lg:grid-cols-12 lg:items-end">
+      <header className="grid gap-6 sm:gap-8 lg:grid-cols-12 lg:items-end">
         <div className="lg:col-span-7">
-          <h1 className="font-display text-5xl font-semibold leading-[0.95] tracking-[-0.045em] text-ink sm:text-6xl">PRX PASS</h1>
-          <p className="mt-3 max-w-md text-[15px] text-muted-foreground">
+          <h1 className="font-display text-4xl min-[380px]:text-5xl sm:text-6xl font-semibold leading-[0.95] tracking-[-0.045em] text-ink">PRX PASS</h1>
+          <p className="mt-2.5 max-w-md text-sm sm:text-[15px] text-muted-foreground">
             Descontos reais em marcas parceiras. Resgate, mostre o QR no balcão e pronto.
           </p>
         </div>
-        <div className="border border-line p-5 lg:col-span-5">
+        <div className="border border-line p-4 sm:p-5 lg:col-span-5">
           <div className="flex items-baseline justify-between">
-            <p className="text-[13px] font-medium text-muted-foreground">Seu nível</p>
-            <p className="font-mono text-[13px] text-ink">{(member.prxScore ?? 0).toLocaleString("pt-BR")} XP</p>
+            <p className="text-xs sm:text-[13px] font-medium text-muted-foreground">Seu nível</p>
+            <p className="font-mono text-xs sm:text-[13px] text-ink">{(member.prxScore ?? 0).toLocaleString("pt-BR")} XP</p>
           </div>
-          <p className="mt-2 font-display text-4xl font-semibold leading-none tracking-[-0.04em] text-ink">Nível {memberLevel}</p>
-          <div className="mt-4">
+          <p className="mt-1.5 sm:mt-2 font-display text-3xl sm:text-4xl font-semibold leading-none tracking-[-0.04em] text-ink">Nível {memberLevel}</p>
+          <div className="mt-3 sm:mt-4">
             <ProgressBar value={progress.pct} label="Progresso até o próximo nível" />
           </div>
-          <p className="mt-2 text-[13px] text-muted-foreground">
+          <p className="mt-2 text-xs sm:text-[13px] text-muted-foreground">
             {progress.next === null ? "Você está no topo da régua." : `${progress.remaining.toLocaleString("pt-BR")} XP para o nível ${progress.level + 1}.`}
           </p>
         </div>
@@ -132,7 +132,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
                 className="pl-11"
               />
             </div>
-            <div role="group" aria-label="Categorias" className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0">
+            <div role="group" aria-label="Categorias" className="-mx-3.5 px-3.5 min-[380px]:-mx-4 min-[380px]:px-4 flex gap-2 overflow-x-auto scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0 touch-pan-x overscroll-x-contain">
               {PRX_CATEGORIES.map((cat) => {
                 const active = cat.id === category;
                 return (
@@ -143,7 +143,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
                     onClick={() => setCategory(cat.id)}
                     className={cn(
                       "min-h-10 shrink-0 cursor-pointer rounded-[2px] border px-3.5 text-sm whitespace-nowrap transition-colors",
-                      active ? "border-ink bg-ink text-white" : "border-line text-muted-foreground hover:border-ink hover:text-ink"
+                      active ? "border-primary bg-primary text-white" : "border-line text-muted-foreground hover:border-ink hover:text-ink"
                     )}
                   >
                     {cat.name}

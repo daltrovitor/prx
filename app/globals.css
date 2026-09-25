@@ -112,7 +112,8 @@
    árvore contém .prx-app (dashboard, admin, parceiro, 404). A landing mantém
    seu próprio tema escuro.
    ========================================================================= */
-html:has(.prx-app) {
+html.light:has(.prx-app),
+html:not(.dark):has(.prx-app) {
   --background: #ffffff;
   --foreground: #0b0b10;
   --ink: #0b0b10;
@@ -141,7 +142,42 @@ html:has(.prx-app) {
   background-color: #ffffff;
 }
 
-html:has(.prx-app) body {
+html.dark:has(.prx-app) {
+  --background: #09090c;
+  --foreground: #f4f4f7;
+  --ink: #f4f4f7;
+  --surface: #13131c;
+  --line: #222230;
+  --card: #12121a;
+  --card-foreground: #f4f4f7;
+  --popover: #12121a;
+  --popover-foreground: #f4f4f7;
+  --primary: #8b5cf6;
+  --primary-foreground: #ffffff;
+  --secondary: #181824;
+  --secondary-foreground: #f4f4f7;
+  --muted: #181824;
+  --muted-foreground: #9ca3af;
+  --accent: #8b5cf6;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --border: #222230;
+  --input: #262638;
+  --ring: #8b5cf6;
+  --radius: 0.25rem;
+  color-scheme: dark;
+  background-color: #09090c;
+}
+
+html.dark:has(.prx-app) body {
+  background-color: #09090c;
+  color: #f4f4f7;
+}
+
+html.light:has(.prx-app) body,
+html:not(.dark):has(.prx-app) body {
   background-color: #ffffff;
   color: #0b0b10;
 }
@@ -159,6 +195,18 @@ html:has(.prx-app) body {
 ::selection {
   background: #6c0cf0;
   color: #ffffff;
+}
+
+/* Neutraliza dev overlay do Next.js de interceptar cliques na barra inferior do mobile */
+nextjs-portal,
+[data-nextjs-dev-overlay="true"],
+[data-next-badge] {
+  pointer-events: none !important;
+}
+
+nextjs-portal > *,
+[data-nextjs-dialog-overlay] {
+  pointer-events: auto !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
