@@ -2,11 +2,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PrxLogo } from "@/components/brand/prx-logo";
-import { Button, EmptyState, Notice, Segmented } from "@/components/app/ui";
+import { DashboardHeader } from "@/components/app/dashboard-header";
+import { EmptyState, IconButton, Notice, Segmented } from "@/components/app/ui";
 import { IconLogout } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { PartnerValidator } from "@/components/partner/partner-validator";
+import { ValidationSheet, ValidatorPanel, useValidation } from "@/components/validation/validator";
+import { DoorEvents } from "@/components/validation/door-events";
 import { PartnerContracts } from "@/components/partner/partner-contracts";
 import { PartnerCompany, type PartnerProfile } from "@/components/partner/partner-company";
 import { MetricsPanel } from "@/components/partners/metrics-panel";
@@ -20,7 +21,7 @@ export interface PartnerUser {
   avatarUrl?: string;
 }
 
-type Tab = "validar" | "contratos" | "metricas" | "empresa";
+type Tab = "validar" | "eventos" | "contratos" | "metricas" | "empresa";
 
 interface ProfileState {
   partner: PartnerProfile | null;
@@ -53,6 +54,7 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
   const [tab, setTab] = useState<Tab>("validar");
   const [profile, setProfile] = useState<ProfileState | null>(null);
   const [campaigns, setCampaigns] = useState<PartnerCampaignView[] | null>(null);
+  const validation = useValidation();
 
   const refreshCampaigns = useCallback(async () => setCampaigns(await fetchCampaigns()), []);
 
@@ -75,27 +77,21 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
 
   return (
     <div className="prx-app min-h-dvh bg-background text-foreground">
-      <header className="sticky top-0 z-30 border-b border-line bg-card/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-4">
-            <PrxLogo variant="compact" title="PRX" className="h-6 w-auto shrink-0 text-ink sm:h-7" />
-            <span className="hidden truncate border-l border-line pl-4 text-sm font-medium text-muted-foreground sm:inline">{partner?.tradeName ?? "Parceiros"}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-right text-[13px] leading-tight md:block">
-              <span className="block font-medium text-ink">{user.name}</span>
-              <span className="block text-muted-foreground">{user.email}</span>
-            </span>
-            <ThemeToggle />
-            <Button variant="ghost" size="sm" onClick={onLogout} aria-label="Sair do portal">
+      <DashboardHeader
+        name={user.name}
+        subtitle={partner?.tradeName ?? user.email}
+        area={partner?.tradeName ?? "Parceiros"}
+        actions={
+          <>
+            <ThemeToggle variant="app" />
+            <IconButton label="Sair do portal" onClick={onLogout}>
               <IconLogout size={18} />
-              <span className="hidden sm:inline">Sair</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+            </IconButton>
+          </>
+        }
+      />
 
-      <main className="mx-auto max-w-6xl space-y-8 px-4 pb-20 pt-8 sm:px-6 lg:pt-12">
+      <main className="mx-auto max-w-6xl space-y-8 px-4 pb-20 pt-4 sm:px-6 lg:pt-8">
         <h1 className="sr-only">Área do Parceiro PRX</h1>
 
         {profile?.error && !partner ? (
@@ -111,13 +107,25 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
               onChange={setTab}
               options={[
                 { value: "validar", label: "Validar" },
+                { value: "eventos", label: "Eventos" },
                 { value: "contratos", label: "Contratos", count: pending > 0 ? pending : undefined },
                 { value: "metricas", label: "Métricas" },
                 { value: "empresa", label: "Empresa" },
               ]}
             />
 
-            {tab === "validar" && <PartnerValidator />}
+            {tab === "validar" && (
+              <ValidatorPanel validation={validation} hint="Leia o QR Code do app do cliente ou digite o código. Vale para vouchers dos seus benefícios e ingressos dos eventos ligados a você." />
+            )}
+            {tab === "eventos" && (
+              <DoorEvents
+                endpoint="/api/partner/events"
+                refreshKey={validation.version}
+                onValidate={(code) => void validation.lookup(code)}
+                emptyBody="Quando a PRX ligar um evento ao seu estabelecimento, a portaria dele aparece aqui."
+              />
+            )}
+            <ValidationSheet validation={validation} />
             {tab === "contratos" && <PartnerContracts campaigns={campaigns} onChanged={refreshCampaigns} onCompleteProfile={() => setTab("empresa")} />}
             {tab === "metricas" && <MetricsPanel endpoint="/api/partner/metrics" />}
             {tab === "empresa" &&

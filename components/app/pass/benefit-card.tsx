@@ -30,9 +30,9 @@ export function BenefitCard({ benefit, redeemed, locked, onSelect }: BenefitCard
     <button
       type="button"
       onClick={() => onSelect(benefit)}
-      className="group flex h-full w-full cursor-pointer flex-col border border-line bg-card text-left transition-colors hover:border-ink"
+      className="group flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-3xl bg-surface p-2 text-left transition-colors hover:bg-line"
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface">
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-card">
         {src ? (
           <Image
             src={src}
@@ -43,38 +43,34 @@ export function BenefitCard({ benefit, redeemed, locked, onSelect }: BenefitCard
             onError={() => setImageFailed(true)}
           />
         ) : (
-          <span aria-hidden className="absolute inset-0 flex items-center justify-center font-display text-6xl font-semibold tracking-[-0.05em] text-ink/15">
+          <span aria-hidden className="absolute inset-0 flex items-center justify-center text-6xl font-semibold tracking-[-0.05em] text-ink/15">
             {partnerInitials(benefit.partnerName)}
           </span>
         )}
-        <span className="absolute left-0 top-0 bg-ink px-2.5 py-1.5 font-display text-[15px] font-semibold tracking-[-0.02em] text-white">
+        <span className="absolute left-3 top-3 rounded-full bg-card px-3 py-1 text-[15px] font-semibold tracking-[-0.02em] text-ink shadow-sm">
           {benefit.discountLabel}
         </span>
-        {redeemed && (
-          <span className="absolute bottom-0 right-0 bg-primary px-2.5 py-1 text-[12px] font-medium text-white">Voucher ativo</span>
-        )}
+        {redeemed && <span className="absolute bottom-3 right-3 rounded-full bg-primary px-3 py-1 text-[12px] font-semibold text-white">Voucher ativo</span>}
       </div>
-      <div className="flex flex-1 flex-col justify-between gap-4 p-4">
+      <div className="flex flex-1 flex-col justify-between gap-4 px-3 pb-3 pt-3.5">
         <div>
           <div className="flex items-start justify-between gap-2">
-            <p className="min-w-0 text-[13px] text-muted-foreground">
+            <p className="min-w-0 truncate text-[13px] text-muted-foreground">
               {benefit.partnerName} · {benefit.partnerLocation}
             </p>
             {/* Mídia paga identificada ao membro (cláusula 8.6 do Termo de Parceria). */}
-            {benefit.sponsored && (
-              <span className="shrink-0 rounded-[2px] border border-line px-1.5 text-[12px] font-medium leading-5 text-muted-foreground">Patrocinado</span>
-            )}
+            {benefit.sponsored && <span className="shrink-0 rounded-full bg-card px-2 text-[12px] font-medium leading-5 text-muted-foreground">Patrocinado</span>}
           </div>
           <p className="mt-1 text-base font-semibold leading-snug tracking-[-0.01em] text-ink">{benefit.title}</p>
         </div>
-        <p className={cn("text-[13px] font-medium", locked ? "text-muted-foreground" : "text-ink")}>
-          {locked ? `Libera no nível ${benefit.minPrxLevel}` : redeemed ? "Abrir voucher" : "Usar benefício"}
-          {!locked && (
-            <span aria-hidden className="ml-1 inline-block transition-transform duration-200 group-hover:translate-x-0.5">
-              →
-            </span>
+        <span
+          className={cn(
+            "inline-flex min-h-9 w-fit items-center rounded-full px-4 text-[13px] font-medium",
+            locked ? "bg-card text-muted-foreground" : "bg-ink text-background"
           )}
-        </p>
+        >
+          {locked ? `Libera no nível ${benefit.minPrxLevel}` : redeemed ? "Abrir voucher" : "Usar benefício"}
+        </span>
       </div>
     </button>
   );

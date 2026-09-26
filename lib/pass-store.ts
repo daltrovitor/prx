@@ -30,6 +30,14 @@ export interface UserMissionState {
   completedAt?: string;
 }
 
+/**
+ * Id único mesmo quando vários registros nascem no mesmo milissegundo
+ * (ex.: as missões-modelo criadas em laço), o que antes gerava ids repetidos.
+ */
+function uniqueId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
 class PassStore {
   private benefits: Benefit[] = [];
   private missions: PassMission[] = [];
@@ -78,7 +86,7 @@ class PassStore {
   }
 
   createBenefit(data: Omit<Benefit, "id"> & { id?: string }): Benefit {
-    const newId = data.id || `ben-${Date.now().toString(36)}`;
+    const newId = data.id || uniqueId("ben");
     const newBenefit: Benefit = {
       ...data,
       id: newId,
@@ -115,7 +123,7 @@ class PassStore {
   }
 
   createMission(data: Omit<PassMission, "id"> & { id?: string }): PassMission {
-    const newId = data.id || `miss-${Date.now().toString(36)}`;
+    const newId = data.id || uniqueId("miss");
     const newMission: PassMission = {
       ...data,
       id: newId,
@@ -215,7 +223,7 @@ class PassStore {
   verifyMission(
     userId: string,
     missionId: string,
-    extra?: { userVouchersCount?: number }
+    extra?: { userVouchersCount?: number; liveCheckins?: number; runSignups?: number; foundersSubmissions?: number }
   ): {
     success: boolean;
     completed: boolean;
@@ -300,10 +308,18 @@ class PassStore {
         };
       }
     } else if (vType === "founders_pitch") {
+      const sent = extra?.foundersSubmissions ?? 0;
+      if (sent < 1) {
+        return { success: false, completed: false, progress: 0, total: mission.total, xpEarned: 0, message: "Envie sua startup no PRX FOUNDERS (aba LIVE) para concluir esta missão." };
+      }
       newProgress = mission.total;
       completed = true;
       message = `Pitch submetido com sucesso no funil Zero to One de Rafael Molina! Recompensa de +${mission.xpReward} XP desbloqueada.`;
     } else if (vType === "run_signup") {
+      const signups = extra?.runSignups ?? 0;
+      if (signups < 1) {
+        return { success: false, completed: false, progress: 0, total: mission.total, xpEarned: 0, message: "Faça sua inscrição confirmada em uma etapa da PRX RUN (aba LIVE) para concluir esta missão." };
+      }
       newProgress = mission.total;
       completed = true;
       message = `Inscrição confirmada no circuito PRX RUN! Kit atleta reservado. Recompensa de +${mission.xpReward} XP desbloqueada.`;
@@ -324,7 +340,18 @@ class PassStore {
       completed = true;
       message = `Check-in de saúde emocional registrado no PRÓXIMO EU! Recompensa de +${mission.xpReward} XP desbloqueada.`;
     } else if (vType === "event_checkin") {
-      newProgress = mission.total;
+      const checkins = extra?.liveCheckins ?? 0;
+      newProgress = Math.min(mission.total, checkins);
+      if (checkins < mission.total) {
+        return {
+          success: false,
+          completed: false,
+          progress: newProgress,
+          total: mission.total,
+          xpEarned: 0,
+          message: `Seu ingresso precisa ser validado na portaria de um evento PRX LIVE (${newProgress}/${mission.total}).`,
+        };
+      }
       completed = true;
       message = `Check-in presencial no evento PRX LIVE validado com sucesso! Recompensa de +${mission.xpReward} XP desbloqueada.`;
     } else {
@@ -415,7 +442,7 @@ class PassStore {
     }
 
     const newReferral: ReferralRecord = {
-      id: `ref-${Date.now().toString(36)}`,
+      id: uniqueId("ref"),
       referrerId,
       referrerName: referrerName || "Membro PRX",
       referredUserId,
@@ -485,7 +512,7 @@ class PassStore {
   }
 
   createVoucher(voucher: Omit<SystemVoucher, "id"> & { id?: string }): SystemVoucher {
-    const newId = voucher.id || `vouch-${Date.now().toString(36)}`;
+    const newId = voucher.id || uniqueId("vouch");
     const newVoucher: SystemVoucher = {
       ...voucher,
       createdAtIso: voucher.createdAtIso ?? new Date().toISOString(),

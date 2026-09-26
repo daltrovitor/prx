@@ -49,7 +49,8 @@ const DEFAULT_DEMO_USER = {
   prxScore: 2150,
   prxLevel: 3,
   avatarUrl: "",
-  walletBalance: 124.5,
+  // Conta digital ainda não ativada (sem BaaS): saldo real é zero.
+  walletBalance: 0,
 };
 
 // Armazenamento em memória com contas de demonstração (apenas desenvolvimento local).
@@ -117,6 +118,24 @@ class UserStore {
       createdAt: new Date().toISOString(),
     };
     this.users.set(partnerUser.email, partnerUser);
+
+    // 4. Equipe PRX (role: 'staff'): valida ingressos e benefícios no portal staffprx
+    const staffSalt = crypto.randomBytes(16).toString("hex");
+    const staffUser: StoredUser = {
+      id: "usr_demo_staff",
+      email: "staff@prx.dev",
+      fullName: "Equipe Demo",
+      passwordHash: this.hashPassword("StaffPrx2026!", staffSalt),
+      salt: staffSalt,
+      role: "staff",
+      prxScore: 0,
+      prxLevel: 1,
+      avatarUrl: "",
+      walletBalance: 0,
+      emailConfirmed: true,
+      createdAt: new Date().toISOString(),
+    };
+    this.users.set(staffUser.email, staffUser);
   }
 
   hashPassword(password: string, salt: string): string {
@@ -571,4 +590,50 @@ export async function verifyPartnerRequest(req?: NextRequest): Promise<{
   }
 
   return { authorized: true, status: 200, partnerUser: { ...payload, role } };
+}
+
+/**
+ * Sessão do portal da Equipe PRX (staffprx). Aceita papel "staff" e também
+ * administradores, que validam ingressos e benefícios sem restrição.
+ * As permissões finas do funcionário ficam em staff_members (lib/staff).
+ */
+export async function verifyStaffRequest(req?: NextRequest): Promise<{
+  authorized: boolean;
+  status: number;
+  error?: string;
+  staffUser?: SessionPayload & { role: "staff" | "admin" };
+}> {
+  const admin = await verifyAdminRequest(req);
+  if (admin.authorized && admin.adminUser) return { authorized: true, status: 200, staffUser: { ...admin.adminUser, role: "admin" } };
+  if (admin.status === 401) return { authorized: false, status: 401, error: admin.error };
+
+  let token: string | undefined = req?.cookies.get(AUTH_COOKIE_NAME)?.value;
+  if (!token) {
+    try {
+      token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
+    } catch {}
+  }
+  const { valid, payload } = token ? verifySessionToken(token) : { valid: false, payload: undefined };
+  if (!valid || !payload) return { authorized: false, status: 401, error: "Sessão inválida ou expirada." };
+
+  let role = payload.role;
+  if (role !== "staff") {
+    try {
+      const { supabaseAdmin } = await import("@/lib/supabase/client");
+      if (supabaseAdmin && /^[0-9a-f-]{36}$/i.test(payload.sub)) {
+        const { data } = await supabaseAdmin.from("profiles").select("role").eq("id", payload.sub).maybeSingle();
+        if (data?.role === "staff") role = "staff";
+        else {
+          const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(payload.sub);
+          if (trustedAuthRole(authUser?.user) === "staff") role = "staff";
+        }
+      }
+    } catch {}
+  }
+  if (role !== "staff") {
+    const memUser = userStore.findById(payload.sub) || (payload.email ? userStore.findByEmail(payload.email) : undefined);
+    if (memUser?.role === "staff") role = "staff";
+  }
+  if (role !== "staff") return { authorized: false, status: 403, error: "Acesso só para a Equipe PRX." };
+  return { authorized: true, status: 200, staffUser: { ...payload, role: "staff" } };
 }

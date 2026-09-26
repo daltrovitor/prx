@@ -14,7 +14,7 @@ const TONE = { draft: "neutral", sent: "warning", accepted: "success", cancelled
 
 const docLink = (id: string, kind: "contract" | "certificate") => `/api/partners/document?campaignId=${encodeURIComponent(id)}&kind=${kind}`;
 const linkClass =
-  "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-[3px] border border-line bg-card px-3.5 text-sm font-medium text-ink transition-colors hover:border-ink";
+  "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line in-[.bg-surface]:bg-card";
 
 interface AcceptResponse {
   success?: boolean;
@@ -44,7 +44,7 @@ export function PartnerContracts({
   return (
     <section aria-labelledby="contracts-title" className="space-y-8">
       <div>
-        <h2 id="contracts-title" className="font-display text-3xl font-semibold leading-none tracking-[-0.04em] text-ink sm:text-4xl">
+        <h2 id="contracts-title" className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">
           Contratos
         </h2>
         <p className="mt-3 max-w-xl text-[15px] text-muted-foreground">
@@ -57,9 +57,9 @@ export function PartnerContracts({
       {pending.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-[13px] font-semibold text-ink">Aguardando o seu aceite</h3>
-          <ul className="divide-y divide-line border-y border-line">
+          <ul className="space-y-2">
             {pending.map((c) => (
-              <li key={c.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <li key={c.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
                 <CampaignLine campaign={c} />
                 <Button onClick={() => setReviewingId(c.id)}>Revisar e aceitar</Button>
               </li>
@@ -71,9 +71,9 @@ export function PartnerContracts({
       {others.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-[13px] font-semibold text-ink">Histórico</h3>
-          <ul className="divide-y divide-line border-y border-line">
+          <ul className="space-y-2">
             {others.map((c) => (
-              <li key={c.id} className="space-y-3 py-4">
+              <li key={c.id} className="space-y-3 rounded-3xl bg-surface p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <CampaignLine campaign={c} />
                   <Tag tone={TONE[c.status]}>{CAMPAIGN_STATUS_LABEL[c.status]}</Tag>
@@ -191,7 +191,7 @@ function AcceptForm({
     return (
       <div className="space-y-6">
         <Notice tone="success">Parceria aceita em {formatDateTimeBR(done.acceptedAt)}. O benefício já está no app.</Notice>
-        <div className="border border-ink p-5">
+        <div className="rounded-3xl bg-surface p-5">
           <p className="text-[13px] text-muted-foreground">Certificado da Campanha PRX</p>
           <p className="mt-1 font-mono text-xl tracking-[0.04em] text-ink">{done.certificateId}</p>
         </div>
@@ -220,15 +220,15 @@ function AcceptForm({
         void accept();
       }}
     >
-      <table className="w-full border border-line text-sm">
+      <table className="w-full overflow-hidden rounded-2xl bg-surface text-sm">
         <caption className="sr-only">Resumo Comercial da campanha</caption>
         <tbody className="divide-y divide-line">
           {campaign.summaryRows.map(([label, value]) => (
             <tr key={label}>
-              <th scope="row" className="w-[38.2%] bg-surface px-3 py-2 text-left align-top font-medium text-ink">
+              <th scope="row" className="w-[38.2%] px-4 py-2.5 text-left align-top font-medium text-muted-foreground">
                 {label}
               </th>
-              <td className="px-3 py-2 text-ink">{value}</td>
+              <td className="px-4 py-2.5 text-ink">{value}</td>
             </tr>
           ))}
         </tbody>

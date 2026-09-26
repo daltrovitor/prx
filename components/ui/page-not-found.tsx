@@ -8,7 +8,7 @@ import { PrxLogo } from "@/components/brand/prx-logo";
  */
 export default function NotFoundPage() {
   return (
-    <main className="prx-app relative flex min-h-dvh flex-col overflow-x-hidden bg-white text-ink">
+    <main className="prx-app relative flex min-h-dvh flex-col overflow-x-hidden bg-background text-ink">
       <header className="flex h-16 items-center px-5 sm:px-8">
         <Link href="/" aria-label="PRX — página inicial" className="flex min-h-12 items-center">
           <PrxLogo variant="compact" title="" className="h-6 w-auto text-ink sm:h-7" />
@@ -21,14 +21,14 @@ export default function NotFoundPage() {
       </div>
 
       <section className="relative flex flex-1 flex-col items-center justify-center px-5 pb-24 text-center">
-        <p aria-hidden className="font-display text-[34vw] font-semibold leading-[0.8] tracking-[-0.06em] text-ink sm:text-[220px] lg:text-[280px]">
+        <p aria-hidden className="text-[34vw] font-light leading-[0.8] tracking-[-0.06em] text-ink sm:text-[220px] lg:text-[280px]">
           404
         </p>
-        <h1 className="mt-8 font-display text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-4xl">Essa página não existe.</h1>
+        <h1 className="mt-8 text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-4xl">Essa página não existe.</h1>
         <p className="mt-3 max-w-sm text-[15px] text-muted-foreground">O link pode ter mudado ou expirado. Volte para o início e siga de lá.</p>
         <Link
           href="/"
-          className="mt-8 inline-flex min-h-12 items-center justify-center rounded-[3px] bg-ink px-6 text-[15px] font-medium text-white transition-colors hover:bg-[#23232c]"
+          className="mt-8 inline-flex min-h-12 items-center justify-center rounded-full bg-ink px-6 text-[15px] font-medium text-background transition-opacity hover:opacity-90"
         >
           Voltar para o PRX
         </Link>

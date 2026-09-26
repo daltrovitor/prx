@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Portal do parceiro",
-  description: "Validação de vouchers PRX PASS no balcão dos estabelecimentos parceiros.",
+  description: "Validação de vouchers PRX PASS e ingressos PRX LIVE nos estabelecimentos parceiros.",
 };
 
 async function resolvePartner(): Promise<PartnerAuthResult> {

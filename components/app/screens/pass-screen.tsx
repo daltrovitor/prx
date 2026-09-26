@@ -11,7 +11,7 @@ import { MissionsPanel } from "@/components/app/pass/missions-panel";
 import { ReferralPanel } from "@/components/app/pass/referral-panel";
 import { useBenefitEvents } from "@/components/app/pass/use-benefit-events";
 import { Button, EmptyState, Input, Notice, ProgressBar, Segmented, Sheet, Tag } from "@/components/app/ui";
-import { IconSearch } from "@/components/icons/prx-icons";
+import { IconQr, IconSearch } from "@/components/icons/prx-icons";
 import { PRX_CATEGORIES, levelProgress, type Benefit, type UserVoucher } from "@/lib/pass-data";
 import { cn } from "@/lib/utils";
 
@@ -87,24 +87,22 @@ export function PassScreen({ pass }: { pass: PassData }) {
   const selectedSrc = selected?.partnerBanner?.trim() || selected?.partnerLogo?.trim() || "";
 
   return (
-    <div className="space-y-10">
-      <header className="grid gap-6 sm:gap-8 lg:grid-cols-12 lg:items-end">
+    <div className="space-y-8">
+      <header className="grid gap-5 lg:grid-cols-12 lg:items-end">
         <div className="lg:col-span-7">
-          <h1 className="font-display text-4xl min-[380px]:text-5xl sm:text-6xl font-semibold leading-[0.95] tracking-[-0.045em] text-ink">PRX PASS</h1>
-          <p className="mt-2.5 max-w-md text-sm sm:text-[15px] text-muted-foreground">
-            Descontos reais em marcas parceiras. Resgate, mostre o QR no balcão e pronto.
-          </p>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">PRX PASS</h1>
+          <p className="mt-1.5 max-w-md text-sm text-muted-foreground sm:text-[15px]">Descontos reais em marcas parceiras. Resgate, mostre o QR no balcão e pronto.</p>
         </div>
-        <div className="border border-line p-4 sm:p-5 lg:col-span-5">
+        <div className="rounded-3xl bg-surface p-5 lg:col-span-5">
           <div className="flex items-baseline justify-between">
-            <p className="text-xs sm:text-[13px] font-medium text-muted-foreground">Seu nível</p>
-            <p className="font-mono text-xs sm:text-[13px] text-ink">{(member.prxScore ?? 0).toLocaleString("pt-BR")} XP</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink">Seu nível</p>
+            <p className="text-[13px] font-medium text-muted-foreground">{(member.prxScore ?? 0).toLocaleString("pt-BR")} XP</p>
           </div>
-          <p className="mt-1.5 sm:mt-2 font-display text-3xl sm:text-4xl font-semibold leading-none tracking-[-0.04em] text-ink">Nível {memberLevel}</p>
-          <div className="mt-3 sm:mt-4">
+          <p className="mt-1.5 text-[30px] font-light leading-none tracking-[-0.03em] text-ink">Nível {memberLevel}</p>
+          <div className="mt-4">
             <ProgressBar value={progress.pct} label="Progresso até o próximo nível" />
           </div>
-          <p className="mt-2 text-xs sm:text-[13px] text-muted-foreground">
+          <p className="mt-2 text-[13px] text-muted-foreground">
             {progress.next === null ? "Você está no topo da régua." : `${progress.remaining.toLocaleString("pt-BR")} XP para o nível ${progress.level + 1}.`}
           </p>
         </div>
@@ -139,7 +137,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
                 className="pl-11"
               />
             </div>
-            <div role="group" aria-label="Categorias" className="-mx-3.5 px-3.5 min-[380px]:-mx-4 min-[380px]:px-4 flex gap-2 overflow-x-auto scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0 touch-pan-x overscroll-x-contain">
+            <div role="group" aria-label="Categorias" className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none touch-pan-x overscroll-x-contain sm:mx-0 sm:flex-wrap sm:px-0">
               {PRX_CATEGORIES.map((cat) => {
                 const active = cat.id === category;
                 return (
@@ -149,8 +147,8 @@ export function PassScreen({ pass }: { pass: PassData }) {
                     aria-pressed={active}
                     onClick={() => setCategory(cat.id)}
                     className={cn(
-                      "min-h-10 shrink-0 cursor-pointer rounded-[2px] border px-3.5 text-sm whitespace-nowrap transition-colors",
-                      active ? "border-primary bg-primary text-white" : "border-line text-muted-foreground hover:border-ink hover:text-ink"
+                      "min-h-10 shrink-0 cursor-pointer whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors",
+                      active ? "bg-ink text-background" : "bg-surface text-muted-foreground hover:bg-line hover:text-ink"
                     )}
                   >
                     {cat.name}
@@ -163,7 +161,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
           {!loaded ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
               {[0, 1, 2].map((i) => (
-                <div key={i} className="aspect-[4/5] bg-surface" />
+                <div key={i} className="aspect-[4/5] rounded-3xl bg-surface" />
               ))}
             </div>
           ) : filtered.length === 0 ? (
@@ -271,11 +269,11 @@ export function PassScreen({ pass }: { pass: PassData }) {
         {selected && (
           <div className="space-y-6">
             {selectedSrc && (
-              <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface">
+              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-surface">
                 <Image src={selectedSrc} alt="" fill sizes="(max-width: 640px) 100vw, 512px" className="object-cover" />
               </div>
             )}
-            <p className="font-display text-4xl font-semibold leading-none tracking-[-0.04em] text-primary">{selected.discountLabel}</p>
+            <p className="text-4xl font-semibold leading-none tracking-[-0.035em] text-primary">{selected.discountLabel}</p>
             {selected.sponsored && <p className="text-[13px] text-muted-foreground">Patrocinado: o parceiro contratou destaque para esta oferta.</p>}
             {selected.description && <p className="text-[15px] leading-relaxed text-ink">{selected.description}</p>}
             {selected.terms.length > 0 && (
@@ -314,23 +312,30 @@ function VoucherList({
 }) {
   return (
     <div>
-      <h2 className="text-[13px] font-semibold text-muted-foreground">{title}</h2>
+      <h2 className="text-lg font-semibold tracking-[-0.02em] text-ink">{title}</h2>
       {vouchers.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">{empty}</p>
+        <p className="mt-3 rounded-3xl bg-surface p-5 text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <ul className="mt-3 divide-y divide-line border-y border-line">
+        <ul className="mt-3 space-y-2">
           {vouchers.map((voucher) => (
             <li key={voucher.id}>
-              <button type="button" onClick={() => onOpen(voucher)} className="flex w-full cursor-pointer items-center justify-between gap-4 py-4 text-left">
-                <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => onOpen(voucher)}
+                className="flex w-full cursor-pointer items-center gap-3.5 rounded-3xl bg-surface p-4 text-left transition-colors hover:bg-line"
+              >
+                <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-card text-ink">
+                  <IconQr size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-medium text-ink">{voucher.partnerName}</p>
                   <p className="truncate text-[13px] text-muted-foreground">
                     {voucher.benefitTitle} · {voucher.code}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <span className="font-display text-lg font-semibold tracking-[-0.02em] text-primary">{voucher.discountLabel}</span>
-                  {voucher.status === "valid" ? <Tag tone="accent">QR</Tag> : <Tag>Usado</Tag>}
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="text-[15px] font-semibold tracking-[-0.01em] text-primary">{voucher.discountLabel}</span>
+                  {voucher.status === "valid" ? <Tag tone="accent">Pronto</Tag> : <Tag>Usado</Tag>}
                 </div>
               </button>
             </li>

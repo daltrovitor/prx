@@ -5,12 +5,14 @@ import { NextRequest, NextResponse } from "next/server";
  * Roteamento por subdomínio.
  *   adminprx.<domínio>   → /admin   (painel administrativo)
  *   partnerprx.<domínio> → /partner (portal do parceiro)
+ *   staffprx.<domínio>   → /staff   (Equipe PRX: portaria de eventos e balcão)
  * Os prefixos adminng./partnerng. são os domínios anteriores ao rebrand e
  * continuam aceitos enquanto o DNS é migrado.
  */
-const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/admin" | "/partner" }> = [
+const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/admin" | "/partner" | "/staff" }> = [
   { prefixes: ["adminprx.", "adminng."], path: "/admin" },
   { prefixes: ["partnerprx.", "partnerng."], path: "/partner" },
+  { prefixes: ["staffprx."], path: "/staff" },
 ];
 
 export function proxy(req: NextRequest) {

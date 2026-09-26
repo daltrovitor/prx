@@ -1,9 +1,11 @@
+// Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { calculatePrxLevel } from "@/lib/pass-data";
 import { getCurrentUser, userStore } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { errorMessage } from "@/lib/errors";
+import { liveMissionCounts } from "@/lib/live/service";
 
 
 export async function POST(req: NextRequest) {
@@ -35,8 +37,13 @@ export async function POST(req: NextRequest) {
     const storeVouchersCount = passStore.getUserVouchers(user.id).length;
     const effectiveVouchersCount = Math.max(vouchersCount, storeVouchersCount);
 
+    // Missões do PRX LIVE conferem os dados reais: check-in na portaria, inscrição na RUN, startup enviada.
+    const live = await liveMissionCounts(user.id).catch(() => ({ checkins: 0, runSignups: 0, foundersSubmissions: 0 }));
     const result = passStore.verifyMission(user.id, missionId, {
       userVouchersCount: effectiveVouchersCount,
+      liveCheckins: live.checkins,
+      runSignups: live.runSignups,
+      foundersSubmissions: live.foundersSubmissions,
     });
 
     if (!result.success) {

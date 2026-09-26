@@ -1,109 +1,57 @@
 // Hello World
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
-import {
-  getOrCreateServerLiveWallet,
-  saveServerLiveWallet,
-} from "@/lib/prx/server-live-store";
-import {
-  getOrCreateServerBank,
-  saveServerBank,
-} from "@/lib/prx/server-bank-store";
-import {
-  LIVE_EVENTS,
-  issueTicket,
-  registerForRun,
-  submitToFounders,
-} from "@/lib/prx/live";
-import { debitBalance } from "@/lib/prx/bank";
+import { checkRateLimit } from "@/lib/security";
+import { PartnerError } from "@/lib/partners/errors";
+import { errorResponse, readJson } from "@/lib/partners/http";
+import { firstIssue } from "@/lib/partners/types";
+import { cancelOwnTicket, listPublicEvents, memberWallet, reserveTicket } from "@/lib/live/service";
 
-export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+const NO_STORE = { "Cache-Control": "no-store" };
+
+/** GET /api/live — vitrine de eventos e a carteira do membro (ingressos, inscrições, startups). */
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getCurrentUser(req);
+    if (!user) throw new PartnerError("Não autenticado.", 401);
+    const [events, wallet] = await Promise.all([listPublicEvents(), memberWallet(user)]);
+    return NextResponse.json({ success: true, events, wallet }, { headers: NO_STORE });
+  } catch (error) {
+    return errorResponse(error, "Erro ao carregar o PRX LIVE.");
   }
-
-  const wallet = getOrCreateServerLiveWallet(user.id);
-  return NextResponse.json({ ok: true, wallet });
 }
 
+const schema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("reserve"), eventId: z.string().min(1).max(100), batchId: z.string().min(1).max(40), run: z.unknown().optional() }),
+  z.object({ action: z.literal("cancel"), ticketId: z.string().min(1).max(100) }),
+]);
+
+/**
+ * POST /api/live
+ *   { action: "reserve", eventId, batchId, run? }  gratuito sai válido; pago vira reserva aguardando pagamento
+ *   { action: "cancel", ticketId }                 desiste da reserva (ou do ingresso gratuito)
+ */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-  }
-
   try {
-    const body = await req.json();
-    const { action } = body;
-    let wallet = getOrCreateServerLiveWallet(user.id);
+    const user = await getCurrentUser(req);
+    if (!user) throw new PartnerError("Faça login para garantir seu ingresso.", 401);
+    const limit = checkRateLimit(`live:${user.id}`, 20, 60);
+    if (!limit.allowed) throw new PartnerError(`Muitas tentativas. Aguarde ${limit.resetInSeconds}s.`, 429);
 
-    switch (action) {
-      case "issue_ticket": {
-        const { eventId, batchId, paymentMethod } = body;
-        const event = LIVE_EVENTS.find((e) => e.id === eventId);
-        if (!event) {
-          return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
-        }
-        const batch = event.batches.find((b) => b.id === batchId);
-        if (!batch) {
-          return NextResponse.json({ error: "Lote não encontrado" }, { status: 404 });
-        }
+    const parsed = schema.safeParse(await readJson(req));
+    if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
+    const body = parsed.data;
 
-        // Se pagamento for saldo bancário e o preço for > 0, debita no servidor
-        if (batch.price > 0 && paymentMethod === "saldo") {
-          let bankState = getOrCreateServerBank(user.id, user.walletBalance);
-          bankState = debitBalance(bankState, {
-            amount: batch.price,
-            kind: "ticket",
-            counterparty: `PRX UP · ${event.title}`,
-            description: `${batch.name}`,
-          });
-          saveServerBank(user.id, bankState);
-        }
-
-        const result = issueTicket(wallet, {
-          event,
-          batch,
-          holderName: user.fullName || "Membro PRX",
-          paymentMethod: paymentMethod === "card" ? "card" : "pix",
-        });
-
-        wallet = result.wallet;
-        saveServerLiveWallet(user.id, wallet);
-        return NextResponse.json({ ok: true, wallet, ticket: result.ticket });
-      }
-
-      case "register_run": {
-        const { stageId, modality, category, shirtSize } = body;
-        wallet = registerForRun(wallet, {
-          stageId,
-          modality,
-          category,
-          shirtSize,
-        });
-        saveServerLiveWallet(user.id, wallet);
-        return NextResponse.json({ ok: true, wallet });
-      }
-
-      case "submit_founders": {
-        const { startupName, oneLiner, stage, deckFileName, videoUrl } = body;
-        wallet = submitToFounders(wallet, {
-          startupName,
-          oneLiner,
-          stage,
-          deckFileName,
-          videoUrl,
-        });
-        saveServerLiveWallet(user.id, wallet);
-        return NextResponse.json({ ok: true, wallet });
-      }
-
-      default:
-        return NextResponse.json({ error: "Ação inválida" }, { status: 400 });
+    if (body.action === "cancel") {
+      await cancelOwnTicket(user, body.ticketId);
+    } else {
+      const ticket = await reserveTicket(user, { eventId: body.eventId, batchId: body.batchId, run: body.run });
+      const wallet = await memberWallet(user);
+      return NextResponse.json({ success: true, ticket, wallet }, { status: 201, headers: NO_STORE });
     }
-  } catch (err: unknown) {
-    const message = (err as Error)?.message || "Erro ao processar ação no PRX LIVE";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ success: true, wallet: await memberWallet(user) }, { headers: NO_STORE });
+  } catch (error) {
+    return errorResponse(error, "Erro ao processar a ação no PRX LIVE.");
   }
 }

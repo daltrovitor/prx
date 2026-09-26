@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Button, EmptyState, Field, Input, Notice, Select, Sheet, Tag, formatBRL } from "@/components/app/ui";
+import { Button, EmptyState, Field, Input, Notice, Select, Sheet, Tag } from "@/components/app/ui";
 import { IconSearch } from "@/components/icons/prx-icons";
 import type { SystemVoucher } from "@/lib/pass-store";
 
@@ -37,7 +37,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [inspecting, setInspecting] = useState<AdminUser | null>(null);
-  const [form, setForm] = useState({ level: 1, score: 0, balance: 0, role: "user" as MemberRole });
+  const [form, setForm] = useState({ level: 1, score: 0, role: "user" as MemberRole });
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -49,7 +49,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
 
   function openEdit(user: AdminUser) {
     setEditing(user);
-    setForm({ level: user.prxLevel, score: user.prxScore, balance: user.walletBalance, role: user.role });
+    setForm({ level: user.prxLevel, score: user.prxScore, role: user.role });
     setFeedback(null);
   }
 
@@ -61,7 +61,8 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
       const res = await fetch("/api/admin/users", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editing.id, prxLevel: form.level, prxScore: form.score, walletBalance: form.balance, role: form.role }),
+        // Papel "staff" é gerenciado na aba Equipe: aqui ele só é preservado.
+        body: JSON.stringify({ id: editing.id, prxLevel: form.level, prxScore: form.score, ...(form.role === "staff" ? {} : { role: form.role }) }),
       });
       const data = (await res.json()) as ApiResult;
       if (!res.ok || !data.success) {
@@ -113,15 +114,14 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
       {filtered.length === 0 ? (
         <EmptyState title="Nenhum membro encontrado" body={query ? "Tente outro nome ou e-mail." : "Os cadastros aparecem aqui."} />
       ) : (
-        <div className="overflow-x-auto border border-line">
-          <table className="w-full min-w-[760px] text-left text-sm">
+        <div className="overflow-x-auto rounded-3xl border border-line">
+          <table className="w-full min-w-[680px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">
                 <th scope="col" className="px-4 py-3 font-medium">Membro</th>
                 <th scope="col" className="px-4 py-3 font-medium">Papel</th>
                 <th scope="col" className="px-4 py-3 font-medium">Nível</th>
                 <th scope="col" className="px-4 py-3 text-right font-medium">XP</th>
-                <th scope="col" className="px-4 py-3 text-right font-medium">Carteira</th>
                 <th scope="col" className="px-4 py-3 font-medium">Vouchers</th>
                 <th scope="col" className="px-4 py-3">
                   <span className="sr-only">Ações</span>
@@ -140,7 +140,6 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
                   </td>
                   <td className="px-4 py-3 tabular-nums text-ink">{user.prxLevel}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-ink">{user.prxScore.toLocaleString("pt-BR")}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-ink">{formatBRL(Number(user.walletBalance || 0))}</td>
                   <td className="px-4 py-3">
                     <Button variant="ghost" size="sm" className="-ml-3" onClick={() => setInspecting(user)}>
                       {(() => {
@@ -187,15 +186,15 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
           <Field label="XP (PRX Score)">
             {(id) => <Input id={id} type="number" min={0} step={50} value={form.score} onChange={(e) => setForm({ ...form, score: Number(e.target.value) })} />}
           </Field>
-          <Field label="Saldo em carteira (R$)">
-            {(id) => <Input id={id} type="number" min={0} step={0.5} value={form.balance} onChange={(e) => setForm({ ...form, balance: Number(e.target.value) })} />}
-          </Field>
-          <Field label="Papel de acesso">
-            {(id) => (
-              <Select id={id} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as MemberRole })}>
+          <Field label="Papel de acesso" className="sm:col-span-2" hint={form.role === "staff" ? "Contas da Equipe PRX são gerenciadas na aba Equipe." : undefined}>
+            {(id, describedBy) => (
+              <Select id={id} aria-describedby={describedBy} value={form.role} disabled={form.role === "staff"} onChange={(e) => setForm({ ...form, role: e.target.value as MemberRole })}>
                 <option value="user">Membro</option>
                 <option value="partner">Parceiro credenciado</option>
                 <option value="admin">Administrador</option>
+                <option value="staff" disabled>
+                  Equipe PRX
+                </option>
               </Select>
             )}
           </Field>
@@ -206,9 +205,9 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
         {inspecting && (!inspecting.vouchers || inspecting.vouchers.length === 0) ? (
           <EmptyState title="Nenhum resgate" body="Este membro ainda não gerou vouchers." />
         ) : (
-          <ul className="divide-y divide-line border-y border-line">
+          <ul className="space-y-2">
             {inspecting?.vouchers.map((voucher) => (
-              <li key={voucher.id} className="flex items-center justify-between gap-4 py-3.5">
+              <li key={voucher.id} className="flex items-center justify-between gap-4 rounded-3xl bg-surface px-4 py-3">
                 <div className="min-w-0">
                   <p className="font-mono text-sm text-ink">{voucher.code}</p>
                   <p className="truncate text-[13px] text-muted-foreground">

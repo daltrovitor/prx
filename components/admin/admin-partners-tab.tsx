@@ -78,10 +78,10 @@ export function AdminPartnersTab({ partners, benefits, users, onRefresh, onGoToB
       )}
 
       {orphanLogins.length > 0 && (
-        <div className="border border-line p-4">
+        <div className="rounded-3xl bg-surface p-5">
           <p className="text-[15px] font-medium text-ink">Logins de parceiro sem empresa cadastrada</p>
           <p className="mt-1 text-[13px] text-muted-foreground">Estas contas entram no portal, mas não validam nada até serem vinculadas a um parceiro.</p>
-          <ul className="mt-3 divide-y divide-line border-y border-line">
+          <ul className="mt-3 divide-y divide-line">
             {orphanLogins.map((u) => (
               <li key={u.id} className="flex items-center justify-between gap-3 py-2.5">
                 <span className="min-w-0 truncate text-sm text-ink">
@@ -99,7 +99,7 @@ export function AdminPartnersTab({ partners, benefits, users, onRefresh, onGoToB
       {partners.length === 0 ? (
         <EmptyState title="Nenhum parceiro cadastrado" body="Cadastre a empresa, o representante e o login. Depois gere o contrato da campanha." action={<Button onClick={() => setCreating({})}>Cadastrar parceiro</Button>} />
       ) : (
-        <div className="overflow-x-auto border border-line">
+        <div className="overflow-x-auto rounded-3xl border border-line">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">
@@ -241,7 +241,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
   const category = PRX_CATEGORIES.find((c) => c.id === partner.categoryId)?.name ?? partner.categoryId;
   const docLink = (c: Campaign, kind: "contract" | "certificate") => `/api/partners/document?campaignId=${encodeURIComponent(c.id)}&kind=${kind}`;
   const linkClass =
-    "inline-flex min-h-10 items-center gap-1.5 rounded-[3px] border border-line bg-card px-3.5 text-sm font-medium text-ink transition-colors hover:border-ink cursor-pointer";
+    "inline-flex min-h-10 items-center gap-1.5 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line cursor-pointer in-[.bg-surface]:bg-card";
 
   return (
     <section aria-labelledby="partner-detail-title" className="space-y-8">
@@ -253,7 +253,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
-              <h2 id="partner-detail-title" className="font-display text-3xl font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
+              <h2 id="partner-detail-title" className="text-[28px] font-semibold tracking-[-0.03em] text-ink sm:text-4xl">
                 {partner.tradeName}
               </h2>
               <Tag tone={STATUS_TONE[partner.status]}>{PARTNER_STATUS_LABEL[partner.status]}</Tag>
@@ -284,12 +284,12 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
           ) : campaigns.length === 0 ? (
             <EmptyState title="Nenhum contrato ainda" body="Preencha o Resumo Comercial (cláusula 3) e o contrato individual é gerado na hora." action={<Button onClick={() => setCampaignSheet({ campaign: null })}>Gerar contrato</Button>} />
           ) : (
-            <ul className="divide-y divide-line border-y border-line">
+            <ul className="space-y-3">
               {campaigns.map((c) => {
                 const s = c.acceptance?.summarySnapshot ?? c.summary;
                 const busy = busyId === c.id;
                 return (
-                  <li key={c.id} className="space-y-3 py-5">
+                  <li key={c.id} className="space-y-3 rounded-3xl bg-surface p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-base font-semibold text-ink">{s.benefitTitle}</p>
@@ -349,7 +349,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
         </div>
 
         <aside className="space-y-6 lg:col-span-5">
-          <div className="border border-line p-5">
+          <div className="rounded-3xl bg-surface p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="text-[15px] font-semibold text-ink">Login do portal</h3>
@@ -362,7 +362,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
             <p className="mt-3 text-[13px] text-muted-foreground">Só este login escaneia e dá baixa nos QR Codes dos benefícios deste parceiro.</p>
           </div>
 
-          <div className="border border-line p-5">
+          <div className="rounded-3xl bg-surface p-5">
             <h3 className="text-[15px] font-semibold text-ink">Representante e contato</h3>
             <dl className="mt-3 space-y-2 text-sm">
               <div>
@@ -385,7 +385,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
             )}
           </div>
 
-          <div className="border border-line p-5">
+          <div className="rounded-3xl bg-surface p-5">
             <h3 className="text-[15px] font-semibold text-ink">Benefícios no catálogo</h3>
             {benefits.length === 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">Nenhum ainda. O aceite de um contrato publica o benefício automaticamente.</p>

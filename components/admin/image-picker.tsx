@@ -46,8 +46,8 @@ export function ImagePicker({
   return (
     <div>
       <p className="text-[13px] font-medium text-ink">{label}</p>
-      <label className="mt-1.5 flex min-h-20 cursor-pointer items-center gap-4 border border-dashed border-input p-3 transition-colors hover:border-ink">
-        <span className={`relative shrink-0 overflow-hidden bg-surface ${square ? "h-14 w-14" : "h-14 w-24"}`}>
+      <label className="mt-1.5 flex min-h-20 cursor-pointer items-center gap-4 rounded-2xl bg-surface p-3 transition-colors hover:bg-line has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
+        <span className={`relative shrink-0 overflow-hidden rounded-xl bg-card ${square ? "h-14 w-14" : "h-14 w-24"}`}>
           {value ? (
             <Image src={value} alt="" fill sizes="96px" className="object-cover" />
           ) : (

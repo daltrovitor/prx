@@ -1,85 +1,84 @@
 // Hello World
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/security";
+import { PartnerError } from "@/lib/partners/errors";
+import { errorResponse, readJson } from "@/lib/partners/http";
+import { firstIssue } from "@/lib/partners/types";
 import {
-  getOrCreateServerBank,
-  saveServerBank,
-} from "@/lib/prx/server-bank-store";
-import {
-  sendPix,
-  registerPixKey,
+  accountView,
+  addPixKey,
+  assertBankOperational,
+  cancelPhysicalCard,
+  cardAddressSchema,
+  pixKeyInputSchema,
   removePixKey,
-  addCharge,
-  simulateChargePaid,
-  setCardLocked,
   requestPhysicalCard,
-  BankError,
-} from "@/lib/prx/bank";
+} from "@/lib/bank/service";
 
-export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+const NO_STORE = { "Cache-Control": "no-store" };
+
+/** GET /api/bank — conta do membro (nasce zerada e em ativação). */
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getCurrentUser(req);
+    if (!user) throw new PartnerError("Não autenticado.", 401);
+    return NextResponse.json({ success: true, account: await accountView(user.id) }, { headers: NO_STORE });
+  } catch (error) {
+    return errorResponse(error, "Erro ao carregar a conta.");
   }
-
-  const state = getOrCreateServerBank(user.id, user.walletBalance);
-  return NextResponse.json({ ok: true, state });
 }
 
+const schema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("add_pix_key"), key: z.unknown() }),
+  z.object({ action: z.literal("remove_pix_key"), id: z.string().min(1).max(100) }),
+  z.object({ action: z.literal("request_card"), address: z.unknown() }),
+  z.object({ action: z.literal("cancel_card_request"), id: z.string().min(1).max(100) }),
+  z.object({ action: z.enum(["send_pix", "create_charge", "toggle_lock"]) }).loose(),
+]);
+
+/**
+ * POST /api/bank
+ *   add_pix_key / remove_pix_key          pré-cadastro de chaves (registradas no banco na ativação)
+ *   request_card / cancel_card_request    pedido do cartão físico (enviado ao emissor na ativação)
+ *   send_pix / create_charge / toggle_lock dependem do banco parceiro: 409 até a ativação
+ */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-  }
-
   try {
-    const body = await req.json();
-    const { action } = body;
-    let state = getOrCreateServerBank(user.id, user.walletBalance);
+    const user = await getCurrentUser(req);
+    if (!user) throw new PartnerError("Não autenticado.", 401);
+    const limit = checkRateLimit(`bank:${user.id}`, 30, 60);
+    if (!limit.allowed) throw new PartnerError(`Muitas tentativas. Aguarde ${limit.resetInSeconds}s.`, 429);
 
-    switch (action) {
-      case "send_pix": {
-        const { key, amount, recipient, description } = body;
-        state = sendPix(state, { key, amount, recipient, description });
-        break;
-      }
+    const parsed = schema.safeParse(await readJson(req));
+    if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
+    const body = parsed.data;
+
+    switch (body.action) {
       case "add_pix_key": {
-        const { type, value } = body;
-        state = registerPixKey(state, type, value);
+        const key = pixKeyInputSchema.safeParse(body.key);
+        if (!key.success) throw new PartnerError(firstIssue(key.error), 422);
+        await addPixKey(user.id, key.data);
         break;
       }
-      case "remove_pix_key": {
-        const { id } = body;
-        state = removePixKey(state, id);
+      case "remove_pix_key":
+        await removePixKey(user.id, body.id);
         break;
-      }
-      case "create_charge": {
-        const { amount, description, payload } = body;
-        state = addCharge(state, { amount, description, payload: payload || "" });
-        break;
-      }
-      case "mark_charge_paid": {
-        const { id } = body;
-        state = simulateChargePaid(state, id);
-        break;
-      }
-      case "toggle_lock": {
-        state = setCardLocked(state, !state.virtualCard.locked);
-        break;
-      }
       case "request_card": {
-        const { address } = body;
-        state = requestPhysicalCard(state, address);
+        const address = cardAddressSchema.safeParse(body.address);
+        if (!address.success) throw new PartnerError(firstIssue(address.error), 422);
+        await requestPhysicalCard(user.id, address.data);
         break;
       }
+      case "cancel_card_request":
+        await cancelPhysicalCard(user.id, body.id);
+        break;
       default:
-        return NextResponse.json({ error: "Ação inválida" }, { status: 400 });
+        await assertBankOperational(user.id);
     }
-
-    saveServerBank(user.id, state);
-    return NextResponse.json({ ok: true, state });
-  } catch (err: unknown) {
-    const message = err instanceof BankError ? err.message : (err as Error)?.message || "Erro ao processar transação bancária";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ success: true, account: await accountView(user.id) }, { headers: NO_STORE });
+  } catch (error) {
+    return errorResponse(error, "Erro ao processar a operação.");
   }
 }

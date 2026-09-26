@@ -105,16 +105,16 @@ export function MissionsPanel({ missions, userId, referralCode, onChanged, onSco
           }
         />
       ) : (
-        <ul className="grid gap-px border border-line bg-line md:grid-cols-2">
+        <ul className="grid gap-3 md:grid-cols-2">
           {visible.map((mission) => {
             const isReferral = mission.verificationType === "referral";
             const current = notice?.id === mission.id ? notice : null;
             return (
-              <li key={mission.id} className="flex flex-col justify-between gap-5 sm:gap-6 bg-card p-4 sm:p-6">
+              <li key={mission.id} className="flex flex-col justify-between gap-5 rounded-3xl bg-surface p-5 sm:gap-6 sm:p-6">
                 <div className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center justify-between gap-3">
-                    <Tag>{mission.category || (isReferral ? "Comunidade" : "PRX")}</Tag>
-                    <span className="font-mono text-xs sm:text-[13px] text-primary">+{mission.xpReward} XP</span>
+                    <Tag className="bg-card">{mission.category || (isReferral ? "Comunidade" : "PRX")}</Tag>
+                    <span className="rounded-full bg-primary/[0.09] px-2.5 py-0.5 text-[12px] font-semibold text-primary">+{mission.xpReward} XP</span>
                   </div>
                   <h2 className="text-base sm:text-[17px] font-semibold leading-snug tracking-[-0.01em] text-ink">{mission.title}</h2>
                   <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground">{mission.description}</p>
@@ -126,7 +126,7 @@ export function MissionsPanel({ missions, userId, referralCode, onChanged, onSco
                       <span className={cn(mission.isCompleted ? "text-success" : "text-muted-foreground")}>
                         {mission.isCompleted ? "Concluída" : mission.isAccepted ? "Em andamento" : "Não iniciada"}
                       </span>
-                      <span className="font-mono text-ink">
+                      <span className="font-medium text-ink">
                         {mission.isCompleted ? mission.total : mission.progress}/{mission.total}
                       </span>
                     </div>
@@ -134,7 +134,7 @@ export function MissionsPanel({ missions, userId, referralCode, onChanged, onSco
                       value={mission.isCompleted ? mission.total : mission.progress}
                       max={mission.total || 1}
                       label={`Progresso de ${mission.title}`}
-                      tone={mission.isCompleted ? "success" : "ink"}
+                      tone={mission.isCompleted ? "success" : "accent"}
                     />
                   </div>
 

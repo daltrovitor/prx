@@ -4,38 +4,31 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import type { User } from "@/hooks/use-auth";
 import { useAppNav } from "@/components/app/app-nav";
-import { useBank, useHiddenBalance } from "@/components/app/use-prx-stores";
-import { SandboxNotice, TransactionRow } from "@/components/app/shared";
+import { useBankAccount, useHiddenBalance, type ActionResult } from "@/components/app/use-prx-stores";
+import { TransactionRow } from "@/components/app/shared";
 import { CardVisual } from "@/components/app/bank/card-visual";
 import { QrScanner } from "@/components/app/qr-scanner";
-import { CopyButton, useQrDataUrl } from "@/components/app/pass/voucher-sheet";
-import { Button, EmptyState, Field, Input, Notice, Segmented, Select, Sheet, Tag, Textarea, formatBRL } from "@/components/app/ui";
-import { IconCheck, IconEye, IconEyeOff, IconLock, IconTrash, IconUnlock } from "@/components/icons/prx-icons";
+import { CopyButton } from "@/components/app/pass/voucher-sheet";
+import { BalanceFigure, Button, EmptyState, Field, IconButton, Input, Notice, Segmented, Select, Sheet, Tag, Textarea, formatBRL } from "@/components/app/ui";
+import { IconEye, IconEyeOff, IconLock, IconTrash, IconUnlock } from "@/components/icons/prx-icons";
 import {
-  BANK_MODE,
-  BankError,
-  PHYSICAL_CARD_STAGES,
-  addCharge,
-  createRandomKey,
+  ACCOUNT_STATUS_LABEL,
+  CARD_REQUEST_STATUS_LABEL,
+  MAX_PIX_KEYS,
+  PIX_KEY_STATUS_LABEL,
   filterTransactions,
-  physicalCardStageIndex,
-  registerPixKey,
-  removePixKey,
-  requestPhysicalCard,
-  sendPix,
-  setCardLocked,
-  simulateChargePaid,
   summarize,
-  type BankState,
+  type BankAccountView,
   type StatementFilter,
   type StatementPeriod,
 } from "@/lib/prx/bank";
-import { PIX_KEY_LABEL, buildPixPayload, detectPixKeyType, isValidCpf, parsePixPayload, type PixKeyType } from "@/lib/prx/pix";
+import { PIX_KEY_LABEL, detectPixKeyType, parsePixPayload, type PixKeyType } from "@/lib/prx/pix";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 
 type BankSection = "extrato" | "pix" | "cobrar" | "cartoes" | "chaves";
 const SECTIONS: ReadonlyArray<BankSection> = ["extrato", "pix", "cobrar", "cartoes", "chaves"];
+
+type Run = (body: { action: string } & Record<string, unknown>) => Promise<ActionResult>;
 
 /** Converte "1.234,56" ou "1234.56" em número. */
 function parseMoney(text: string): number {
@@ -45,66 +38,65 @@ function parseMoney(text: string): number {
   return Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
 }
 
-type Updater = (updater: (current: BankState) => BankState) => void;
-
 export function BankScreen({ member }: { member: User }) {
   const { sub, go } = useAppNav();
   const section: BankSection = SECTIONS.includes(sub as BankSection) ? (sub as BankSection) : "extrato";
-  const [bank, setBank] = useBank(member.id);
+  const { account, loading, error, reload, run } = useBankAccount(member.id);
   const [hidden, toggleHidden] = useHiddenBalance();
 
-  const last30 = useMemo(() => summarize(filterTransactions(bank.transactions, 30, "all")), [bank.transactions]);
+  const last30 = useMemo(() => summarize(filterTransactions(account?.transactions ?? [], 30, "all")), [account?.transactions]);
+
+  if (!account) {
+    return (
+      <div className="space-y-8">
+        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">PRX BANK</h1>
+        {loading ? (
+          <div role="status" aria-label="Carregando conta" className="h-40 rounded-3xl bg-surface" />
+        ) : (
+          <EmptyState title="Não foi possível abrir sua conta" body={error ?? undefined} action={<Button onClick={() => void reload()}>Tentar de novo</Button>} />
+        )}
+      </div>
+    );
+  }
+
+  const active = account.status === "active";
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <header className="space-y-4">
-        <h1 className="font-display text-4xl min-[380px]:text-5xl sm:text-6xl font-semibold leading-[0.95] tracking-[-0.045em] text-ink">PRX BANK</h1>
-        {BANK_MODE === "sandbox" && (
-          <SandboxNotice>
-            Modo demonstração: nenhum dinheiro real é movimentado. A conta digital, o Pix e os cartões passam a operar de verdade
-            quando a integração com o banco parceiro (BaaS) for ativada.
-          </SandboxNotice>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">PRX BANK</h1>
+          <Tag tone={active ? "success" : account.status === "blocked" ? "warning" : "neutral"}>Conta {ACCOUNT_STATUS_LABEL[account.status].toLowerCase()}</Tag>
+        </div>
+        {account.status === "pending_activation" && (
+          <Notice tone="neutral">
+            Sua conta digital está em ativação com o banco parceiro. Até lá o saldo fica zerado e nenhum dinheiro é movimentado. Você já pode
+            pré-cadastrar chaves Pix e pedir o cartão físico: tudo segue para o banco na ativação.
+          </Notice>
         )}
+        {account.status === "blocked" && <Notice tone="warning">Conta bloqueada. Fale com o suporte PRX para entender o motivo.</Notice>}
       </header>
 
-      <section aria-label="Saldo" className="grid gap-px border border-line bg-line md:grid-cols-12">
-        <div className="flex flex-col justify-between gap-6 sm:gap-8 bg-[#0b0b10] dark:bg-[#12121c] p-5 min-[380px]:p-6 text-white sm:p-8 md:col-span-7">
-          <div className="flex items-start justify-between">
-            <p className="text-xs sm:text-[13px] font-medium text-white/70">Saldo disponível</p>
-            <button
-              type="button"
-              onClick={toggleHidden}
-              aria-label={hidden ? "Mostrar saldo" : "Ocultar saldo"}
-              aria-pressed={hidden}
-              className="-mr-2 -mt-2 flex h-10 w-10 sm:h-12 sm:w-12 cursor-pointer items-center justify-center text-white/80 hover:text-white"
-            >
-              {hidden ? <IconEyeOff size={20} /> : <IconEye size={20} />}
-            </button>
+      <section aria-label="Saldo" className="grid gap-6 md:grid-cols-12 md:items-end">
+        <BalanceFigure
+          className="md:col-span-7"
+          label="Saldo disponível"
+          value={account.balance}
+          hidden={hidden}
+          action={
+            <IconButton tone="plain" label={hidden ? "Mostrar saldo" : "Ocultar saldo"} aria-pressed={hidden} onClick={toggleHidden} className="-mr-2 h-10 w-10">
+              {hidden ? <IconEyeOff size={18} /> : <IconEye size={18} />}
+            </IconButton>
+          }
+        />
+        <div className="grid grid-cols-2 gap-3 md:col-span-5">
+          <div className="min-w-0 rounded-3xl bg-surface p-4 sm:p-5">
+            <p className="text-[13px] text-muted-foreground">Entradas (30d)</p>
+            <p className="mt-1.5 break-words text-lg font-semibold tracking-[-0.02em] text-success tabular-nums sm:text-2xl">{hidden ? "••••" : formatBRL(last30.income)}</p>
           </div>
-          <p className="font-display text-3xl min-[380px]:text-4xl sm:text-6xl font-semibold leading-none tracking-[-0.05em] tabular-nums break-words">
-            {hidden ? "R$ ••••" : formatBRL(bank.balance)}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" className="border-white/20 bg-transparent text-white hover:border-white" onClick={() => go("bank", "pix")}>
-              Enviar Pix
-            </Button>
-            <Button variant="secondary" size="sm" className="border-white/20 bg-transparent text-white hover:border-white" onClick={() => go("bank", "cobrar")}>
-              Cobrar
-            </Button>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-px bg-line md:col-span-5 md:grid-cols-1">
-          <div className="min-w-0 bg-card p-3.5 sm:p-6">
-            <p className="text-xs sm:text-[13px] text-muted-foreground">Entradas (30d)</p>
-            <p className="mt-1.5 sm:mt-2 break-words font-display text-lg min-[360px]:text-xl font-semibold tracking-[-0.03em] text-primary tabular-nums sm:text-3xl">
-              {hidden ? "••••" : formatBRL(last30.income)}
-            </p>
-          </div>
-          <div className="min-w-0 bg-card p-3.5 sm:p-6">
-            <p className="text-xs sm:text-[13px] text-muted-foreground">Saídas (30d)</p>
-            <p className="mt-1.5 sm:mt-2 break-words font-display text-lg min-[360px]:text-xl font-semibold tracking-[-0.03em] text-ink tabular-nums sm:text-3xl">
-              {hidden ? "••••" : formatBRL(last30.outcome)}
-            </p>
+          <div className="min-w-0 rounded-3xl bg-surface p-4 sm:p-5">
+            <p className="text-[13px] text-muted-foreground">Saídas (30d)</p>
+            <p className="mt-1.5 break-words text-lg font-semibold tracking-[-0.02em] text-ink tabular-nums sm:text-2xl">{hidden ? "••••" : formatBRL(last30.outcome)}</p>
           </div>
         </div>
       </section>
@@ -118,38 +110,48 @@ export function BankScreen({ member }: { member: User }) {
           { value: "pix", label: "Pix" },
           { value: "cobrar", label: "Cobrar" },
           { value: "cartoes", label: "Cartões" },
-          { value: "chaves", label: "Chaves Pix", count: bank.pixKeys.length },
+          { value: "chaves", label: "Chaves Pix", count: account.pixKeys.length },
         ]}
       />
 
-      {section === "extrato" && <StatementPanel bank={bank} hidden={hidden} />}
-      {section === "pix" && <PixPanel bank={bank} setBank={setBank} />}
-      {section === "cobrar" && <ChargePanel bank={bank} setBank={setBank} member={member} onCreateKey={() => go("bank", "chaves")} />}
-      {section === "cartoes" && <CardsPanel bank={bank} setBank={setBank} holder={member.name || "Membro PRX"} />}
-      {section === "chaves" && <KeysPanel bank={bank} setBank={setBank} />}
+      {section === "extrato" && <StatementPanel account={account} hidden={hidden} />}
+      {section === "pix" && (active ? <PixPanel account={account} run={run} /> : <ActivationPanel title="Pix disponível na ativação" onKeys={() => go("bank", "chaves")} />)}
+      {section === "cobrar" && (active ? <ChargePanel account={account} run={run} /> : <ActivationPanel title="Cobranças com QR Code na ativação" onKeys={() => go("bank", "chaves")} />)}
+      {section === "cartoes" && <CardsPanel account={account} run={run} holder={member.name || "Membro PRX"} />}
+      {section === "chaves" && <KeysPanel account={account} run={run} />}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------------ */
 
-function StatementPanel({ bank, hidden }: { bank: BankState; hidden: boolean }) {
+function ActivationPanel({ title, onKeys }: { title: string; onKeys: () => void }) {
+  return (
+    <EmptyState
+      title={title}
+      body="Enviar e receber dinheiro depende do banco parceiro, que ainda está sendo conectado. Pré-cadastre sua chave para receber assim que a conta abrir."
+      action={<Button onClick={onKeys}>Pré-cadastrar chave Pix</Button>}
+    />
+  );
+}
+
+function StatementPanel({ account, hidden }: { account: BankAccountView; hidden: boolean }) {
   const [period, setPeriod] = useState<StatementPeriod>(30);
   const [filter, setFilter] = useState<StatementFilter>("all");
-  const list = useMemo(() => filterTransactions(bank.transactions, period, filter), [bank.transactions, period, filter]);
+  const list = useMemo(() => filterTransactions(account.transactions, period, filter), [account.transactions, period, filter]);
   const totals = summarize(list);
 
   return (
     <section aria-label="Extrato" className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div role="group" aria-label="Período" className="-mx-3.5 px-3.5 min-[380px]:-mx-4 min-[380px]:px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto scrollbar-none touch-pan-x">
+        <div role="group" aria-label="Período" className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none touch-pan-x sm:mx-0 sm:px-0">
           {([7, 30, 90] as const).map((p) => (
             <FilterChip key={p} active={period === p} onClick={() => setPeriod(p)}>
               {p} dias
             </FilterChip>
           ))}
         </div>
-        <div role="group" aria-label="Tipo de movimentação" className="-mx-3.5 px-3.5 min-[380px]:-mx-4 min-[380px]:px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto scrollbar-none touch-pan-x">
+        <div role="group" aria-label="Tipo de movimentação" className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none touch-pan-x sm:mx-0 sm:px-0">
           {(
             [
               ["all", "Tudo"],
@@ -165,15 +167,17 @@ function StatementPanel({ bank, hidden }: { bank: BankState; hidden: boolean }) 
       </div>
 
       <p className="text-[13px] text-muted-foreground">
-        {list.length} {list.length === 1 ? "movimentação" : "movimentações"} ·{" "}
-        <span className="text-primary">+{hidden ? "••••" : formatBRL(totals.income)}</span> ·{" "}
+        {list.length} {list.length === 1 ? "movimentação" : "movimentações"} · <span className="text-success">+{hidden ? "••••" : formatBRL(totals.income)}</span> ·{" "}
         <span className="text-ink">−{hidden ? "••••" : formatBRL(totals.outcome)}</span>
       </p>
 
       {list.length === 0 ? (
-        <EmptyState title="Sem movimentações no período" body="Mude o período ou o tipo para ver mais." />
+        <EmptyState
+          title={account.transactions.length === 0 ? "Nenhuma movimentação ainda" : "Sem movimentações no período"}
+          body={account.transactions.length === 0 ? "O extrato começa quando a conta for ativada e o primeiro Pix entrar." : "Mude o período ou o tipo para ver mais."}
+        />
       ) : (
-        <ul className="divide-y divide-line border-y border-line">
+        <ul>
           {list.map((tx) => (
             <TransactionRow key={tx.id} tx={tx} hidden={hidden} />
           ))}
@@ -190,8 +194,8 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "min-h-10 cursor-pointer rounded-[2px] border px-3.5 text-sm transition-colors",
-        active ? "border-primary bg-primary text-white" : "border-line text-muted-foreground hover:border-ink hover:text-ink"
+        "min-h-10 shrink-0 cursor-pointer whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors",
+        active ? "bg-ink text-background" : "bg-surface text-muted-foreground hover:bg-line hover:text-ink"
       )}
     >
       {children}
@@ -211,7 +215,8 @@ interface PixDraft {
   fixedAmount: boolean;
 }
 
-function PixPanel({ bank, setBank }: { bank: BankState; setBank: Updater }) {
+/** Envio de Pix (conta ativa). A operação é sempre decidida no servidor, junto ao banco parceiro. */
+function PixPanel({ account, run }: { account: BankAccountView; run: Run }) {
   const [method, setMethod] = useState<PixMethod>("chave");
   const [key, setKey] = useState("");
   const [amountText, setAmountText] = useState("");
@@ -219,155 +224,107 @@ function PixPanel({ bank, setBank }: { bank: BankState; setBank: Updater }) {
   const [pasted, setPasted] = useState("");
   const [draft, setDraft] = useState<PixDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<PixDraft | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const keyType = detectPixKeyType(key);
 
   function reviewFromKey(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    if (!keyType) {
-      setError("Chave inválida. Use CPF, CNPJ, e-mail, celular com DDD ou chave aleatória.");
-      return;
-    }
+    if (!keyType) return setError("Chave inválida. Use CPF, CNPJ, e-mail, celular com DDD ou chave aleatória.");
     const amount = parseMoney(amountText);
-    if (!(amount > 0)) {
-      setError("Informe o valor do Pix.");
-      return;
-    }
+    if (!(amount > 0)) return setError("Informe o valor do Pix.");
+    if (amount > account.balance) return setError("Saldo insuficiente para esta transferência.");
     setDraft({ key: key.trim(), recipient: `${PIX_KEY_LABEL[keyType]} ${key.trim()}`, amount, description, fixedAmount: false });
   }
 
   function reviewFromPayload(raw: string) {
     setError(null);
     const parsed = parsePixPayload(raw);
-    if (!parsed) {
-      setError("Esse código não é um Pix Copia e Cola válido.");
-      return;
-    }
-    if (!parsed.valid) {
-      setError("O código Pix está incompleto ou foi alterado (falha na verificação). Peça um novo código.");
-      return;
-    }
-    setDraft({
-      key: parsed.key,
-      recipient: parsed.merchantName || parsed.key,
-      amount: parsed.amount ?? 0,
-      description: "",
-      fixedAmount: Boolean(parsed.amount),
-    });
+    if (!parsed) return setError("Esse código não é um Pix Copia e Cola válido.");
+    if (!parsed.valid) return setError("O código Pix está incompleto ou foi alterado (falha na verificação). Peça um novo código.");
+    setDraft({ key: parsed.key, recipient: parsed.merchantName || parsed.key, amount: parsed.amount ?? 0, description: "", fixedAmount: Boolean(parsed.amount) });
   }
 
-  function confirm() {
+  async function confirm() {
     if (!draft) return;
-    try {
-      setBank((state) => sendPix(state, { key: draft.key, amount: draft.amount, recipient: draft.recipient, description: draft.description }));
-      setReceipt(draft);
-      setDraft(null);
-      setKey("");
-      setAmountText("");
-      setDescription("");
-      setPasted("");
-    } catch (err) {
-      setError(err instanceof BankError ? err.message : "Não foi possível concluir o Pix.");
-      setDraft(null);
-    }
+    setBusy(true);
+    const result = await run({ action: "send_pix", key: draft.key, amount: draft.amount, description: draft.description });
+    setBusy(false);
+    setDraft(null);
+    if (!result.ok) return setError(result.error);
+    setKey("");
+    setAmountText("");
+    setDescription("");
+    setPasted("");
   }
 
   return (
-    <section aria-label="Enviar Pix" className="grid gap-10 lg:grid-cols-12">
-      <div className="space-y-6 lg:col-span-7">
-        <Segmented
-          label="Forma de pagamento Pix"
-          value={method}
-          onChange={(value) => {
-            setMethod(value);
-            setError(null);
+    <section aria-label="Enviar Pix" className="space-y-6 lg:max-w-2xl">
+      <Segmented
+        label="Forma de pagamento Pix"
+        value={method}
+        onChange={(value) => {
+          setMethod(value);
+          setError(null);
+        }}
+        options={[
+          { value: "chave", label: "Chave" },
+          { value: "copia", label: "Copia e cola" },
+          { value: "qr", label: "Ler QR Code" },
+        ]}
+      />
+
+      {method === "chave" && (
+        <form onSubmit={reviewFromKey} className="space-y-5">
+          <Field label="Chave Pix" hint={keyType ? `Tipo identificado: ${PIX_KEY_LABEL[keyType]}` : "CPF, CNPJ, e-mail, celular ou chave aleatória."}>
+            {(id, describedBy) => <Input id={id} aria-describedby={describedBy} value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" spellCheck={false} />}
+          </Field>
+          <Field label="Valor" hint={`Disponível: ${formatBRL(account.balance)}`}>
+            {(id, describedBy) => (
+              <Input id={id} aria-describedby={describedBy} inputMode="decimal" placeholder="0,00" value={amountText} onChange={(e) => setAmountText(e.target.value)} className="font-mono text-lg" />
+            )}
+          </Field>
+          <Field label="Mensagem (opcional)">{(id) => <Input id={id} value={description} maxLength={60} onChange={(e) => setDescription(e.target.value)} />}</Field>
+          <Button type="submit" block>
+            Revisar Pix
+          </Button>
+        </form>
+      )}
+
+      {method === "copia" && (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            reviewFromPayload(pasted);
           }}
-          options={[
-            { value: "chave", label: "Chave" },
-            { value: "copia", label: "Copia e cola" },
-            { value: "qr", label: "Ler QR Code" },
-          ]}
-        />
+          className="space-y-5"
+        >
+          <Field label="Código Pix Copia e Cola">
+            {(id) => <Textarea id={id} value={pasted} onChange={(e) => setPasted(e.target.value)} className="font-mono text-sm" spellCheck={false} placeholder="00020126…" />}
+          </Field>
+          <Button type="submit" block disabled={!pasted.trim()}>
+            Ler código
+          </Button>
+        </form>
+      )}
 
-        {method === "chave" && (
-          <form onSubmit={reviewFromKey} className="space-y-5">
-            <Field label="Chave Pix" hint={keyType ? `Tipo identificado: ${PIX_KEY_LABEL[keyType]}` : "CPF, CNPJ, e-mail, celular ou chave aleatória."}>
-              {(id, describedBy) => (
-                <Input id={id} aria-describedby={describedBy} value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" spellCheck={false} />
-              )}
-            </Field>
-            <Field label="Valor" hint={`Disponível: ${formatBRL(bank.balance)}`}>
-              {(id, describedBy) => (
-                <Input
-                  id={id}
-                  aria-describedby={describedBy}
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  value={amountText}
-                  onChange={(e) => setAmountText(e.target.value)}
-                  className="font-mono text-lg"
-                />
-              )}
-            </Field>
-            <Field label="Mensagem (opcional)">
-              {(id) => <Input id={id} value={description} maxLength={60} onChange={(e) => setDescription(e.target.value)} />}
-            </Field>
-            <Button type="submit" block>
-              Revisar Pix
-            </Button>
-          </form>
-        )}
+      {method === "qr" && <QrScanner onScan={reviewFromPayload} active={!draft} />}
 
-        {method === "copia" && (
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              reviewFromPayload(pasted);
-            }}
-            className="space-y-5"
-          >
-            <Field label="Código Pix Copia e Cola">
-              {(id) => (
-                <Textarea id={id} value={pasted} onChange={(e) => setPasted(e.target.value)} className="font-mono text-sm" spellCheck={false} placeholder="00020126…" />
-              )}
-            </Field>
-            <Button type="submit" block disabled={!pasted.trim()}>
-              Ler código
-            </Button>
-          </form>
-        )}
-
-        {method === "qr" && <QrScanner onScan={reviewFromPayload} active={!draft} />}
-
-        {error && <Notice tone="error">{error}</Notice>}
-      </div>
-
-      <aside className="space-y-4 lg:col-span-5">
-        <h2 className="text-[13px] font-semibold text-muted-foreground">Pix recentes</h2>
-        <ul className="divide-y divide-line border-y border-line">
-          {bank.transactions
-            .filter((t) => t.kind === "pix_out")
-            .slice(0, 4)
-            .map((tx) => (
-              <TransactionRow key={tx.id} tx={tx} />
-            ))}
-        </ul>
-      </aside>
+      {error && <Notice tone="error">{error}</Notice>}
 
       <Sheet
         open={Boolean(draft)}
         onClose={() => setDraft(null)}
         title="Confirmar Pix"
         footer={
-          <Button block onClick={confirm} disabled={!draft || !(draft.amount > 0)}>
-            Enviar {draft ? formatBRL(draft.amount) : ""}
+          <Button block onClick={() => void confirm()} disabled={busy || !draft || !(draft.amount > 0)}>
+            {busy ? "Enviando…" : `Enviar ${draft ? formatBRL(draft.amount) : ""}`}
           </Button>
         }
       >
         {draft && (
-          <dl className="divide-y divide-line border-y border-line text-[15px]">
+          <dl className="divide-y divide-line rounded-3xl bg-surface px-4 text-[15px]">
             <div className="flex justify-between gap-4 py-3.5">
               <dt className="text-muted-foreground">Para</dt>
               <dd className="text-right font-medium text-ink">{draft.recipient}</dd>
@@ -379,43 +336,14 @@ function PixPanel({ bank, setBank }: { bank: BankState; setBank: Updater }) {
             <div className="flex items-center justify-between gap-4 py-3.5">
               <dt className="text-muted-foreground">Valor</dt>
               <dd>
-                {draft.fixedAmount ? (
-                  <span className="font-display text-2xl font-semibold text-ink">{formatBRL(draft.amount)}</span>
-                ) : draft.amount > 0 ? (
-                  <span className="font-display text-2xl font-semibold text-ink">{formatBRL(draft.amount)}</span>
+                {draft.fixedAmount || draft.amount > 0 ? (
+                  <span className="text-2xl font-semibold tracking-[-0.02em] text-ink">{formatBRL(draft.amount)}</span>
                 ) : (
-                  <Input
-                    aria-label="Valor do Pix"
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    className="w-36 text-right font-mono"
-                    onChange={(e) => setDraft({ ...draft, amount: parseMoney(e.target.value) })}
-                  />
+                  <Input aria-label="Valor do Pix" inputMode="decimal" placeholder="0,00" className="w-36 text-right font-mono" onChange={(e) => setDraft({ ...draft, amount: parseMoney(e.target.value) })} />
                 )}
               </dd>
             </div>
-            {draft.description && (
-              <div className="flex justify-between gap-4 py-3.5">
-                <dt className="text-muted-foreground">Mensagem</dt>
-                <dd className="text-right text-ink">{draft.description}</dd>
-              </div>
-            )}
           </dl>
-        )}
-      </Sheet>
-
-      <Sheet open={Boolean(receipt)} onClose={() => setReceipt(null)} title="Pix enviado" footer={<Button block variant="ink" onClick={() => setReceipt(null)}>Fechar</Button>}>
-        {receipt && (
-          <div className="space-y-4">
-            <span className="flex h-12 w-12 items-center justify-center bg-primary text-white">
-              <IconCheck size={24} />
-            </span>
-            <p className="font-display text-4xl font-semibold tracking-[-0.04em] text-ink">{formatBRL(receipt.amount)}</p>
-            <p className="text-[15px] text-muted-foreground">
-              Para {receipt.recipient}
-              {BANK_MODE === "sandbox" ? " · simulação, sem movimentação real." : "."}
-            </p>
-          </div>
         )}
       </Sheet>
     </section>
@@ -424,80 +352,44 @@ function PixPanel({ bank, setBank }: { bank: BankState; setBank: Updater }) {
 
 /* ------------------------------------------------------------------------ */
 
-function ChargePanel({ bank, setBank, member, onCreateKey }: { bank: BankState; setBank: Updater; member: User; onCreateKey: () => void }) {
+/** Cobrança com QR Code (conta ativa): o código é gerado pelo banco parceiro. */
+function ChargePanel({ account, run }: { account: BankAccountView; run: Run }) {
   const [amountText, setAmountText] = useState("");
   const [description, setDescription] = useState("");
-  const current = bank.charges[0];
-  const qr = useQrDataUrl(current?.payload);
-  const receivingKey = bank.pixKeys[0];
+  const [error, setError] = useState<string | null>(null);
+  const current = account.charges[0];
 
-  function create(event: FormEvent) {
+  async function create(event: FormEvent) {
     event.preventDefault();
-    if (!receivingKey) return;
+    setError(null);
     const amount = parseMoney(amountText);
-    const payload = buildPixPayload({
-      key: receivingKey.value,
-      merchantName: member.name || "PRX",
-      merchantCity: "Sao Paulo",
-      amount: amount > 0 ? amount : undefined,
-      description: description || undefined,
-    });
-    setBank((state) => addCharge(state, { amount: amount > 0 ? amount : undefined, description: description || undefined, payload }));
-  }
-
-  if (!receivingKey) {
-    return (
-      <EmptyState
-        title="Cadastre uma chave Pix para cobrar"
-        body="A cobrança usa a sua chave para gerar o QR Code e o código Copia e Cola."
-        action={<Button onClick={onCreateKey}>Cadastrar chave</Button>}
-      />
-    );
+    const result = await run({ action: "create_charge", amount: amount > 0 ? amount : null, description });
+    if (!result.ok) setError(result.error);
   }
 
   return (
     <section aria-label="Cobrar com Pix" className="grid gap-10 lg:grid-cols-12">
-      <form onSubmit={create} className="space-y-5 lg:col-span-5">
+      <form onSubmit={(e) => void create(e)} className="space-y-5 lg:col-span-5">
         <Field label="Valor (opcional)" hint="Sem valor, quem paga escolhe quanto enviar.">
           {(id, describedBy) => (
             <Input id={id} aria-describedby={describedBy} inputMode="decimal" placeholder="0,00" value={amountText} onChange={(e) => setAmountText(e.target.value)} className="font-mono text-lg" />
           )}
         </Field>
-        <Field label="Descrição (opcional)">
-          {(id) => <Input id={id} value={description} maxLength={40} onChange={(e) => setDescription(e.target.value)} />}
-        </Field>
-        <p className="text-[13px] text-muted-foreground">
-          Recebendo na chave {PIX_KEY_LABEL[receivingKey.type]} <span className="font-mono text-ink">{receivingKey.value}</span>
-        </p>
+        <Field label="Descrição (opcional)">{(id) => <Input id={id} value={description} maxLength={40} onChange={(e) => setDescription(e.target.value)} />}</Field>
         <Button type="submit" block>
           Gerar QR Code
         </Button>
+        {error && <Notice tone="error">{error}</Notice>}
       </form>
-
       <div className="lg:col-span-7">
         {current ? (
-          <div className="grid gap-6 border border-line p-6 sm:grid-cols-[220px_1fr]">
-            <div className="border border-line p-2">
-              {qr ? <Image src={qr} alt="QR Code da cobrança Pix" width={280} height={280} unoptimized className="h-auto w-full" /> : <div className="aspect-square bg-surface" />}
+          <div className="space-y-4 rounded-3xl bg-surface p-5 sm:p-6">
+            <div className="flex items-center gap-2">
+              <p className="text-3xl font-light tracking-[-0.03em] text-ink">{current.amount ? formatBRL(current.amount) : "Valor livre"}</p>
+              {current.paid ? <Tag tone="success">Recebido</Tag> : <Tag>Aguardando</Tag>}
             </div>
-            <div className="flex min-w-0 flex-col justify-between gap-5">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-ink">{current.amount ? formatBRL(current.amount) : "Valor livre"}</p>
-                  {current.paid ? <Tag tone="success">Recebido</Tag> : <Tag>Aguardando</Tag>}
-                </div>
-                {current.description && <p className="mt-1 text-sm text-muted-foreground">{current.description}</p>}
-              </div>
-              <p className="break-all font-mono text-[12px] leading-relaxed text-muted-foreground">{current.payload}</p>
-              <div className="flex flex-wrap gap-2">
-                <CopyButton value={current.payload} label="Copiar código" />
-                {BANK_MODE === "sandbox" && !current.paid && (
-                  <Button variant="ghost" size="sm" onClick={() => setBank((state) => simulateChargePaid(state, current.id))}>
-                    Simular pagamento
-                  </Button>
-                )}
-              </div>
-            </div>
+            <p className="break-all font-mono text-[12px] leading-relaxed text-muted-foreground">{current.payload}</p>
+            <CopyButton value={current.payload} label="Copiar código" />
           </div>
         ) : (
           <EmptyState title="Nenhuma cobrança criada" body="Preencha ao lado para gerar um QR Code de cobrança." />
@@ -509,102 +401,84 @@ function ChargePanel({ bank, setBank, member, onCreateKey }: { bank: BankState; 
 
 /* ------------------------------------------------------------------------ */
 
-function CardsPanel({ bank, setBank, holder }: { bank: BankState; setBank: Updater; holder: string }) {
-  const [revealed, setRevealed] = useState(false);
+const EMPTY_ADDRESS = { cep: "", street: "", number: "", complement: "", city: "" };
+
+function CardsPanel({ account, run, holder }: { account: BankAccountView; run: Run; holder: string }) {
   const [requestOpen, setRequestOpen] = useState(false);
-  const [address, setAddress] = useState({ cep: "", street: "", number: "", complement: "", city: "" });
+  const [address, setAddress] = useState(EMPTY_ADDRESS);
   const [error, setError] = useState<string | null>(null);
-  const card = bank.virtualCard;
-  const stageIndex = bank.physicalCard ? physicalCardStageIndex(bank.physicalCard) : -1;
+  const [busy, setBusy] = useState(false);
+  const card = account.virtualCard;
+  const request = account.cardRequest;
+
+  async function act(body: { action: string } & Record<string, unknown>, onDone?: () => void) {
+    setBusy(true);
+    setError(null);
+    const result = await run(body);
+    setBusy(false);
+    if (!result.ok) return setError(result.error);
+    onDone?.();
+  }
 
   function submitRequest(event: FormEvent) {
     event.preventDefault();
-    const cepDigits = address.cep.replace(/\D/g, "");
-    if (cepDigits.length !== 8 || !address.street.trim() || !address.number.trim() || !address.city.trim()) {
-      setError("Preencha CEP, endereço, número e cidade.");
-      return;
-    }
-    try {
-      const full = `${address.street.trim()}, ${address.number.trim()}${address.complement ? ` — ${address.complement.trim()}` : ""} · ${address.city.trim()} · CEP ${cepDigits.replace(/(\d{5})(\d{3})/, "$1-$2")}`;
-      setBank((state) => requestPhysicalCard(state, full));
+    void act({ action: "request_card", address }, () => {
       setRequestOpen(false);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof BankError ? err.message : "Não foi possível solicitar o cartão.");
-    }
+      setAddress(EMPTY_ADDRESS);
+    });
   }
 
   return (
     <section aria-label="Cartões" className="grid gap-12 lg:grid-cols-12">
       <div className="space-y-6 lg:col-span-6">
-        <h2 className="font-display text-2xl font-semibold tracking-[-0.03em] text-ink">Cartão virtual</h2>
-        <CardVisual card={card} holder={holder} revealed={revealed && !card.locked} />
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setRevealed((v) => !v)} disabled={card.locked} aria-pressed={revealed}>
-            {revealed ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-            {revealed ? "Ocultar dados" : "Ver dados"}
-          </Button>
-          {revealed && !card.locked && <CopyButton value={card.number} label="Copiar número" />}
-          <Button
-            variant={card.locked ? "primary" : "danger"}
-            size="sm"
-            onClick={() => {
-              setRevealed(false);
-              setBank((state) => setCardLocked(state, !card.locked));
-            }}
-          >
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Cartão virtual</h2>
+        <CardVisual card={card} holder={holder} />
+        {card ? (
+          <Button variant={card.locked ? "primary" : "danger"} size="sm" disabled={busy} onClick={() => void act({ action: "toggle_lock" })}>
             {card.locked ? <IconUnlock size={16} /> : <IconLock size={16} />}
             {card.locked ? "Desbloquear" : "Bloquear"}
           </Button>
-        </div>
-        <p className="text-[13px] text-muted-foreground">
-          {card.locked
-            ? "Cartão bloqueado: novas compras são recusadas até você desbloquear."
-            : "Use em compras online. O bloqueio é instantâneo e pode ser desfeito a qualquer momento."}
-        </p>
+        ) : (
+          <p className="text-[13px] text-muted-foreground">O cartão virtual é emitido automaticamente quando a conta for ativada, sem anuidade.</p>
+        )}
       </div>
 
       <div className="space-y-6 lg:col-span-6">
-        <h2 className="font-display text-2xl font-semibold tracking-[-0.03em] text-ink">Cartão físico</h2>
-        {bank.physicalCard ? (
-          <div className="space-y-6">
-            <ol className="space-y-0">
-              {PHYSICAL_CARD_STAGES.map((stage, index) => {
-                const done = index <= stageIndex;
-                const date = new Date(new Date(bank.physicalCard!.requestedAt).getTime() + stage.afterDays * 86_400_000);
-                return (
-                  <li key={stage.stage} className="relative flex gap-4 pb-6 last:pb-0">
-                    {index < PHYSICAL_CARD_STAGES.length - 1 && (
-                      <span aria-hidden className={cn("absolute left-[7px] top-5 h-[calc(100%-12px)] w-px", index < stageIndex ? "bg-primary" : "bg-line")} />
-                    )}
-                    <span aria-hidden className={cn("mt-1 h-[15px] w-[15px] shrink-0 border-2", done ? "border-primary bg-primary" : "border-line bg-surface")} />
-                    <div>
-                      <p className={cn("text-[15px] font-medium", done ? "text-ink" : "text-muted-foreground")}>{stage.label}</p>
-                      <p className="text-[13px] text-muted-foreground">
-                        {done ? "Concluído" : "Previsão"} · {date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-            <dl className="space-y-2 border-t border-line pt-4 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Rastreio</dt>
-                <dd className="font-mono text-ink">{bank.physicalCard.trackingCode}</dd>
-              </div>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Cartão físico</h2>
+        {request ? (
+          <div className="space-y-4 rounded-3xl bg-surface p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[15px] font-medium text-ink">Pedido registrado</p>
+              <Tag tone={request.status === "delivered" ? "success" : "neutral"}>{CARD_REQUEST_STATUS_LABEL[request.status]}</Tag>
+            </div>
+            <dl className="space-y-2 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Entrega</dt>
-                <dd className="text-right text-ink">{bank.physicalCard.address}</dd>
+                <dd className="text-right text-ink">{request.address}</dd>
               </div>
+              {request.trackingCode && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">Rastreio</dt>
+                  <dd className="font-mono text-ink">{request.trackingCode}</dd>
+                </div>
+              )}
             </dl>
+            {request.status === "waiting_activation" && (
+              <>
+                <p className="text-[13px] text-muted-foreground">O pedido segue para o emissor assim que a conta for ativada. O prazo de entrega começa a contar a partir daí.</p>
+                <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act({ action: "cancel_card_request", id: request.id })}>
+                  Cancelar pedido
+                </Button>
+              </>
+            )}
           </div>
         ) : (
-          <div className="space-y-4 border border-line p-6">
-            <p className="text-[15px] text-ink">Peça o cartão físico sem anuidade e acompanhe a entrega por aqui.</p>
-            <Button onClick={() => setRequestOpen(true)}>Solicitar cartão físico</Button>
+          <div className="space-y-4 rounded-3xl bg-surface p-5 sm:p-6">
+            <p className="text-[15px] text-ink">Peça o cartão físico sem anuidade. Ele é produzido depois da ativação da conta.</p>
+            <Button onClick={() => setRequestOpen(true)}>Pedir cartão físico</Button>
           </div>
         )}
+        {error && !requestOpen && <Notice tone="error">{error}</Notice>}
       </div>
 
       <Sheet
@@ -612,8 +486,8 @@ function CardsPanel({ bank, setBank, holder }: { bank: BankState; setBank: Updat
         onClose={() => setRequestOpen(false)}
         title="Endereço de entrega"
         footer={
-          <Button block type="submit" form="physical-card-form">
-            Confirmar pedido
+          <Button block type="submit" form="physical-card-form" disabled={busy}>
+            {busy ? "Registrando…" : "Confirmar pedido"}
           </Button>
         }
       >
@@ -633,7 +507,11 @@ function CardsPanel({ bank, setBank, holder }: { bank: BankState; setBank: Updat
           <Field label="Cidade / UF" className="sm:col-span-6">
             {(id) => <Input id={id} autoComplete="address-level2" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />}
           </Field>
-          {error && <Notice tone="error" className="sm:col-span-6">{error}</Notice>}
+          {error && (
+            <Notice tone="error" className="sm:col-span-6">
+              {error}
+            </Notice>
+          )}
         </form>
       </Sheet>
     </section>
@@ -642,35 +520,41 @@ function CardsPanel({ bank, setBank, holder }: { bank: BankState; setBank: Updat
 
 /* ------------------------------------------------------------------------ */
 
-function KeysPanel({ bank, setBank }: { bank: BankState; setBank: Updater }) {
-  const [type, setType] = useState<PixKeyType>("random");
+function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
+  const [type, setType] = useState<Exclude<PixKeyType, "cnpj">>("random");
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const full = account.pixKeys.length >= MAX_PIX_KEYS;
 
-  function add(event: FormEvent) {
+  async function add(event: FormEvent) {
     event.preventDefault();
+    setBusy(true);
     setError(null);
-    const raw = type === "random" ? createRandomKey() : value.trim();
-    const digits = raw.replace(/\D/g, "");
-    if (type === "cpf" && !isValidCpf(digits)) return setError("CPF inválido.");
-    if (type === "cnpj" && digits.length !== 14) return setError("CNPJ precisa de 14 dígitos.");
-    if (type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return setError("E-mail inválido.");
-    if (type === "phone" && (digits.length < 10 || digits.length > 13)) return setError("Celular inválido. Use DDD + número.");
-    const normalized = type === "cpf" || type === "cnpj" ? digits : type === "phone" ? `+55${digits.replace(/^55/, "")}` : raw;
-    try {
-      setBank((state) => registerPixKey(state, type, normalized));
-      setValue("");
-    } catch (err) {
-      setError(err instanceof BankError ? err.message : "Não foi possível cadastrar a chave.");
-    }
+    const result = await run({ action: "add_pix_key", key: { type, value: type === "random" ? "" : value } });
+    setBusy(false);
+    if (!result.ok) return setError(result.error);
+    setValue("");
+  }
+
+  async function remove(id: string) {
+    setError(null);
+    const result = await run({ action: "remove_pix_key", id });
+    if (!result.ok) setError(result.error);
   }
 
   return (
     <section aria-label="Chaves Pix" className="grid gap-10 lg:grid-cols-12">
-      <form onSubmit={add} className="space-y-5 lg:col-span-5">
+      <form onSubmit={(e) => void add(e)} className="space-y-5 lg:col-span-5">
+        {account.status === "pending_activation" && (
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
+            Pré-cadastro: a chave fica reservada na sua conta e é registrada no Pix (DICT) quando o banco parceiro ativar a conta. Até lá ela ainda não recebe
+            pagamentos.
+          </p>
+        )}
         <Field label="Tipo de chave">
           {(id) => (
-            <Select id={id} value={type} onChange={(e) => setType(e.target.value as PixKeyType)}>
+            <Select id={id} value={type} onChange={(e) => setType(e.target.value as Exclude<PixKeyType, "cnpj">)}>
               <option value="random">Chave aleatória</option>
               <option value="cpf">CPF</option>
               <option value="email">E-mail</option>
@@ -691,28 +575,32 @@ function KeysPanel({ bank, setBank }: { bank: BankState; setBank: Updater }) {
             )}
           </Field>
         )}
-        <Button type="submit" block>
-          Cadastrar chave
+        <Button type="submit" block disabled={busy || full}>
+          {full ? `Limite de ${MAX_PIX_KEYS} chaves` : busy ? "Cadastrando…" : "Cadastrar chave"}
         </Button>
         {error && <Notice tone="error">{error}</Notice>}
       </form>
 
       <div className="lg:col-span-7">
-        {bank.pixKeys.length === 0 ? (
+        {account.pixKeys.length === 0 ? (
           <EmptyState title="Nenhuma chave cadastrada" body="Com uma chave você recebe Pix e gera cobranças com QR Code." />
         ) : (
-          <ul className="divide-y divide-line border-y border-line">
-            {bank.pixKeys.map((k) => (
-              <li key={k.id} className="flex items-center justify-between gap-3 sm:gap-4 py-3.5">
+          <ul className="space-y-2">
+            {account.pixKeys.map((k) => (
+              <li key={k.id} className="flex items-center justify-between gap-3 rounded-3xl bg-surface px-4 py-3 sm:gap-4">
                 <div className="min-w-0 pr-2">
-                  <p className="text-xs sm:text-[13px] text-muted-foreground">{PIX_KEY_LABEL[k.type]}</p>
-                  <p className="break-all font-mono text-sm sm:text-[15px] text-ink">{k.value}</p>
+                  <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground sm:text-[13px]">
+                    {PIX_KEY_LABEL[k.type]} <Tag tone={k.status === "active" ? "success" : "neutral"}>{PIX_KEY_STATUS_LABEL[k.status]}</Tag>
+                  </p>
+                  <p className="mt-1 break-all font-mono text-sm text-ink sm:text-[15px]">{k.value}</p>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <CopyButton value={k.value} />
-                  <Button variant="ghost" size="sm" aria-label={`Excluir chave ${k.value}`} onClick={() => setBank((state) => removePixKey(state, k.id))}>
-                    <IconTrash size={16} />
-                  </Button>
+                  {k.status === "pending_activation" && (
+                    <Button variant="ghost" size="sm" aria-label={`Excluir chave ${k.value}`} onClick={() => void remove(k.id)}>
+                      <IconTrash size={16} />
+                    </Button>
+                  )}
                 </div>
               </li>
             ))}

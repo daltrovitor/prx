@@ -197,7 +197,7 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
           action={selectablePartners.length > 0 ? <Button onClick={openCreate}>Cadastrar benefício</Button> : undefined}
         />
       ) : (
-        <div className="overflow-x-auto border border-line">
+        <div className="overflow-x-auto rounded-3xl border border-line">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">

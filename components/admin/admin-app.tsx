@@ -8,16 +8,21 @@ import { AdminBenefitsTab } from "@/components/admin/admin-benefits-tab";
 import { AdminMissionsTab } from "@/components/admin/admin-missions-tab";
 import { AdminVouchersTab } from "@/components/admin/admin-vouchers-tab";
 import { AdminPartnersTab } from "@/components/admin/admin-partners-tab";
+import { AdminEventsTab } from "@/components/admin/admin-events-tab";
+import { AdminFoundersTab } from "@/components/admin/admin-founders-tab";
+import { AdminStaffTab } from "@/components/admin/admin-staff-tab";
 import type { PartnerOverview } from "@/lib/partners/service";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { Button, Segmented } from "@/components/app/ui";
+import { Button, IconButton, Segmented } from "@/components/app/ui";
+import { DashboardHeader, roundLinkClass } from "@/components/app/dashboard-header";
 import { IconExternal, IconLogout, IconRefresh } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useThemeScope } from "@/components/theme-provider";
 import type { Benefit, PassMission } from "@/lib/pass-data";
 import type { SystemVoucher } from "@/lib/pass-store";
 import { useMainSiteUrl } from "@/lib/site";
 
-type TabKey = "members" | "partners" | "benefits" | "missions" | "vouchers";
+type TabKey = "members" | "partners" | "benefits" | "missions" | "vouchers" | "events" | "founders" | "staff";
 
 export interface AdminIdentity {
   name?: string;
@@ -68,6 +73,7 @@ async function fetchAdminData(): Promise<AdminData> {
  * e chega pronta em `initialAdmin`: sem tela de carregamento nem "piscada" de login.
  */
 export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null }) {
+  useThemeScope("app");
   const [auth, setAuth] = useState<"checking" | "guest" | "admin">(initialAdmin ? "admin" : "guest");
   const [admin, setAdmin] = useState<AdminIdentity | null>(initialAdmin);
   const [tab, setTab] = useState<TabKey>("members");
@@ -121,7 +127,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
 
   if (auth === "checking") {
     return (
-      <div className="prx-app flex min-h-dvh items-center justify-center bg-white" role="status" aria-label="Verificando acesso">
+      <div className="prx-app flex min-h-dvh items-center justify-center bg-background" role="status" aria-label="Verificando acesso">
         <PrxLogo variant="symbol" title="" className="h-10 w-auto text-ink" />
       </div>
     );
@@ -140,49 +146,38 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
 
   return (
     <div className="prx-app min-h-dvh bg-background text-foreground">
-      <header className="sticky top-0 z-30 border-b border-line bg-card/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-          <div className="flex items-center gap-4">
-            <PrxLogo variant="compact" title="PRX" className="h-6 w-auto text-ink sm:h-7" />
-            <span className="hidden border-l border-line pl-4 text-sm font-medium text-muted-foreground sm:inline">Admin</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-right text-[13px] leading-tight md:block">
-              <span className="block font-medium text-ink">{admin?.name || "Administrador"}</span>
-              <span className="block text-muted-foreground">{admin?.email}</span>
-            </span>
-            <ThemeToggle />
-            <a
-              href={homeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden min-h-10 items-center gap-2 rounded-[3px] border border-line px-3.5 text-sm text-ink transition-colors hover:border-ink sm:inline-flex"
-            >
-              App
-              <IconExternal size={16} />
+      <DashboardHeader
+        name={admin?.name || "Administrador"}
+        subtitle={admin?.email}
+        area="Admin"
+        actions={
+          <>
+            <ThemeToggle variant="app" />
+            <a href={homeUrl} target="_blank" rel="noopener noreferrer" className={roundLinkClass} aria-label="Abrir o app PRX em outra aba" title="Abrir o app">
+              <IconExternal size={18} />
             </a>
-            <Button variant="ghost" size="sm" onClick={logout} aria-label="Sair do painel">
+            <IconButton label="Sair do painel" onClick={logout}>
               <IconLogout size={18} />
-              <span className="hidden sm:inline">Sair</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+            </IconButton>
+          </>
+        }
+      />
 
-      <main className="mx-auto max-w-7xl space-y-10 px-4 pb-20 pt-8 sm:px-6 lg:pt-12">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <h1 className="font-display text-4xl font-semibold leading-none tracking-[-0.04em] text-ink sm:text-5xl">Painel PRX</h1>
+      <main className="mx-auto max-w-7xl space-y-8 px-4 pb-20 pt-4 sm:px-6 lg:pt-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">Painel PRX</h1>
           <Button variant="secondary" size="sm" onClick={() => void loadData()} disabled={loading}>
             <IconRefresh size={16} />
             {loading ? "Atualizando…" : "Atualizar dados"}
           </Button>
         </div>
 
-        <section aria-label="Indicadores" className="grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-3 lg:grid-cols-5">
+        {/* Topo da pirâmide: indicadores */}
+        <section aria-label="Indicadores" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {kpis.map((kpi) => (
-            <div key={kpi.label} className="bg-card p-5">
+            <div key={kpi.label} className="rounded-3xl bg-surface p-5">
               <p className="text-[13px] text-muted-foreground">{kpi.label}</p>
-              <p className="mt-2 font-display text-4xl font-semibold leading-none tracking-[-0.04em] text-ink tabular-nums">{kpi.value}</p>
+              <p className="mt-2 text-[34px] font-light leading-none tracking-[-0.035em] text-ink [font-feature-settings:'pnum']">{kpi.value}</p>
             </div>
           ))}
         </section>
@@ -197,6 +192,9 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             { value: "benefits", label: "Benefícios", count: benefits.length },
             { value: "missions", label: "Missões", count: missions.length },
             { value: "vouchers", label: "Vouchers", count: vouchers.length },
+            { value: "events", label: "Eventos" },
+            { value: "founders", label: "Founders" },
+            { value: "staff", label: "Equipe" },
           ]}
         />
 
@@ -207,6 +205,9 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
         {tab === "benefits" && <AdminBenefitsTab benefits={benefits} partners={partners} onRefresh={loadData} />}
         {tab === "missions" && <AdminMissionsTab missions={missions} onRefresh={loadData} />}
         {tab === "vouchers" && <AdminVouchersTab vouchers={vouchers} onRefresh={loadData} />}
+        {tab === "events" && <AdminEventsTab />}
+        {tab === "founders" && <AdminFoundersTab />}
+        {tab === "staff" && <AdminStaffTab />}
       </main>
     </div>
   );
