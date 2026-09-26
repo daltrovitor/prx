@@ -22,6 +22,7 @@ const PRECACHE_ASSETS = [
   '/brand/prx-symbol-on-dark.svg',
   '/brand/prx-compact-on-light.svg',
   '/brand/prx-compact-on-dark.svg',
+  '/vendor/gsap.min.js',
 ];
 
 // Instalação: armazena página offline e assets essenciais
@@ -119,8 +120,8 @@ self.addEventListener('fetch', (event) => {
   if (request.method === 'GET') {
     const url = new URL(request.url);
 
-    // Cache-first para assets do diretório /brand/ e manifest
-    if (url.origin === self.location.origin && (url.pathname.startsWith('/brand/') || url.pathname === '/manifest.json')) {
+    // Cache-first para assets de /brand/, /vendor/ e manifest
+    if (url.origin === self.location.origin && (url.pathname.startsWith('/brand/') || url.pathname.startsWith('/vendor/') || url.pathname === '/manifest.json')) {
       event.respondWith(
         caches.match(request).then((cachedResponse) => {
           if (cachedResponse) {
