@@ -31,6 +31,7 @@ Sem variáveis do Supabase o app roda com contas de demonstração, que só exis
 | `JWT_SECRET_OR_HMAC_KEY` | Segredo das sessões (32+ caracteres). Sem ele, é derivado do service role |
 | `PRX_ADMIN_EMAILS` | Lista de e-mails admin separada por vírgula (opcional) |
 | `NEXT_PUBLIC_SITE_URL` | URL pública do app (opcional) |
+| `NEXT_PUBLIC_PRIVACY_POLICY_URL` | Link da Política de Privacidade na tela de aceite do parceiro (opcional) |
 
 ## Estrutura
 
@@ -39,12 +40,15 @@ Sem variáveis do Supabase o app roda com contas de demonstração, que só exis
 - `components/brand/`: logo vetorial e abertura animada.
 - `components/icons/`: ícones próprios da PRX.
 - `lib/prx/`: domínio do PRX BANK (Pix EMV, cartões, extrato) e do PRX LIVE.
-- `docs/`: [relatório](docs/RELATORIO_PRX.md), [plano de BaaS](docs/PLANO_BAAS.md) e [infraestrutura para escala](docs/INFRA_ESCALA.md).
+- `lib/partners/`: programa de parceiros: Termo e Resumo Comercial, aceite eletrônico, planos de mídia e métricas agregadas. Ver [docs/PARCEIROS.md](docs/PARCEIROS.md), que inclui a ordem de implantação.
+- `docs/`: [relatório](docs/RELATORIO_PRX.md), [plano de BaaS](docs/PLANO_BAAS.md), [infraestrutura para escala](docs/INFRA_ESCALA.md) e [programa de parceiros](docs/PARCEIROS.md).
 
 ## Qualidade
 
 ```bash
 npx tsc --noEmit
 npm run lint
+npm test
 npm run build
+BASE=http://localhost:3000 node scripts/e2e-partners.mjs   # com npm run dev, sem Supabase
 ```

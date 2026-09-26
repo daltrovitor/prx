@@ -56,9 +56,15 @@ export function BenefitCard({ benefit, redeemed, locked, onSelect }: BenefitCard
       </div>
       <div className="flex flex-1 flex-col justify-between gap-4 p-4">
         <div>
-          <p className="text-[13px] text-muted-foreground">
-            {benefit.partnerName} · {benefit.partnerLocation}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 text-[13px] text-muted-foreground">
+              {benefit.partnerName} · {benefit.partnerLocation}
+            </p>
+            {/* Mídia paga identificada ao membro (cláusula 8.6 do Termo de Parceria). */}
+            {benefit.sponsored && (
+              <span className="shrink-0 rounded-[2px] border border-line px-1.5 text-[12px] font-medium leading-5 text-muted-foreground">Patrocinado</span>
+            )}
+          </div>
           <p className="mt-1 text-base font-semibold leading-snug tracking-[-0.01em] text-ink">{benefit.title}</p>
         </div>
         <p className={cn("text-[13px] font-medium", locked ? "text-muted-foreground" : "text-ink")}>

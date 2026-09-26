@@ -221,7 +221,14 @@ class UserStore {
   }
 }
 
-export const userStore = new UserStore();
+/**
+ * Uma única instância por processo. No Next, páginas (RSC) e rotas de API rodam
+ * em instâncias de módulo separadas: sem o globalThis, uma conta criada pela API
+ * (cadastro, login de parceiro criado no admin) não existiria para a página.
+ */
+const globalAuth = globalThis as unknown as { __prxUserStore?: UserStore };
+if (globalAuth.__prxUserStore) Object.setPrototypeOf(globalAuth.__prxUserStore, UserStore.prototype);
+export const userStore = (globalAuth.__prxUserStore ??= new UserStore());
 
 /**
  * Sign JWT session token with configurable expiration

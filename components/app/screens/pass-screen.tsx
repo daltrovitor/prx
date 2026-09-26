@@ -9,6 +9,7 @@ import { BenefitCard } from "@/components/app/pass/benefit-card";
 import { VoucherSheet } from "@/components/app/pass/voucher-sheet";
 import { MissionsPanel } from "@/components/app/pass/missions-panel";
 import { ReferralPanel } from "@/components/app/pass/referral-panel";
+import { useBenefitEvents } from "@/components/app/pass/use-benefit-events";
 import { Button, EmptyState, Input, Notice, ProgressBar, Segmented, Sheet, Tag } from "@/components/app/ui";
 import { IconSearch } from "@/components/icons/prx-icons";
 import { PRX_CATEGORIES, levelProgress, type Benefit, type UserVoucher } from "@/lib/pass-data";
@@ -30,6 +31,12 @@ export function PassScreen({ pass }: { pass: PassData }) {
   const [openVoucher, setOpenVoucher] = useState<UserVoucher | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [redeemError, setRedeemError] = useState<string | null>(null);
+  const events = useBenefitEvents();
+
+  function selectBenefit(benefit: Benefit) {
+    events.click(benefit.id);
+    setSelected(benefit);
+  }
 
   // Benefício aberto por link (#pass/beneficio:<id>) vale até o usuário fechar ou escolher outro.
   const linkedBenefit = benefitFromLink ? benefits.find((b) => b.id === benefitFromLink) ?? null : null;
@@ -184,12 +191,12 @@ export function PassScreen({ pass }: { pass: PassData }) {
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((benefit) => (
-                <li key={benefit.id}>
+                <li key={benefit.id} ref={events.track(benefit.id)}>
                   <BenefitCard
                     benefit={benefit}
                     redeemed={activeByBenefit.has(benefit.id)}
                     locked={(benefit.minPrxLevel || 1) > memberLevel}
-                    onSelect={setSelected}
+                    onSelect={selectBenefit}
                   />
                 </li>
               ))}
@@ -269,6 +276,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
               </div>
             )}
             <p className="font-display text-4xl font-semibold leading-none tracking-[-0.04em] text-primary">{selected.discountLabel}</p>
+            {selected.sponsored && <p className="text-[13px] text-muted-foreground">Patrocinado: o parceiro contratou destaque para esta oferta.</p>}
             {selected.description && <p className="text-[15px] leading-relaxed text-ink">{selected.description}</p>}
             {selected.terms.length > 0 && (
               <div>

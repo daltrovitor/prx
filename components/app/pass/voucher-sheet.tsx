@@ -83,6 +83,20 @@ export function VoucherSheet({ voucher, onClose }: { voucher: UserVoucher | null
               ? "Mostre este QR Code ao atendente. Depois da validação o voucher sai da sua lista de ativos."
               : `Validado no estabelecimento. Resgatado em ${voucher.redeemedAt}.`}
           </p>
+          {voucher.status === "valid" && voucher.expiresAt && (
+            <p className="text-sm font-medium text-ink">
+              Use até{" "}
+              {new Date(voucher.expiresAt).toLocaleString("pt-BR", {
+                timeZone: "America/Sao_Paulo",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              .
+            </p>
+          )}
           {voucher.terms && <p className="text-[13px] text-muted-foreground">Regras: {voucher.terms}</p>}
         </div>
       )}

@@ -1,13 +1,47 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { passStore } from "@/lib/pass-store";
-import { Benefit } from "@/lib/pass-data";
+import { passStore, type SystemVoucher } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { errorMessage } from "@/lib/errors";
+import type { VoucherRow } from "@/lib/db-rows";
+import {
+  availabilityIssue,
+  countBenefitVouchers,
+  getBenefit,
+  insertWithOptionalColumns,
+  isUuid,
+  isWithinQuota,
+} from "@/lib/partners/catalog";
+import { PartnerError } from "@/lib/partners/errors";
+import { getPartnerRepository } from "@/lib/partners/repository";
 
-function isUuid(id?: string | null): boolean {
-  if (!id) return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+const SHORT_DATE: Intl.DateTimeFormatOptions = {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+};
+
+function mapExisting(row: VoucherRow, fallback: { partnerId: string; terms: string; userId: string; email: string; name: string }): SystemVoucher {
+  return {
+    id: row.id,
+    code: row.code,
+    benefitId: row.benefit_id ?? "",
+    benefitTitle: row.benefit_title ?? "",
+    partnerId: row.partner_id || fallback.partnerId,
+    partnerName: row.partner_name ?? "",
+    discountLabel: row.discount_label ?? "",
+    status: "valid",
+    qrPayload: row.qr_payload ?? "",
+    redeemedAt: new Date(row.redeemed_at || row.created_at || Date.now()).toLocaleString("pt-BR", SHORT_DATE),
+    terms: row.terms || fallback.terms,
+    expiresAt: row.expires_at ?? null,
+    userId: row.user_id || fallback.userId,
+    userEmail: row.user_email || fallback.email,
+    userName: row.user_name || fallback.name,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -28,55 +62,27 @@ export async function POST(req: NextRequest) {
     const effectiveEmail = user.email;
     const effectiveName = user.fullName;
 
-    // 1. Locate benefit from passStore or Supabase
-    let benefit: Benefit | undefined = passStore.getBenefitById(benefitId);
-
-    if (!benefit && supabaseAdmin) {
-      try {
-        const { data: dbBen, error } = await supabaseAdmin
-          .from("benefits")
-          .select("*")
-          .eq("id", benefitId)
-          .maybeSingle();
-
-        if (!error && dbBen) {
-          benefit = {
-            id: dbBen.id,
-            partnerId: dbBen.partner_id || dbBen.id,
-            partnerName: dbBen.partner_name,
-            partnerLogo: dbBen.partner_logo || "",
-            partnerBanner: dbBen.partner_banner || "",
-            partnerLocation: dbBen.partner_location || "São Paulo, SP",
-            categoryId: dbBen.category_id || "gastronomia",
-            title: dbBen.title,
-            description: dbBen.description || "",
-            discountLabel: dbBen.discount_label,
-            minPrxLevel: dbBen.min_nxt_level || 1,
-            terms: Array.isArray(dbBen.terms)
-              ? dbBen.terms
-              : [dbBen.terms || "Apresente o QR Code no balcão ao pedir a conta."],
-          };
-          // Sync into passStore cache
-          passStore.createBenefit(benefit);
-        }
-      } catch (dbErr) {
-        console.warn("Supabase lookup error during benefit redeem:", dbErr);
-      }
-    }
-
+    // 1. Benefício sempre lido da fonte (as condições da campanha não podem vir de cache).
+    const benefit = await getBenefit(String(benefitId));
     if (!benefit) {
       return NextResponse.json({ error: "Benefício não encontrado." }, { status: 404 });
     }
 
-    // 2. Prevent duplicate active vouchers: check if user already has an active voucher for this benefit
-    // A) Check passStore
+    // 2. Condições do contrato: parceiro dono, vigência e parceria ativa.
+    const unavailable = availabilityIssue(benefit);
+    if (unavailable) return NextResponse.json({ error: unavailable }, { status: 409 });
+    const partner = await getPartnerRepository().getPartner(benefit.partnerId);
+    if (!partner || partner.status === "SUSPENSO" || partner.status === "BLOQUEADO") {
+      return NextResponse.json({ error: "Este benefício está indisponível no momento." }, { status: 409 });
+    }
+
+    const terms = benefit.terms[0] || "Apresente o QR Code no balcão ao pedir a conta.";
+    const fallback = { partnerId: benefit.partnerId, terms, userId: effectiveUserId, email: effectiveEmail, name: effectiveName };
+
+    // 3. Voucher ativo já existente para este benefício.
     const existingStoreVoucher = passStore
       .getUserVouchers(effectiveUserId)
-      .find(
-        (v) =>
-          (v.benefitId === benefit!.id || v.benefitTitle === benefit!.title) &&
-          v.status === "valid"
-      );
+      .find((v) => (v.benefitId === benefit.id || v.benefitTitle === benefit.title) && v.status === "valid");
 
     if (existingStoreVoucher) {
       return NextResponse.json({
@@ -87,119 +93,73 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // B) Check Supabase vouchers
     if (supabaseAdmin) {
-      try {
-        let query = supabaseAdmin
-          .from("vouchers")
-          .select("*")
-          .eq("status", "valid");
-
-        if (isUuid(benefit.id)) {
-          query = query.eq("benefit_id", benefit.id);
-        } else {
-          query = query.eq("benefit_title", benefit.title);
-        }
-
-        if (isUuid(effectiveUserId)) {
-          query = query.eq("user_id", effectiveUserId);
-        } else {
-          query = query.eq("user_email", effectiveEmail);
-        }
-
-        const { data: dbExisting } = await query.maybeSingle();
-        if (dbExisting) {
-          const mappedExisting = {
-            id: dbExisting.id,
-            code: dbExisting.code,
-            benefitId: dbExisting.benefit_id || benefit.id,
-            benefitTitle: dbExisting.benefit_title,
-            partnerId: benefit.partnerId,
-            partnerName: dbExisting.partner_name,
-            discountLabel: dbExisting.discount_label,
-            status: "valid" as const,
-            qrPayload: dbExisting.qr_payload,
-            redeemedAt: new Date(dbExisting.redeemed_at || dbExisting.created_at).toLocaleString("pt-BR", {
-              day: "2-digit",
-              month: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            terms: dbExisting.terms || benefit.terms[0] || "Apresente o QR Code no balcão.",
-            userId: dbExisting.user_id || effectiveUserId,
-            userEmail: dbExisting.user_email || effectiveEmail,
-            userName: dbExisting.user_name || effectiveName,
-          };
-          // Sync into passStore
-          passStore.createVoucher(mappedExisting);
-
-          return NextResponse.json({
-            success: true,
-            message: "Você já possui um voucher ativo para este benefício.",
-            voucher: mappedExisting,
-            alreadyActive: true,
-          });
-        }
-      } catch (checkErr) {
-        console.warn("Notice checking existing vouchers in Supabase:", checkErr);
+      let query = supabaseAdmin.from("vouchers").select("*").eq("status", "valid");
+      query = isUuid(benefit.id) ? query.eq("benefit_id", benefit.id) : query.eq("benefit_title", benefit.title);
+      query = isUuid(effectiveUserId) ? query.eq("user_id", effectiveUserId) : query.eq("user_email", effectiveEmail);
+      const { data: dbExisting } = await query.limit(1).maybeSingle<VoucherRow>();
+      if (dbExisting) {
+        const mappedExisting = mapExisting(dbExisting, fallback);
+        passStore.createVoucher(mappedExisting);
+        return NextResponse.json({
+          success: true,
+          message: "Você já possui um voucher ativo para este benefício.",
+          voucher: mappedExisting,
+          alreadyActive: true,
+        });
       }
     }
 
-    // 3. Generate fresh anti-tamper code & QR payload
-    const uniqueCode = `PRX-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(
-      1000 + Math.random() * 9000
-    )}`;
+    // 4. Limite por membro e quantidade garantida da campanha.
+    if (benefit.perUserLimit) {
+      const used = await countBenefitVouchers(benefit.id, { userId: effectiveUserId, email: effectiveEmail });
+      if (used >= benefit.perUserLimit) {
+        return NextResponse.json(
+          { error: `Você já usou este benefício ${benefit.perUserLimit === 1 ? "1 vez" : `${benefit.perUserLimit} vezes`}, o limite por membro.` },
+          { status: 409 }
+        );
+      }
+    }
+    if (benefit.quantity && (await countBenefitVouchers(benefit.id)) >= benefit.quantity) {
+      return NextResponse.json({ error: "Este benefício esgotou." }, { status: 409 });
+    }
+
+    // 5. Código com gerador criptográfico e prazo de uso da campanha.
+    const uniqueCode = `PRX-${crypto.randomInt(1000, 10000)}-${crypto.randomInt(1000, 10000)}`;
     const qrPayload = `PRX_PASS::${uniqueCode}::${benefit.partnerName.replace(/\s+/g, "")}`;
-    const formattedNow = new Date().toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const terms = benefit.terms[0] || "Apresente o QR Code no balcão ao pedir a conta.";
+    const now = new Date();
+    const expiresAt = benefit.usageDays ? new Date(now.getTime() + benefit.usageDays * 86_400_000).toISOString() : null;
 
     let createdId: string | undefined;
-
-    // 4. Persist in Supabase if available
     if (supabaseAdmin) {
-      try {
-        const payload: Record<string, unknown> = {
-          code: uniqueCode,
-          benefit_title: benefit.title,
-          partner_name: benefit.partnerName,
-          discount_label: benefit.discountLabel,
-          user_email: effectiveEmail,
-          user_name: effectiveName,
-          status: "valid",
-          qr_payload: qrPayload,
-          terms: terms,
-          redeemed_at: new Date().toISOString(),
-        };
+      const base: Record<string, unknown> = {
+        code: uniqueCode,
+        benefit_title: benefit.title,
+        partner_name: benefit.partnerName,
+        discount_label: benefit.discountLabel,
+        user_email: effectiveEmail,
+        user_name: effectiveName,
+        status: "valid",
+        qr_payload: qrPayload,
+        terms,
+        redeemed_at: now.toISOString(),
+      };
+      if (isUuid(benefit.id)) base.benefit_id = benefit.id;
+      if (isUuid(effectiveUserId)) base.user_id = effectiveUserId;
 
-        if (isUuid(benefit.id)) {
-          payload.benefit_id = benefit.id;
-        }
-        if (isUuid(effectiveUserId)) {
-          payload.user_id = effectiveUserId;
-        }
+      const optional: Record<string, unknown> = { expires_at: expiresAt };
+      if (isUuid(benefit.partnerId)) optional.partner_id = benefit.partnerId;
 
-        const { data: inserted, error: insertErr } = await supabaseAdmin
-          .from("vouchers")
-          .insert(payload)
-          .select()
-          .single();
+      const inserted = await insertWithOptionalColumns<VoucherRow>("vouchers", base, optional);
+      createdId = inserted.id;
 
-        if (!insertErr && inserted) {
-          createdId = inserted.id;
-        } else if (insertErr) {
-          console.warn("Supabase voucher insert fallback:", insertErr.message);
-        }
-      } catch (insertException) {
-        console.warn("Supabase voucher insert exception:", errorMessage(insertException));
+      // Resgates simultâneos da última unidade: só os N primeiros ficam.
+      if (benefit.quantity && !(await isWithinQuota(benefit.id, inserted.id, benefit.quantity))) {
+        await supabaseAdmin.from("vouchers").delete().eq("id", inserted.id);
+        return NextResponse.json({ error: "Este benefício esgotou." }, { status: 409 });
       }
     }
 
-    // 5. Persist in memory store (synced across server instance)
     const newVoucher = passStore.createVoucher({
       id: createdId,
       code: uniqueCode,
@@ -210,7 +170,9 @@ export async function POST(req: NextRequest) {
       discountLabel: benefit.discountLabel,
       status: "valid",
       qrPayload,
-      redeemedAt: formattedNow,
+      redeemedAt: now.toLocaleString("pt-BR", SHORT_DATE),
+      createdAtIso: now.toISOString(),
+      expiresAt,
       terms,
       userId: effectiveUserId,
       userEmail: effectiveEmail,
@@ -223,6 +185,7 @@ export async function POST(req: NextRequest) {
       voucher: newVoucher,
     });
   } catch (error) {
+    if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status });
     return NextResponse.json(
       { error: errorMessage(error) || "Erro ao resgatar benefício." },
       { status: 500 }

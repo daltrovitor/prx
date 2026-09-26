@@ -1,3 +1,5 @@
+import type { VisibilityPlan } from "@/lib/partners/plans";
+
 export interface Category {
   id: string;
   name: string;
@@ -6,6 +8,7 @@ export interface Category {
 
 export interface Benefit {
   id: string;
+  /** Parceiro dono do benefício: só ele valida os QR Codes. Vazio = legado sem vínculo. */
   partnerId: string;
   partnerName: string;
   partnerLogo: string;
@@ -19,6 +22,17 @@ export interface Benefit {
   terms: string[];
   originalPrice?: number;
   promotionalPrice?: number;
+  /** Campanha aceita que publicou o benefício, quando houver. */
+  campaignId?: string | null;
+  visibilityPlan?: VisibilityPlan;
+  /** Mídia paga: o app identifica como patrocinado (cláusula 8.6). */
+  sponsored?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  /** Quantidade garantida e limite por membro da campanha (null = sem limite). */
+  quantity?: number | null;
+  perUserLimit?: number | null;
+  usageDays?: number | null;
 }
 
 export interface UserVoucher {
@@ -33,6 +47,8 @@ export interface UserVoucher {
   qrPayload: string;
   redeemedAt: string;
   terms: string;
+  /** Prazo para uso após a aquisição (ISO), quando a campanha define. */
+  expiresAt?: string | null;
 }
 
 export type MissionVerificationType =

@@ -7,6 +7,8 @@ import { AdminMembersTab, type AdminUser } from "@/components/admin/admin-member
 import { AdminBenefitsTab } from "@/components/admin/admin-benefits-tab";
 import { AdminMissionsTab } from "@/components/admin/admin-missions-tab";
 import { AdminVouchersTab } from "@/components/admin/admin-vouchers-tab";
+import { AdminPartnersTab } from "@/components/admin/admin-partners-tab";
+import type { PartnerOverview } from "@/lib/partners/service";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { Button, Segmented } from "@/components/app/ui";
 import { IconExternal, IconLogout, IconRefresh } from "@/components/icons/prx-icons";
@@ -15,7 +17,7 @@ import type { Benefit, PassMission } from "@/lib/pass-data";
 import type { SystemVoucher } from "@/lib/pass-store";
 import { useMainSiteUrl } from "@/lib/site";
 
-type TabKey = "members" | "benefits" | "missions" | "vouchers";
+type TabKey = "members" | "partners" | "benefits" | "missions" | "vouchers";
 
 export interface AdminIdentity {
   name?: string;
@@ -27,6 +29,7 @@ interface AdminData {
   benefits?: Benefit[];
   missions?: PassMission[];
   vouchers?: SystemVoucher[];
+  partners?: PartnerOverview[];
 }
 
 async function fetchAdminIdentity(): Promise<AdminIdentity | null> {
@@ -41,9 +44,11 @@ async function fetchAdminIdentity(): Promise<AdminIdentity | null> {
 
 async function fetchAdminData(): Promise<AdminData> {
   try {
-    const [u, b, m, v] = await Promise.all(
-      ["/api/admin/users", "/api/admin/benefits", "/api/admin/missions", "/api/admin/vouchers"].map((url) =>
-        fetch(url, { cache: "no-store" }).then((r) => r.json() as Promise<AdminData>)
+    const [u, b, m, v, p] = await Promise.all(
+      ["/api/admin/users", "/api/admin/benefits", "/api/admin/missions", "/api/admin/vouchers", "/api/admin/partners"].map((url) =>
+        fetch(url, { cache: "no-store" })
+          .then((r) => r.json() as Promise<AdminData>)
+          .catch((): AdminData => ({}))
       )
     );
     return {
@@ -51,6 +56,7 @@ async function fetchAdminData(): Promise<AdminData> {
       benefits: Array.isArray(b.benefits) ? b.benefits : undefined,
       missions: Array.isArray(m.missions) ? m.missions : undefined,
       vouchers: Array.isArray(v.vouchers) ? v.vouchers : undefined,
+      partners: Array.isArray(p.partners) ? p.partners : undefined,
     };
   } catch {
     return {};
@@ -69,6 +75,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   const [benefits, setBenefits] = useState<Benefit[]>([]);
   const [missions, setMissions] = useState<PassMission[]>([]);
   const [vouchers, setVouchers] = useState<SystemVoucher[]>([]);
+  const [partners, setPartners] = useState<PartnerOverview[]>([]);
   const [loading, setLoading] = useState(false);
   const homeUrl = useMainSiteUrl();
 
@@ -84,6 +91,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
     if (data.benefits) setBenefits(data.benefits);
     if (data.missions) setMissions(data.missions);
     if (data.vouchers) setVouchers(data.vouchers);
+    if (data.partners) setPartners(data.partners);
     setLoading(false);
   }, []);
 
@@ -124,10 +132,10 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   const validVouchers = vouchers.filter((v) => v.status === "valid").length;
   const kpis = [
     { label: "Membros", value: users.length },
-    { label: "Benefícios no catálogo", value: benefits.length },
+    { label: "Parceiros ativos", value: partners.filter((p) => p.status === "ATIVO").length },
+    { label: "Benefícios no catálogo", value: benefits.filter((b) => b.partnerId).length },
     { label: "Vouchers válidos", value: validVouchers },
     { label: "Vouchers utilizados", value: vouchers.length - validVouchers },
-    { label: "Missões ativas", value: missions.length },
   ];
 
   return (
@@ -172,7 +180,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
 
         <section aria-label="Indicadores" className="grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-3 lg:grid-cols-5">
           {kpis.map((kpi) => (
-            <div key={kpi.label} className="bg-white p-5">
+            <div key={kpi.label} className="bg-card p-5">
               <p className="text-[13px] text-muted-foreground">{kpi.label}</p>
               <p className="mt-2 font-display text-4xl font-semibold leading-none tracking-[-0.04em] text-ink tabular-nums">{kpi.value}</p>
             </div>
@@ -185,6 +193,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
           onChange={setTab}
           options={[
             { value: "members", label: "Membros", count: users.length },
+            { value: "partners", label: "Parceiros", count: partners.length },
             { value: "benefits", label: "Benefícios", count: benefits.length },
             { value: "missions", label: "Missões", count: missions.length },
             { value: "vouchers", label: "Vouchers", count: vouchers.length },
@@ -192,7 +201,10 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
         />
 
         {tab === "members" && <AdminMembersTab users={users} onRefresh={loadData} />}
-        {tab === "benefits" && <AdminBenefitsTab benefits={benefits} onRefresh={loadData} />}
+        {tab === "partners" && (
+          <AdminPartnersTab partners={partners} benefits={benefits} users={users} onRefresh={loadData} onGoToBenefits={() => setTab("benefits")} />
+        )}
+        {tab === "benefits" && <AdminBenefitsTab benefits={benefits} partners={partners} onRefresh={loadData} />}
         {tab === "missions" && <AdminMissionsTab missions={missions} onRefresh={loadData} />}
         {tab === "vouchers" && <AdminVouchersTab vouchers={vouchers} onRefresh={loadData} />}
       </main>

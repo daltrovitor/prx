@@ -16,6 +16,10 @@ export interface SystemVoucher extends UserVoucher {
   userEmail: string;
   userName: string;
   userId: string;
+  /** Datas ISO para métricas; redeemedAt é só o texto de exibição. */
+  createdAtIso?: string;
+  validatedAtIso?: string | null;
+  validatedBy?: string | null;
 }
 
 export interface UserMissionState {
@@ -484,6 +488,7 @@ class PassStore {
     const newId = voucher.id || `vouch-${Date.now().toString(36)}`;
     const newVoucher: SystemVoucher = {
       ...voucher,
+      createdAtIso: voucher.createdAtIso ?? new Date().toISOString(),
       id: newId,
     };
     // Purge any existing item with same id or code to avoid stale duplicate states
@@ -496,12 +501,14 @@ class PassStore {
     return newVoucher;
   }
 
-  updateVoucherStatus(idOrCode: string, status: "valid" | "used"): SystemVoucher | null {
+  updateVoucherStatus(idOrCode: string, status: "valid" | "used", validatedBy?: string): SystemVoucher | null {
     const target = idOrCode.toUpperCase();
     let updated: SystemVoucher | null = null;
     this.vouchers.forEach((v) => {
       if (v.id === idOrCode || v.code?.toUpperCase() === target) {
         v.status = status;
+        v.validatedAtIso = status === "used" ? new Date().toISOString() : null;
+        v.validatedBy = status === "used" ? validatedBy ?? v.validatedBy ?? null : null;
         updated = v;
       }
     });

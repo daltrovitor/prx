@@ -1,20 +1,24 @@
 // Hello World
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { PRX_CATEGORIES, type Benefit } from "@/lib/pass-data";
+import { VISIBILITY_PLANS } from "@/lib/partners/plans";
+import type { PartnerOverview } from "@/lib/partners/service";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
-import { Button, EmptyState, Field, Input, Notice, Select, Sheet, Tag, Textarea } from "@/components/app/ui";
-import { IconImage, IconPlus, IconUpload } from "@/components/icons/prx-icons";
+import { ImagePicker, useImageUpload } from "@/components/admin/image-picker";
+import { Button, EmptyState, Field, Input, Notice, Segmented, Select, Sheet, Tag, Textarea } from "@/components/app/ui";
+import { IconImage, IconPlus } from "@/components/icons/prx-icons";
 
 interface AdminBenefitsTabProps {
   benefits: Benefit[];
+  partners: PartnerOverview[];
   onRefresh: () => Promise<void>;
 }
 
 interface BenefitForm {
-  partnerName: string;
+  partnerId: string;
   categoryId: string;
   title: string;
   description: string;
@@ -27,13 +31,13 @@ interface BenefitForm {
 }
 
 const EMPTY_FORM: BenefitForm = {
-  partnerName: "",
+  partnerId: "",
   categoryId: "gastronomia",
   title: "",
   description: "",
   discountLabel: "",
   minPrxLevel: 1,
-  partnerLocation: "São Paulo, SP",
+  partnerLocation: "",
   partnerLogo: "",
   partnerBanner: "",
   terms: "Apresente o QR Code no balcão ao pedir a conta.",
@@ -42,21 +46,29 @@ const EMPTY_FORM: BenefitForm = {
 interface ApiResult {
   success?: boolean;
   error?: string;
-  url?: string;
 }
 
-export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps) {
+type Filter = "all" | "unassigned";
+
+export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefitsTabProps) {
   const { confirmDelete, showToast } = useConfirmToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Benefit | null>(null);
   const [form, setForm] = useState<BenefitForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState<"logo" | "banner" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const logo = useImageUpload((url) => setForm((f) => ({ ...f, partnerLogo: url })), setError);
+  const banner = useImageUpload((url) => setForm((f) => ({ ...f, partnerBanner: url })), setError);
+
+  const partnerById = useMemo(() => new Map(partners.map((p) => [p.id, p])), [partners]);
+  const unassigned = benefits.filter((b) => !b.partnerId || !partnerById.has(b.partnerId));
+  const visible = filter === "unassigned" ? unassigned : benefits;
+  const selectablePartners = partners.filter((p) => p.status !== "BLOQUEADO");
 
   function openCreate() {
     setEditing(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, partnerId: selectablePartners[0]?.id ?? "", categoryId: selectablePartners[0]?.categoryId || EMPTY_FORM.categoryId });
     setError(null);
     setOpen(true);
   }
@@ -64,7 +76,7 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
   function openEdit(benefit: Benefit) {
     setEditing(benefit);
     setForm({
-      partnerName: benefit.partnerName,
+      partnerId: partnerById.has(benefit.partnerId) ? benefit.partnerId : "",
       categoryId: benefit.categoryId,
       title: benefit.title,
       description: benefit.description,
@@ -79,45 +91,24 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
     setOpen(true);
   }
 
-  async function upload(event: ChangeEvent<HTMLInputElement>, target: "logo" | "banner") {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    setUploading(target);
-    setError(null);
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      body.append("type", target);
-      const res = await fetch("/api/admin/upload", { method: "POST", body });
-      const data = (await res.json()) as ApiResult;
-      if (!res.ok || !data.url) {
-        setError(data.error || "Falha no envio da imagem.");
-        return;
-      }
-      const url = data.url;
-      setForm((prev) => (target === "logo" ? { ...prev, partnerLogo: url } : { ...prev, partnerBanner: url }));
-    } catch {
-      setError("Falha no envio da imagem.");
-    } finally {
-      setUploading(null);
-    }
-  }
-
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (!form.partnerId) {
+      setError("Escolha o parceiro dono do benefício. Só ele poderá validar o QR Code.");
+      return;
+    }
     setSaving(true);
     setError(null);
     const payload = {
-      partnerName: form.partnerName,
+      partnerId: form.partnerId,
       categoryId: form.categoryId,
       title: form.title,
       description: form.description,
       discountLabel: form.discountLabel,
       minPrxLevel: Number(form.minPrxLevel),
       partnerLocation: form.partnerLocation,
-      partnerLogo: form.partnerLogo.trim() || undefined,
-      partnerBanner: form.partnerBanner.trim() || undefined,
+      partnerLogo: form.partnerLogo.trim(),
+      partnerBanner: form.partnerBanner.trim(),
       terms: form.terms.split("\n").map((t) => t.trim()).filter(Boolean),
     };
     try {
@@ -144,7 +135,7 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
   async function remove(benefit: Benefit) {
     const confirmed = await confirmDelete({
       title: "Excluir benefício",
-      message: `"${benefit.title}" sai do catálogo imediatamente. Esta ação não pode ser desfeita.`,
+      message: `"${benefit.title}" sai do catálogo imediatamente e os vouchers dele são apagados. Esta ação não pode ser desfeita.`,
       confirmText: "Excluir",
       cancelText: "Cancelar",
     });
@@ -163,6 +154,8 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
     }
   }
 
+  const selectedPartner = partnerById.get(form.partnerId);
+
   return (
     <section aria-labelledby="benefits-title" className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -170,33 +163,57 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
           <h2 id="benefits-title" className="font-display text-2xl font-semibold tracking-[-0.03em] text-ink">
             Benefícios
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">Ofertas dos parceiros no catálogo do PRX PASS.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Cada benefício pertence a um parceiro: só o login dele valida o QR Code.</p>
         </div>
-        <Button onClick={openCreate}>
+        <Button onClick={openCreate} disabled={selectablePartners.length === 0} title={selectablePartners.length === 0 ? "Cadastre um parceiro primeiro" : undefined}>
           <IconPlus size={18} />
-          Novo benefício
+          Novo benefício avulso
         </Button>
       </div>
 
-      {benefits.length === 0 ? (
-        <EmptyState title="Catálogo vazio" body="Cadastre o primeiro parceiro com foto e regras." action={<Button onClick={openCreate}>Cadastrar benefício</Button>} />
+      {partners.length === 0 && <Notice tone="warning">Cadastre um parceiro na aba Parceiros antes de criar benefícios.</Notice>}
+      {unassigned.length > 0 && (
+        <Notice tone="warning">
+          {unassigned.length} {unassigned.length === 1 ? "benefício sem parceiro está" : "benefícios sem parceiro estão"} fora do catálogo. Edite e escolha o parceiro dono.
+        </Notice>
+      )}
+
+      {unassigned.length > 0 && (
+        <Segmented
+          label="Filtro de benefícios"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: "all", label: "Todos", count: benefits.length },
+            { value: "unassigned", label: "Sem parceiro", count: unassigned.length },
+          ]}
+        />
+      )}
+
+      {visible.length === 0 ? (
+        <EmptyState
+          title="Catálogo vazio"
+          body="Benefícios de contrato entram sozinhos quando o parceiro aceita. Para ofertas pontuais, use o benefício avulso."
+          action={selectablePartners.length > 0 ? <Button onClick={openCreate}>Cadastrar benefício</Button> : undefined}
+        />
       ) : (
         <div className="overflow-x-auto border border-line">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">
                 <th scope="col" className="px-4 py-3 font-medium">Benefício</th>
-                <th scope="col" className="px-4 py-3 font-medium">Categoria</th>
+                <th scope="col" className="px-4 py-3 font-medium">Parceiro dono</th>
                 <th scope="col" className="px-4 py-3 font-medium">Oferta</th>
+                <th scope="col" className="px-4 py-3 font-medium">Origem</th>
                 <th scope="col" className="px-4 py-3 font-medium">Nível mín.</th>
-                <th scope="col" className="px-4 py-3 font-medium">Local</th>
                 <th scope="col" className="px-4 py-3">
                   <span className="sr-only">Ações</span>
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {benefits.map((benefit) => {
+              {visible.map((benefit) => {
+                const owner = partnerById.get(benefit.partnerId);
                 const cat = PRX_CATEGORIES.find((c) => c.id === benefit.categoryId);
                 return (
                   <tr key={benefit.id} className="transition-colors hover:bg-surface/60">
@@ -213,24 +230,30 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-ink">{benefit.title}</p>
-                          <p className="text-[13px] text-muted-foreground">{benefit.partnerName}</p>
+                          <p className="text-[13px] text-muted-foreground">{cat?.name ?? benefit.categoryId}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{cat?.name ?? benefit.categoryId}</td>
+                    <td className="px-4 py-3">
+                      {owner ? <span className="text-ink">{owner.tradeName}</span> : <Tag tone="warning">Sem parceiro</Tag>}
+                    </td>
                     <td className="px-4 py-3">
                       <Tag tone="accent">{benefit.discountLabel}</Tag>
                     </td>
+                    <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                      {benefit.campaignId ? `Contrato · ${VISIBILITY_PLANS[benefit.visibilityPlan ?? "basico"].label}` : "Avulso"}
+                    </td>
                     <td className="px-4 py-3 font-mono text-ink">{benefit.minPrxLevel}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{benefit.partnerLocation}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
                         <Button variant="secondary" size="sm" onClick={() => openEdit(benefit)}>
-                          Editar
+                          {owner ? "Editar" : "Atribuir parceiro"}
                         </Button>
-                        <Button variant="danger" size="sm" onClick={() => remove(benefit)}>
-                          Excluir
-                        </Button>
+                        {!benefit.campaignId && (
+                          <Button variant="danger" size="sm" onClick={() => remove(benefit)}>
+                            Excluir
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -245,17 +268,35 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
         open={open}
         onClose={() => setOpen(false)}
         size="lg"
-        title={editing ? "Editar benefício" : "Novo benefício"}
-        description="As imagens vão para o bucket de benefícios do Supabase Storage."
+        title={editing ? "Editar benefício" : "Novo benefício avulso"}
+        description={editing?.campaignId ? "Benefício de contrato: preço, quantidade e vigência seguem o Resumo Comercial aceito." : "Sem contrato de campanha: não tem quantidade garantida nem vigência."}
         footer={
-          <Button block type="submit" form="benefit-form" disabled={saving || uploading !== null}>
+          <Button block type="submit" form="benefit-form" disabled={saving || logo.busy || banner.busy}>
             {saving ? "Salvando…" : editing ? "Salvar alterações" : "Publicar benefício"}
           </Button>
         }
       >
         <form id="benefit-form" onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
-          <Field label="Parceiro">
-            {(id) => <Input id={id} required value={form.partnerName} onChange={(e) => setForm({ ...form, partnerName: e.target.value })} />}
+          <Field label="Parceiro dono" hint="Só o login deste parceiro valida o QR Code." className="sm:col-span-2">
+            {(id, describedBy) => (
+              <Select
+                id={id}
+                aria-describedby={describedBy}
+                required
+                value={form.partnerId}
+                disabled={Boolean(editing?.campaignId)}
+                onChange={(e) => setForm({ ...form, partnerId: e.target.value })}
+              >
+                <option value="" disabled>
+                  Escolha o parceiro
+                </option>
+                {selectablePartners.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.tradeName} · {p.legalName}
+                  </option>
+                ))}
+              </Select>
+            )}
           </Field>
           <Field label="Categoria">
             {(id) => (
@@ -273,7 +314,7 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
           </Field>
           <Field label="Rótulo da oferta" hint="Ex.: 25% OFF, Leve 2 pague 1.">
             {(id, describedBy) => (
-              <Input id={id} aria-describedby={describedBy} required value={form.discountLabel} onChange={(e) => setForm({ ...form, discountLabel: e.target.value })} />
+              <Input id={id} aria-describedby={describedBy} required maxLength={24} value={form.discountLabel} onChange={(e) => setForm({ ...form, discountLabel: e.target.value })} />
             )}
           </Field>
           <Field label="Nível mínimo">
@@ -287,8 +328,8 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
               </Select>
             )}
           </Field>
-          <Field label="Local ou alcance">
-            {(id) => <Input id={id} value={form.partnerLocation} onChange={(e) => setForm({ ...form, partnerLocation: e.target.value })} />}
+          <Field label="Local ou alcance" hint={selectedPartner ? `Vazio usa o do parceiro: ${selectedPartner.location}.` : undefined} className="sm:col-span-2">
+            {(id, describedBy) => <Input id={id} aria-describedby={describedBy} value={form.partnerLocation} onChange={(e) => setForm({ ...form, partnerLocation: e.target.value })} />}
           </Field>
           <Field label="Descrição" className="sm:col-span-2">
             {(id) => <Textarea id={id} rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />}
@@ -297,8 +338,8 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
             {(id) => <Textarea id={id} rows={3} value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} />}
           </Field>
 
-          <ImagePicker label="Logo (quadrado)" value={form.partnerLogo} busy={uploading === "logo"} onChange={(e) => upload(e, "logo")} square />
-          <ImagePicker label="Capa (retangular)" value={form.partnerBanner} busy={uploading === "banner"} onChange={(e) => upload(e, "banner")} />
+          <ImagePicker label="Logo (vazio usa o do parceiro)" value={form.partnerLogo} busy={logo.busy} onChange={(e) => logo.upload(e, "logo")} square />
+          <ImagePicker label="Capa (vazio usa a do parceiro)" value={form.partnerBanner} busy={banner.busy} onChange={(e) => banner.upload(e, "banner")} />
 
           {error && (
             <Notice tone="error" className="sm:col-span-2">
@@ -308,41 +349,5 @@ export function AdminBenefitsTab({ benefits, onRefresh }: AdminBenefitsTabProps)
         </form>
       </Sheet>
     </section>
-  );
-}
-
-function ImagePicker({
-  label,
-  value,
-  busy,
-  onChange,
-  square = false,
-}: {
-  label: string;
-  value: string;
-  busy: boolean;
-  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  square?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-[13px] font-medium text-ink">{label}</p>
-      <label className="mt-1.5 flex min-h-20 cursor-pointer items-center gap-4 border border-dashed border-input p-3 transition-colors hover:border-ink">
-        <span className={`relative shrink-0 overflow-hidden bg-surface ${square ? "h-14 w-14" : "h-14 w-24"}`}>
-          {value ? (
-            <Image src={value} alt="" fill sizes="96px" className="object-cover" />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center text-muted-foreground">
-              <IconImage size={18} />
-            </span>
-          )}
-        </span>
-        <span className="flex items-center gap-2 text-sm text-ink">
-          <IconUpload size={16} />
-          {busy ? "Enviando…" : value ? "Trocar imagem" : "Enviar imagem"}
-        </span>
-        <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={onChange} />
-      </label>
-    </div>
   );
 }

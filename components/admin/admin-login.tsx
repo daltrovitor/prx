@@ -73,12 +73,13 @@ export function PanelLogin({
   }
 
   return (
-    <div className="prx-app grid min-h-dvh bg-white lg:grid-cols-[38.2fr_61.8fr]">
-      <aside className="flex flex-col justify-between gap-10 bg-ink p-8 text-white sm:p-12">
-        <PrxLogo variant="full" title="PRX" className="h-10 w-auto self-start text-white sm:h-12" />
+    <div className="prx-app grid min-h-dvh bg-background lg:grid-cols-[38.2fr_61.8fr]">
+      {/* bg-ink/text-background inverte no modo escuro: o bloco da marca mantém contraste nos dois temas. */}
+      <aside className="flex flex-col justify-between gap-10 bg-ink p-8 text-background sm:p-12">
+        <PrxLogo variant="full" title="PRX" className="h-10 w-auto self-start text-background sm:h-12" />
         <div className="max-w-sm space-y-3">
           <p className="font-display text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">{sideTitle}</p>
-          <p className="text-[15px] leading-relaxed text-white/70">{sideBody}</p>
+          <p className="text-[15px] leading-relaxed text-background/75">{sideBody}</p>
         </div>
       </aside>
 
