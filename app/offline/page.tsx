@@ -14,7 +14,6 @@ gsap.registerPlugin(useGSAP);
 export default function OfflinePage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const logoStageRef = useRef<HTMLDivElement>(null);
-  const placeholderRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
 
@@ -26,23 +25,16 @@ export default function OfflinePage() {
     () => {
       const q = gsap.utils.selector(containerRef);
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const seen = typeof window !== "undefined" && sessionStorage.getItem("prx_intro_seen") === "true";
-      try {
-        sessionStorage.setItem("prx_intro_seen", "true");
-      } catch {}
 
       const SYMBOL_CENTER_OFFSET = 263;
-      const speed = seen ? 0.45 : 1;
 
       const transitionToTop = () => {
-        if (!logoStageRef.current || !placeholderRef.current) return;
-        const targetRect = placeholderRef.current.getBoundingClientRect();
-        const currentRect = logoStageRef.current.getBoundingClientRect();
-        const deltaY = targetRect.top + targetRect.height / 2 - (currentRect.top + currentRect.height / 2);
-        const targetWidth = Math.min(window.innerWidth * 0.76, 420);
+        if (!logoStageRef.current) return;
+        const targetTop = "4.5rem";
+        const targetWidth = Math.min(window.innerWidth * 0.76, 400);
 
         if (reduceMotion) {
-          gsap.set(logoStageRef.current, { top: "3.5rem", y: 0, xPercent: -50, width: targetWidth });
+          gsap.set(logoStageRef.current, { top: targetTop, y: 0, xPercent: -50, width: targetWidth });
           gsap.set(panelRef.current, { autoAlpha: 1, y: 0 });
           gsap.set(headerRef.current, { autoAlpha: 1 });
           return;
@@ -51,7 +43,10 @@ export default function OfflinePage() {
         const transTl = gsap.timeline();
         transTl
           .to(logoStageRef.current, {
-            y: deltaY,
+            top: targetTop,
+            yPercent: 0,
+            y: 0,
+            transform: "translate(-50%, 0)",
             width: targetWidth,
             duration: 0.95,
             ease: "power3.inOut",
@@ -71,10 +66,24 @@ export default function OfflinePage() {
 
       if (reduceMotion) {
         gsap.set(q("[data-tag-clip]"), { attr: { width: PRX_LAYOUT.viewBox.full[2] } });
-        gsap.set(q("[data-logo]"), { autoAlpha: 1 });
+        gsap.set(q("[data-piece='white'], [data-piece='color'], [data-piece='x-arm']"), { autoAlpha: 1, x: 0, y: 0 });
+        gsap.set(q("[data-letter]"), { y: 0 });
+        gsap.set(q("[data-bar]"), { scaleX: 1 });
         transitionToTop();
         return;
       }
+
+      // Preparação estrita de estados iniciais no frame 0
+      gsap.set(q("[data-symbol-group]"), { x: SYMBOL_CENTER_OFFSET });
+      gsap.set(q("[data-piece='white']"), { x: -90, y: -20, autoAlpha: 0 });
+      gsap.set(q("[data-piece='color']"), { x: 90, y: 20, autoAlpha: 0 });
+      gsap.set(q("[data-letter]"), { y: 130 });
+      gsap.set(q("[data-piece='x-arm']"), { x: 46, y: -46, autoAlpha: 0 });
+      gsap.set(q("#app-offline-tc-rect"), { attr: { width: 0 } });
+      gsap.set(q("[data-bar]"), { scaleX: 0, transformOrigin: "50% 50%" });
+
+      // Revela o SVG já nos estados iniciais aplicados
+      gsap.set(q("[data-logo]"), { autoAlpha: 1 });
 
       const tl = gsap.timeline({
         defaults: { ease: "expo.out" },
@@ -83,17 +92,15 @@ export default function OfflinePage() {
         },
       });
 
-      gsap.set(q("[data-symbol-group]"), { x: SYMBOL_CENTER_OFFSET });
-      tl.from(q("[data-piece='white']"), { x: -90, y: -20, autoAlpha: 0, duration: 0.85 * speed }, 0.1 * speed)
-        .from(q("[data-piece='color']"), { x: 90, y: 20, autoAlpha: 0, duration: 0.85 * speed }, 0.18 * speed)
-        .to(q("[data-symbol-group]"), { x: 0, duration: 0.85 * speed, ease: "expo.inOut" }, 0.8 * speed)
-        .from(q("[data-letter]"), { y: 130, duration: 0.9 * speed, stagger: 0.09 * speed }, 1.38 * speed)
-        .from(q("[data-piece='x-arm']"), { x: 46, y: -46, autoAlpha: 0, duration: 0.7 * speed, ease: "back.out(2)" }, 1.78 * speed)
-        .to(q("[data-tag-clip]"), { attr: { width: PRX_LAYOUT.viewBox.full[2] }, duration: 0.9 * speed, ease: "power3.inOut" }, 2.0 * speed)
-        .from(q("[data-bar]"), { scaleX: 0, transformOrigin: "50% 50%", duration: 0.7 * speed, ease: "power3.out" }, 2.35 * speed)
-        .to({}, { duration: 0.25 * speed });
-
-      gsap.set(q("[data-logo]"), { autoAlpha: 1 });
+      // Linha do tempo oficial PRX idêntica à do site online:
+      tl.to(q("[data-piece='white']"), { x: 0, y: 0, autoAlpha: 1, duration: 0.85 }, 0.1)
+        .to(q("[data-piece='color']"), { x: 0, y: 0, autoAlpha: 1, duration: 0.85 }, 0.18)
+        .to(q("[data-symbol-group]"), { x: 0, duration: 0.85, ease: "expo.inOut" }, 0.8)
+        .to(q("[data-letter]"), { y: 0, duration: 0.9, stagger: 0.09, ease: "expo.out" }, 1.38)
+        .to(q("[data-piece='x-arm']"), { x: 0, y: 0, autoAlpha: 1, duration: 0.7, ease: "back.out(2)" }, 1.78)
+        .to(q("#app-offline-tc-rect"), { attr: { width: PRX_LAYOUT.viewBox.full[2] }, duration: 0.9, ease: "power3.inOut" }, 2.0)
+        .to(q("[data-bar]"), { scaleX: 1, duration: 0.7, ease: "power3.out" }, 2.35)
+        .to({}, { duration: 0.35 });
     },
     { scope: containerRef }
   );
@@ -151,7 +158,7 @@ export default function OfflinePage() {
       {/* Header com o ThemeToggle oficial */}
       <header
         ref={headerRef}
-        className="fixed top-0 left-0 right-0 h-16 px-6 flex items-center justify-end z-50 opacity-0 pointer-events-none transition-opacity"
+        className="fixed top-0 left-0 right-0 h-18 px-6 flex items-center justify-end z-50 opacity-0 pointer-events-none transition-opacity"
         style={{ pointerEvents: "auto" }}
       >
         <ThemeToggle variant="header" showLabel={false} />
@@ -191,37 +198,37 @@ export default function OfflinePage() {
               <rect x={90} y={296} width={500} height={112} />
             </clipPath>
             <clipPath id="app-offline-tc">
-              <rect data-tag-clip x={0} y={0} width={0} height={vh} />
+              <rect id="app-offline-tc-rect" data-tag-clip x={0} y={0} width={0} height={vh} />
             </clipPath>
           </defs>
 
           <g data-symbol-group>
             <g transform={PRX_LAYOUT.symbol}>
-              <path data-piece="white" fill="currentColor" d={PRX_PATHS.symbolWhite} />
-              <path data-piece="color" fill="url(#app-offline-s)" d={PRX_PATHS.symbolColor} />
+              <path data-piece="white" fill="currentColor" d={PRX_PATHS.symbolWhite} style={{ opacity: 0, visibility: "hidden" }} />
+              <path data-piece="color" fill="url(#app-offline-s)" d={PRX_PATHS.symbolColor} style={{ opacity: 0, visibility: "hidden" }} />
             </g>
           </g>
 
           <g transform={PRX_LAYOUT.wordFull}>
             <g clipPath="url(#app-offline-wc)">
-              <path data-letter fill="currentColor" fillRule="evenodd" d={PRX_PATHS.p} />
-              <path data-letter fill="currentColor" fillRule="evenodd" d={PRX_PATHS.r} />
-              <path data-letter fill="url(#app-offline-x)" d={PRX_PATHS.xMain} />
+              <path data-letter fill="currentColor" fillRule="evenodd" d={PRX_PATHS.p} style={{ transform: "translateY(130px)" }} />
+              <path data-letter fill="currentColor" fillRule="evenodd" d={PRX_PATHS.r} style={{ transform: "translateY(130px)" }} />
+              <path data-letter fill="url(#app-offline-x)" d={PRX_PATHS.xMain} style={{ transform: "translateY(130px)" }} />
             </g>
-            <path data-piece="x-arm" fill="url(#app-offline-x)" d={PRX_PATHS.xArm} />
+            <path data-piece="x-arm" fill="url(#app-offline-x)" d={PRX_PATHS.xArm} style={{ opacity: 0, visibility: "hidden" }} />
           </g>
 
           <g clipPath="url(#app-offline-tc)">
             <path fill="currentColor" transform={PRX_LAYOUT.tagline} d={PRX_PATHS.tagline} />
           </g>
 
-          <rect data-bar x={bar.x} y={bar.y} width={bar.w} height={bar.h} fill="url(#app-offline-b)" />
+          <rect data-bar x={bar.x} y={bar.y} width={bar.w} height={bar.h} fill="url(#app-offline-b)" style={{ transform: "scaleX(0)", transformOrigin: "50% 50%" }} />
         </svg>
       </div>
 
       {/* Conteúdo principal */}
       <main className="min-h-screen w-full flex flex-col items-center justify-center px-6 py-12">
-        <div ref={placeholderRef} className="w-[min(76vw,420px)] h-20 mb-6 invisible" aria-hidden="true" />
+        <div className="w-[min(76vw,400px)] h-20 mb-6 invisible" aria-hidden="true" />
 
         {/* Card Offline */}
         <div
