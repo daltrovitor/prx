@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ThemeProvider, ThemeScript } from "@/components/theme-provider";
 import { ConfirmToastProvider } from "@/components/ui/confirm-toast";
+import { PwaRegister } from "@/components/pwa-register";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -90,6 +91,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         />
       </head>
       <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground">
+        <PwaRegister />
         <ThemeProvider>
           <AuthProvider>
             <ConfirmToastProvider>{children}</ConfirmToastProvider>
