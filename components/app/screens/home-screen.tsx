@@ -4,31 +4,40 @@
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import type { PassData } from "@/components/app/use-pass-data";
-import { useAppNav } from "@/components/app/app-nav";
-import { useBank, useHiddenBalance, useLiveWallet } from "@/components/app/use-prx-stores";
-import { EventDate, StatCell, TextLink, TransactionRow } from "@/components/app/shared";
-import { ProgressBar, SectionHeader, formatBRL } from "@/components/app/ui";
-import { IconCard, IconEye, IconEyeOff, IconPix, IconQr, IconReceive } from "@/components/icons/prx-icons";
+import { useAppNav, type AppTab } from "@/components/app/app-nav";
+import { useBankAccount, useHiddenBalance, useLiveData } from "@/components/app/use-prx-stores";
+import { EventDate, TextLink, TransactionRow } from "@/components/app/shared";
+import { PaymentCard, ScoreCard } from "@/components/app/bank/card-visual";
+import { ActionTile, BalanceFigure, EmptyState, IconButton, ProgressBar, SectionHeader, Sheet } from "@/components/app/ui";
+import {
+  IconCalendar,
+  IconCard,
+  IconChevronDown,
+  IconEye,
+  IconEyeOff,
+  IconGift,
+  IconLevel,
+  IconPix,
+  IconQr,
+  IconReceive,
+  IconSend,
+  IconTicket,
+  IconUsers,
+} from "@/components/icons/prx-icons";
 import { levelProgress } from "@/lib/pass-data";
-import { LIVE_EVENTS, SERIES_LABEL } from "@/lib/prx/live";
-import { BANK_MODE } from "@/lib/prx/bank";
-
-interface HomeScreenProps {
-  pass: PassData;
-  firstName: string;
-}
 
 const reveal = {
   hidden: { opacity: 0, y: 14 },
   show: (i: number) => ({ opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 30, delay: i * 0.05 } }),
 };
 
-export function HomeScreen({ pass, firstName }: HomeScreenProps) {
+export function HomeScreen({ pass }: { pass: PassData }) {
   const { go } = useAppNav();
   const { member, vouchers, missions, benefits } = pass;
-  const [bank] = useBank(member.id);
-  const [wallet] = useLiveWallet(member.id);
+  const { account } = useBankAccount(member.id);
+  const { data: live } = useLiveData(member.id);
   const [hidden, toggleHidden] = useHiddenBalance();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const activeVouchers = vouchers.filter((v) => v.status === "valid");
   const progress = levelProgress(member.prxScore ?? 0);
@@ -37,180 +46,207 @@ export function HomeScreen({ pass, firstName }: HomeScreenProps) {
 
   const [now] = useState(() => Date.now());
   const nextEvent = useMemo(
-    () => [...LIVE_EVENTS].filter((e) => new Date(e.startsAt).getTime() > now).sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0],
-    [now]
+    () =>
+      (live?.events ?? [])
+        .filter((e) => e.status === "published" && new Date(e.startsAt).getTime() > now)
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0],
+    [live?.events, now]
   );
-  const upcomingTickets = wallet.tickets.filter((t) => !t.checkedIn);
+  const openTickets = (live?.wallet.tickets ?? []).filter((t) => t.status === "valid" || t.status === "pending_payment");
+  const transactions = account?.transactions ?? [];
 
-  const quickActions = [
-    { label: "Pix", Icon: IconPix, onClick: () => go("bank", "pix") },
-    { label: "Cobrar", Icon: IconReceive, onClick: () => go("bank", "cobrar") },
-    { label: "Cartão", Icon: IconCard, onClick: () => go("bank", "cartoes") },
-    { label: "Vouchers", Icon: IconQr, onClick: () => go("pass", "vouchers") },
+  const more: ReadonlyArray<{ label: string; Icon: typeof IconCard; tab: AppTab; sub: string | null }> = [
+    { label: "Cartões", Icon: IconCard, tab: "bank", sub: "cartoes" },
+    { label: "Vouchers", Icon: IconQr, tab: "pass", sub: "vouchers" },
+    { label: "Benefícios", Icon: IconGift, tab: "pass", sub: null },
+    { label: "Missões", Icon: IconLevel, tab: "pass", sub: "missions" },
+    { label: "Eventos", Icon: IconCalendar, tab: "live", sub: null },
+    { label: "Ingressos", Icon: IconTicket, tab: "live", sub: "ingressos" },
+    { label: "Convidar", Icon: IconUsers, tab: "pass", sub: "convidar" },
+    { label: "Chaves Pix", Icon: IconPix, tab: "bank", sub: "chaves" },
   ];
 
+  const scoreCard = (
+    <ScoreCard
+      level={progress.level}
+      score={member.prxScore ?? 0}
+      pct={progress.pct}
+      remaining={progress.next === null ? null : progress.remaining}
+      onClick={() => go("pass", "missions")}
+    />
+  );
+  const paymentCard = <PaymentCard card={account?.virtualCard ?? null} holder={member.name || "Membro PRX"} onClick={() => go("bank", "cartoes")} />;
+
   return (
-    <div className="space-y-10 sm:space-y-12 lg:space-y-16">
-      <motion.header initial="hidden" animate="show" custom={0} variants={reveal}>
-        <h1 className="font-display text-3xl min-[380px]:text-4xl sm:text-6xl lg:text-7xl font-semibold leading-[0.95] tracking-[-0.045em] text-ink">
-          Olá, {firstName}.
-        </h1>
-        <p className="mt-2.5 max-w-md text-sm sm:text-[15px] text-muted-foreground">
-          Seu saldo, seus benefícios e o que vem por aí, em um lugar só.
-        </p>
-      </motion.header>
+    <div className="grid gap-9 lg:grid-cols-12 lg:gap-12">
+      <div className="min-w-0 space-y-9 lg:col-span-7">
+        {/* Topo: saldo */}
+        <motion.section aria-label="Saldo" initial="hidden" animate="show" custom={0} variants={reveal}>
+          <BalanceFigure
+            label={account && account.status !== "active" ? "Saldo da conta · em ativação" : "Saldo da conta"}
+            value={account?.balance ?? 0}
+            hidden={hidden}
+            action={
+              <IconButton tone="plain" label={hidden ? "Mostrar saldo" : "Ocultar saldo"} aria-pressed={hidden} onClick={toggleHidden} className="-mr-2 h-10 w-10">
+                {hidden ? <IconEyeOff size={18} /> : <IconEye size={18} />}
+              </IconButton>
+            }
+          />
+        </motion.section>
 
-      {/* Topo da pirâmide: saldo e métricas */}
-      <motion.section
-        aria-label="Resumo da conta"
-        initial="hidden"
-        animate="show"
-        custom={1}
-        variants={reveal}
-        className="grid gap-px border border-line bg-line lg:grid-cols-12"
-      >
-        <div className="flex flex-col justify-between gap-6 sm:gap-10 bg-[#0b0b10] dark:bg-[#12121c] p-5 min-[380px]:p-6 text-white sm:p-8 lg:col-span-7">
-          <div className="flex items-start justify-between gap-4">
-            <p className="text-xs sm:text-[13px] font-medium text-white/70">
-              Saldo PRX BANK{BANK_MODE === "sandbox" ? " · demonstração" : ""}
-            </p>
-            <button
-              type="button"
-              onClick={toggleHidden}
-              aria-label={hidden ? "Mostrar saldo" : "Ocultar saldo"}
-              aria-pressed={hidden}
-              className="-mr-2 -mt-2 flex h-10 w-10 sm:h-12 sm:w-12 cursor-pointer items-center justify-center text-white/80 transition-colors hover:text-white"
-            >
-              {hidden ? <IconEyeOff size={20} /> : <IconEye size={20} />}
-            </button>
-          </div>
-          <p className="font-display text-3xl min-[380px]:text-4xl sm:text-6xl font-semibold leading-none tracking-[-0.05em] tabular-nums break-words">
-            {hidden ? "R$ ••••" : formatBRL(bank.balance)}
-          </p>
-          <div className="grid grid-cols-4 gap-px bg-white/10">
-            {quickActions.map(({ label, Icon, onClick }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={onClick}
-                className="flex min-h-[64px] sm:min-h-[72px] cursor-pointer flex-col items-center justify-center p-2 min-[360px]:p-2.5 sm:p-3 sm:items-start text-center sm:text-left transition-colors hover:bg-white/10 bg-[#0b0b10] dark:bg-[#12121c]"
-              >
-                <Icon size={19} />
-                <span className="mt-1.5 text-[11px] min-[360px]:text-[12px] sm:text-[13px] font-medium leading-none truncate max-w-full">{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Cartões em carrossel (no desktop ficam na coluna lateral) */}
+        <motion.section aria-label="Cartões" initial="hidden" animate="show" custom={1} variants={reveal} className="lg:hidden">
+          {/* pb/-mb: espaço para a sombra dos cartões não ser cortada pela rolagem. */}
+          <ul className="-mx-4 -mb-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-6 scrollbar-none touch-pan-x overscroll-x-contain sm:-mx-6 sm:px-6">
+            <li className="w-[80%] max-w-[320px] shrink-0 snap-center">{paymentCard}</li>
+            <li className="w-[80%] max-w-[320px] shrink-0 snap-center">{scoreCard}</li>
+          </ul>
+        </motion.section>
 
-        <div className="grid gap-px bg-line grid-cols-1 min-[520px]:grid-cols-3 lg:col-span-5 lg:grid-cols-1">
-          <StatCell label="Vouchers ativos" value={activeVouchers.length}>
-            <TextLink onClick={() => go("pass", "vouchers")}>{activeVouchers.length > 0 ? "Mostrar no balcão" : "Explorar benefícios"}</TextLink>
-          </StatCell>
-          <StatCell label={`PRX Score · nível ${progress.level}`} value={`${(member.prxScore ?? 0).toLocaleString("pt-BR")} XP`}>
-            <ProgressBar value={progress.pct} label={`Progresso até o nível ${progress.level + 1}`} />
-            <p className="mt-2 text-[13px] text-muted-foreground">
-              {progress.next === null ? "Nível máximo alcançado." : `Faltam ${progress.remaining.toLocaleString("pt-BR")} XP para o nível ${progress.level + 1}.`}
-            </p>
-          </StatCell>
-          <StatCell label="Ingressos" value={upcomingTickets.length}>
-            <TextLink onClick={() => go("live", upcomingTickets.length > 0 ? "ingressos" : "eventos")}>
-              {upcomingTickets.length > 0 ? "Abrir carteira" : "Ver agenda"}
-            </TextLink>
-          </StatCell>
-        </div>
-      </motion.section>
+        {/* Ações rápidas */}
+        <motion.nav aria-label="Ações rápidas" initial="hidden" animate="show" custom={2} variants={reveal} className="grid grid-cols-4 gap-3 sm:gap-4">
+          <ActionTile label="Enviar" icon={<IconSend size={20} />} onClick={() => go("bank", "pix")} />
+          <ActionTile label="Receber" icon={<IconReceive size={20} />} onClick={() => go("bank", "cobrar")} />
+          <ActionTile label="Área Pix" icon={<IconPix size={20} />} onClick={() => go("bank", "chaves")} />
+          <ActionTile label="Mais" icon={<IconChevronDown size={20} />} onClick={() => setMoreOpen(true)} />
+        </motion.nav>
 
-      {/* Meio: o que fazer agora */}
-      <motion.div initial="hidden" animate="show" custom={2} variants={reveal} className="grid gap-8 sm:gap-12 lg:grid-cols-12 lg:gap-10">
-        {nextEvent && (
-          <section aria-labelledby="home-next-event" className="lg:col-span-7">
-            <SectionHeader id="home-next-event" title="Próximo na PRX LIVE" action={<TextLink onClick={() => go("live", "eventos")}>Agenda</TextLink>} />
-            <button
-              type="button"
-              onClick={() => go("live", "eventos")}
-              className="group mt-4 sm:mt-5 flex w-full cursor-pointer flex-col-reverse items-start justify-between gap-4 sm:gap-6 border border-line p-4 min-[380px]:p-5 sm:p-7 text-left transition-colors hover:border-ink sm:flex-row sm:items-end"
-            >
-              <div className="min-w-0 space-y-3 sm:space-y-5">
-                <p className="font-mono text-[11px] sm:text-[12px] tracking-[0.08em] text-primary">{SERIES_LABEL[nextEvent.series].toUpperCase()}</p>
-                <div>
-                  <p className="font-display text-xl min-[380px]:text-2xl font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-3xl">{nextEvent.title}</p>
-                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-                    {nextEvent.venue} · {nextEvent.city}
-                  </p>
-                </div>
-              </div>
-              <EventDate iso={nextEvent.startsAt} />
-            </button>
-          </section>
-        )}
-
-        <section aria-labelledby="home-missions" className="lg:col-span-5">
-          <SectionHeader id="home-missions" title="Missões" action={<TextLink onClick={() => go("pass", "missions")}>Todas</TextLink>} />
-          {suggestedMissions.length === 0 ? (
-            <p className="mt-5 border border-dashed border-line p-6 text-sm text-muted-foreground">
-              Nenhuma missão aberta agora. Novas missões aparecem aqui assim que forem publicadas.
-            </p>
+        {/* Base da pirâmide: atividade */}
+        <motion.section aria-labelledby="home-activity" initial="hidden" animate="show" custom={3} variants={reveal}>
+          <SectionHeader id="home-activity" title="Atividade geral" action={<TextLink onClick={() => go("bank", "extrato")}>Ver todas</TextLink>} />
+          {transactions.length === 0 ? (
+            <div className="mt-3">
+              <EmptyState
+                title="Nenhuma movimentação ainda"
+                body={account?.status === "active" ? "Pix, compras e cashbacks aparecem aqui." : "Sua conta PRX BANK está em ativação. Pix, compras e cashbacks aparecem aqui depois."}
+              />
+            </div>
           ) : (
-            <ul className="mt-5 divide-y divide-line border-y border-line">
+            <ul className="mt-2">
+              {transactions.slice(0, 5).map((tx) => (
+                <TransactionRow key={tx.id} tx={tx} hidden={hidden} />
+              ))}
+            </ul>
+          )}
+        </motion.section>
+
+        {benefits.length > 0 && (
+          <motion.section aria-labelledby="home-pass" initial="hidden" animate="show" custom={4} variants={reveal}>
+            <SectionHeader id="home-pass" title="No PASS agora" action={<TextLink onClick={() => go("pass")}>Ver todos</TextLink>} />
+            <ul className="-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+              {benefits.slice(0, 8).map((benefit) => (
+                <li key={benefit.id} className="w-[64%] min-[420px]:w-[220px] shrink-0 snap-start">
+                  <button
+                    type="button"
+                    onClick={() => go("pass", `beneficio:${benefit.id}`)}
+                    className="flex h-full w-full cursor-pointer flex-col justify-between gap-6 rounded-3xl bg-surface p-5 text-left transition-colors hover:bg-line"
+                  >
+                    <span className="text-2xl font-semibold leading-none tracking-[-0.03em] text-primary">{benefit.discountLabel}</span>
+                    <span>
+                      <span className="block truncate text-[15px] font-medium text-ink">{benefit.partnerName}</span>
+                      <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{benefit.title}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </motion.section>
+        )}
+      </div>
+
+      <aside className="min-w-0 space-y-9 lg:col-span-5" aria-label="Resumo">
+        <div className="hidden space-y-4 lg:block">
+          {paymentCard}
+          {scoreCard}
+        </div>
+
+        <section aria-labelledby="home-vouchers" className="flex items-center justify-between gap-4 rounded-3xl bg-surface p-5">
+          <div>
+            <h2 id="home-vouchers" className="text-[13px] font-medium text-muted-foreground">
+              Vouchers ativos
+            </h2>
+            <p className="mt-1 text-[30px] font-semibold leading-none tracking-[-0.035em] text-ink">{activeVouchers.length}</p>
+          </div>
+          <TextLink onClick={() => go("pass", activeVouchers.length > 0 ? "vouchers" : null)} className="bg-card hover:bg-background">
+            {activeVouchers.length > 0 ? "Mostrar QR" : "Explorar"}
+          </TextLink>
+        </section>
+
+        <section aria-labelledby="home-missions">
+          <SectionHeader id="home-missions" title="Missões" action={<TextLink onClick={() => go("pass", "missions")}>Ver todas</TextLink>} />
+          {suggestedMissions.length === 0 ? (
+            <p className="mt-3 rounded-3xl bg-surface p-5 text-sm text-muted-foreground">Nenhuma missão aberta agora. Novas missões aparecem aqui.</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
               {suggestedMissions.map((mission) => (
                 <li key={mission.id}>
                   <button
                     type="button"
                     onClick={() => go("pass", "missions")}
-                    className="flex w-full cursor-pointer items-center justify-between gap-4 py-4 text-left"
+                    className="flex w-full cursor-pointer items-center gap-4 rounded-3xl bg-surface p-4 text-left transition-colors hover:bg-line"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-medium text-ink">{mission.title}</p>
                       <div className="mt-2.5 flex items-center gap-3">
                         <div className="flex-1">
-                          <ProgressBar value={mission.progress} max={mission.total || 1} label={`Progresso de ${mission.title}`} tone="ink" />
+                          <ProgressBar value={mission.progress} max={mission.total || 1} label={`Progresso de ${mission.title}`} />
                         </div>
-                        <span className="font-mono text-[12px] text-muted-foreground">
+                        <span className="text-[12px] font-medium text-muted-foreground">
                           {mission.progress}/{mission.total}
                         </span>
                       </div>
                     </div>
-                    <span className="shrink-0 font-mono text-[13px] text-primary">+{mission.xpReward} XP</span>
+                    <span className="shrink-0 rounded-full bg-primary/[0.09] px-2.5 py-1 text-[12px] font-semibold text-primary">+{mission.xpReward} XP</span>
                   </button>
                 </li>
               ))}
             </ul>
           )}
         </section>
-      </motion.div>
 
-      {benefits.length > 0 && (
-        <motion.section aria-label="Benefícios em destaque" initial="hidden" animate="show" custom={3} variants={reveal}>
-          <SectionHeader title="No PASS agora" action={<TextLink onClick={() => go("pass")}>Catálogo</TextLink>} />
-          <ul className="-mx-3.5 min-[380px]:-mx-4 mt-4 sm:mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3.5 min-[380px]:px-4 pb-2 scrollbar-none sm:mx-0 sm:px-0 touch-pan-x">
-            {benefits.slice(0, 8).map((benefit) => (
-              <li key={benefit.id} className="w-[78%] min-[420px]:w-[260px] shrink-0 snap-start">
-                <button
-                  type="button"
-                  onClick={() => go("pass", `beneficio:${benefit.id}`)}
-                  className="flex h-full w-full cursor-pointer flex-col justify-between gap-6 sm:gap-8 border border-line p-4 sm:p-5 text-left transition-colors hover:border-ink"
-                >
-                  <span className="font-display text-2xl sm:text-[28px] font-semibold leading-none tracking-[-0.04em] text-primary">{benefit.discountLabel}</span>
-                  <div>
-                    <span className="block text-sm sm:text-[15px] font-medium text-ink">{benefit.partnerName}</span>
-                    <span className="mt-0.5 block truncate text-xs sm:text-[13px] text-muted-foreground">{benefit.title}</span>
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </motion.section>
-      )}
+        {nextEvent && (
+          <section aria-labelledby="home-next-event">
+            <SectionHeader id="home-next-event" title="Próximo evento" action={<TextLink onClick={() => go("live")}>Agenda</TextLink>} />
+            <button
+              type="button"
+              onClick={() => go("live")}
+              className="mt-3 flex w-full cursor-pointer items-end justify-between gap-5 rounded-3xl bg-surface p-5 text-left transition-colors hover:bg-line"
+            >
+              <div className="min-w-0 space-y-3">
+                <span className="inline-flex rounded-full bg-primary/[0.09] px-2.5 py-0.5 text-[12px] font-semibold text-primary">{nextEvent.seriesLabel}</span>
+                <div>
+                  <p className="text-lg font-semibold leading-snug tracking-[-0.02em] text-ink">{nextEvent.title}</p>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">
+                    {nextEvent.venue} · {nextEvent.city}
+                  </p>
+                </div>
+              </div>
+              <EventDate iso={nextEvent.startsAt} />
+            </button>
+            {openTickets.length > 0 && (
+              <TextLink onClick={() => go("live", "ingressos")} className="mt-3">
+                Meus ingressos
+              </TextLink>
+            )}
+          </section>
+        )}
+      </aside>
 
-      {/* Base: movimentações detalhadas */}
-      <motion.section aria-labelledby="home-activity" initial="hidden" animate="show" custom={4} variants={reveal}>
-        <SectionHeader id="home-activity" title="Movimentações" action={<TextLink onClick={() => go("bank", "extrato")}>Extrato completo</TextLink>} />
-        <ul className="mt-5 divide-y divide-line border-y border-line">
-          {bank.transactions.slice(0, 4).map((tx) => (
-            <TransactionRow key={tx.id} tx={tx} hidden={hidden} />
+      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Mais ações">
+        <div className="grid grid-cols-4 gap-x-3 gap-y-5 pb-2">
+          {more.map(({ label, Icon, tab, sub }) => (
+            <ActionTile
+              key={label}
+              label={label}
+              icon={<Icon size={20} />}
+              onClick={() => {
+                setMoreOpen(false);
+                go(tab, sub);
+              }}
+            />
           ))}
-        </ul>
-      </motion.section>
+        </div>
+      </Sheet>
     </div>
   );
 }

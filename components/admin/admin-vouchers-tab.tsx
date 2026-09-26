@@ -107,7 +107,7 @@ export function AdminVouchersTab({ vouchers, onRefresh }: AdminVouchersTabProps)
       {filtered.length === 0 ? (
         <EmptyState title="Nenhum voucher" body={query ? "Nada corresponde à busca." : "Os resgates dos membros aparecem aqui."} />
       ) : (
-        <div className="overflow-x-auto border border-line">
+        <div className="overflow-x-auto rounded-3xl border border-line">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">

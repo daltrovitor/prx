@@ -103,7 +103,11 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, email, prxLevel, prxScore, role, walletBalance } = body;
+    // Saldo não é editável: a conta PRX BANK só muda por movimentações do banco parceiro.
+    const { id, email, prxLevel, prxScore, role } = body;
+    if (role !== undefined && !["user", "partner", "admin"].includes(role)) {
+      return NextResponse.json({ error: "Papel inválido. A Equipe PRX é gerenciada na aba Equipe." }, { status: 400 });
+    }
 
     const targetKey = id || email;
     if (!targetKey) {
@@ -148,7 +152,6 @@ export async function PUT(req: NextRequest) {
         if (prxLevel !== undefined) updatePayload.nxt_level = Number(prxLevel);
         if (prxScore !== undefined) updatePayload.nxt_score = Number(prxScore);
         if (role !== undefined) updatePayload.role = role;
-        if (walletBalance !== undefined) updatePayload.wallet_balance = Number(walletBalance);
 
         if (Object.keys(updatePayload).length > 0) {
           let updateQuery = supabaseAdmin.from("profiles").update(updatePayload);
@@ -201,7 +204,6 @@ export async function PUT(req: NextRequest) {
       prxLevel: prxLevel !== undefined ? Number(prxLevel) : undefined,
       prxScore: prxScore !== undefined ? Number(prxScore) : undefined,
       role: role !== undefined ? role : undefined,
-      walletBalance: walletBalance !== undefined ? Number(walletBalance) : undefined,
     });
 
     if (updatedStore) {

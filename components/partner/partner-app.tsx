@@ -7,6 +7,7 @@ import { PartnerDashboard, type PartnerUser } from "@/components/partner/partner
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { Button } from "@/components/app/ui";
 import { useMainSiteUrl } from "@/lib/site";
+import { useThemeScope } from "@/components/theme-provider";
 
 export type PartnerAuthStatus = "loading" | "unauthenticated" | "wrong_role" | "authenticated";
 
@@ -38,6 +39,7 @@ async function fetchPartnerAuth(): Promise<PartnerAuthResult> {
  * e chega pronta em `initial`.
  */
 export function PartnerApp({ initial }: { initial: PartnerAuthResult }) {
+  useThemeScope("app");
   const [status, setStatus] = useState<PartnerAuthStatus>(initial.status);
   const [partner, setPartner] = useState<PartnerUser | null>(initial.status === "authenticated" ? initial.user : null);
   const [otherUser, setOtherUser] = useState<PartnerUser | null>(initial.status === "wrong_role" ? initial.user : null);
@@ -61,7 +63,7 @@ export function PartnerApp({ initial }: { initial: PartnerAuthResult }) {
 
   if (status === "loading") {
     return (
-      <div className="prx-app flex min-h-dvh items-center justify-center bg-white" role="status" aria-label="Verificando acesso">
+      <div className="prx-app flex min-h-dvh items-center justify-center bg-background" role="status" aria-label="Verificando acesso">
         <PrxLogo variant="symbol" title="" className="h-10 w-auto text-ink" />
       </div>
     );
@@ -69,17 +71,17 @@ export function PartnerApp({ initial }: { initial: PartnerAuthResult }) {
 
   if (status === "wrong_role") {
     return (
-      <main className="prx-app flex min-h-dvh items-center justify-center bg-white px-5">
+      <main className="prx-app flex min-h-dvh items-center justify-center bg-background px-5">
         <div className="w-full max-w-md space-y-6">
           <PrxLogo variant="compact" title="PRX" className="h-7 w-auto text-ink" />
-          <h1 className="font-display text-4xl font-semibold leading-none tracking-[-0.04em] text-ink">Acesso só para parceiros</h1>
+          <h1 className="text-3xl font-semibold leading-tight tracking-[-0.03em] text-ink">Acesso só para parceiros</h1>
           <p className="text-[15px] leading-relaxed text-muted-foreground">
             Você entrou como <strong className="font-semibold text-ink">{otherUser?.email}</strong>. Este portal é exclusivo para contas de estabelecimentos
             credenciados.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button onClick={logout}>Trocar de conta</Button>
-            <a href={homeUrl} className="inline-flex min-h-12 items-center justify-center rounded-[3px] border border-line px-5 text-[15px] font-medium text-ink hover:border-ink">
+            <a href={homeUrl} className="inline-flex min-h-12 items-center justify-center rounded-full bg-surface px-6 text-[15px] font-medium text-ink transition-colors hover:bg-line">
               Ir para o app
             </a>
           </div>

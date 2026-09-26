@@ -58,19 +58,19 @@ export function VoucherSheet({ voucher, onClose }: { voucher: UserVoucher | null
       {voucher && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <span className="font-display text-3xl font-semibold tracking-[-0.04em] text-primary">{voucher.discountLabel}</span>
+            <span className="text-3xl font-semibold tracking-[-0.035em] text-primary">{voucher.discountLabel}</span>
             {voucher.status === "valid" ? <Tag tone="success">Pronto para usar</Tag> : <Tag>Já utilizado</Tag>}
           </div>
 
-          <div className="mx-auto w-full max-w-[280px] border border-line p-3">
+          <div className="mx-auto w-full max-w-[280px] rounded-3xl bg-white p-4 ring-1 ring-line">
             {qr ? (
               <Image src={qr} alt={`QR Code do voucher ${voucher.code}`} width={280} height={280} unoptimized className="h-auto w-full" />
             ) : (
-              <div className="aspect-square w-full bg-surface" />
+              <div className="aspect-square w-full rounded-2xl bg-surface" />
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-4 border-y border-line py-4">
+          <div className="flex items-center justify-between gap-4 rounded-3xl bg-surface p-4">
             <div>
               <p className="text-[13px] text-muted-foreground">Código para digitar no caixa</p>
               <p className="mt-1 font-mono text-lg tracking-[0.12em] text-ink">{voucher.code}</p>

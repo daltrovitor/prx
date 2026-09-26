@@ -112,32 +112,36 @@
    árvore contém .prx-app (dashboard, admin, parceiro, 404). A landing mantém
    seu próprio tema escuro.
    ========================================================================= */
+/* Padrão visual dos dashboards (referência fintech, 26/09/2026): fundo branco,
+   superfícies em cinza neutro (#f2f2f5), cantos generosos (16–28px), pílulas
+   nos botões e uma única cor de destaque, o violeta da marca. */
 html.light:has(.prx-app),
 html:not(.dark):has(.prx-app) {
   --background: #ffffff;
   --foreground: #0b0b10;
   --ink: #0b0b10;
-  --surface: #f7f7f9;
-  --line: #e7e7ec;
+  --surface: #f2f2f5;
+  --line: #e9e9ee;
   --card: #ffffff;
   --card-foreground: #0b0b10;
   --popover: #ffffff;
   --popover-foreground: #0b0b10;
   --primary: #6c0cf0;
   --primary-foreground: #ffffff;
-  --secondary: #f7f7f9;
+  --secondary: #f2f2f5;
   --secondary-foreground: #0b0b10;
-  --muted: #f7f7f9;
+  --muted: #f2f2f5;
   --muted-foreground: #5b5b66;
   --accent: #6c0cf0;
   --accent-foreground: #ffffff;
   --destructive: #c8102e;
   --success: #0f7b4f;
   --warning: #8a5300;
-  --border: #e7e7ec;
-  --input: #d9d9e0;
+  --border: #e9e9ee;
+  --input: #e2e2e8;
   --ring: #6c0cf0;
-  --radius: 0.25rem;
+  /* A escala rounded-* do tema é proporcional a --radius: xl 14px, 2xl 18px, 3xl 22px. */
+  --radius: 0.625rem;
   color-scheme: light;
   background-color: #ffffff;
 }
@@ -146,27 +150,27 @@ html.dark:has(.prx-app) {
   --background: #09090c;
   --foreground: #f4f4f7;
   --ink: #f4f4f7;
-  --surface: #13131c;
-  --line: #222230;
-  --card: #12121a;
+  --surface: #17171f;
+  --line: #24242f;
+  --card: #111117;
   --card-foreground: #f4f4f7;
-  --popover: #12121a;
+  --popover: #111117;
   --popover-foreground: #f4f4f7;
   --primary: #8b5cf6;
   --primary-foreground: #ffffff;
-  --secondary: #181824;
+  --secondary: #17171f;
   --secondary-foreground: #f4f4f7;
-  --muted: #181824;
+  --muted: #17171f;
   --muted-foreground: #9ca3af;
   --accent: #8b5cf6;
   --accent-foreground: #ffffff;
   --destructive: #ef4444;
   --success: #10b981;
   --warning: #f59e0b;
-  --border: #222230;
-  --input: #262638;
+  --border: #24242f;
+  --input: #2c2c3a;
   --ring: #8b5cf6;
-  --radius: 0.25rem;
+  --radius: 0.625rem;
   color-scheme: dark;
   background-color: #09090c;
 }
@@ -183,6 +187,8 @@ html:not(.dark):has(.prx-app) body {
 }
 
 .prx-app {
+  /* Títulos na mesma grotesca do corpo, como na referência (sem fonte de display). */
+  --font-display: var(--font-sans);
   font-family: var(--font-sans), system-ui, sans-serif;
   font-feature-settings: "cv11", "ss01", "tnum";
 }

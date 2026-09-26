@@ -7,27 +7,43 @@ import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
-  variant?: "header" | "inline";
+  /** "header": landing (vidro escuro). "app": botão redondo dos dashboards. */
+  variant?: "header" | "inline" | "app";
   className?: string;
   showLabel?: boolean;
 }
 
-export function ThemeToggle({
-  variant: _variant = "header",
-  className,
-  showLabel = false,
-}: ThemeToggleProps) {
+export function ThemeToggle({ variant = "header", className, showLabel = false }: ThemeToggleProps) {
   const { theme, toggleTheme, mounted } = useTheme();
 
-  // Prevent hydration mismatch by rendering a consistent default until mounted
-  const isDark = mounted ? theme === "dark" : true;
+  // Até montar, renderiza um estado estável para não divergir do HTML do servidor.
+  const isDark = mounted ? theme === "dark" : variant !== "app";
+  const label = isDark ? "Alternar para modo claro" : "Alternar para modo escuro";
 
-  // Header / Inline variant
+  if (variant === "app") {
+    return (
+      <button
+        onClick={toggleTheme}
+        type="button"
+        aria-label={label}
+        title={label}
+        className={cn(
+          "inline-flex h-11 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-surface text-ink transition-colors hover:bg-line",
+          showLabel ? "px-4 text-sm font-medium" : "w-11",
+          className
+        )}
+      >
+        {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+        {showLabel && <span>{isDark ? "Modo claro" : "Modo escuro"}</span>}
+      </button>
+    );
+  }
+
   return (
     <button
       onClick={toggleTheme}
       type="button"
-      aria-label={isDark ? "Alternar para modo claro" : "Alternar para modo escuro"}
+      aria-label={label}
       title={isDark ? "Mudar para Modo Claro" : "Mudar para Modo Escuro"}
       className={cn(
         "relative p-2 rounded-xl transition-all duration-200 flex items-center justify-center cursor-pointer border",
@@ -45,11 +61,7 @@ export function ThemeToggle({
         )}
       </div>
 
-      {showLabel && (
-        <span className="ml-2 text-xs font-mono font-medium hidden sm:inline">
-          {isDark ? "Modo Claro" : "Modo Escuro"}
-        </span>
-      )}
+      {showLabel && <span className="ml-2 text-xs font-mono font-medium hidden sm:inline">{isDark ? "Modo Claro" : "Modo Escuro"}</span>}
     </button>
   );
 }

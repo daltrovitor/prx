@@ -457,15 +457,15 @@ function CampaignForm({ partner, campaign, onSaved }: { partner: Partner; campai
         </Button>
         {showPreview &&
           (previewRows ? (
-            <table className="w-full border border-line text-sm">
+            <table className="w-full overflow-hidden rounded-2xl bg-surface text-sm">
               <caption className="sr-only">Resumo Comercial como sairá no contrato</caption>
               <tbody className="divide-y divide-line">
                 {previewRows.map(([label, value]) => (
                   <tr key={label}>
-                    <th scope="row" className="w-[38.2%] bg-surface px-3 py-2 text-left align-top font-medium text-ink">
+                    <th scope="row" className="w-[38.2%] px-4 py-2.5 text-left align-top font-medium text-muted-foreground">
                       {label}
                     </th>
-                    <td className="px-3 py-2 text-ink">{value}</td>
+                    <td className="px-4 py-2.5 text-ink">{value}</td>
                   </tr>
                 ))}
               </tbody>

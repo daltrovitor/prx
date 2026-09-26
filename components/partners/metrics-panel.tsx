@@ -106,11 +106,11 @@ function StatTiles({ metrics }: { metrics: PartnerMetrics }) {
     { label: "Recorrência", value: pct(metrics.recurrence), hint: "Membros com 2 ou mais resgates" },
   ];
   return (
-    <dl className="grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-3 lg:grid-cols-5">
+    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {tiles.map((tile) => (
-        <div key={tile.label} className="bg-card p-4">
+        <div key={tile.label} className="rounded-3xl bg-surface p-4">
           <dt className="text-[13px] text-muted-foreground">{tile.label}</dt>
-          <dd className="mt-1.5 font-display text-2xl font-semibold leading-none tracking-[-0.03em] text-ink [font-feature-settings:'pnum']">{tile.value}</dd>
+          <dd className="mt-1.5 text-[26px] font-light leading-none tracking-[-0.03em] text-ink [font-feature-settings:'pnum']">{tile.value}</dd>
           <dd className="mt-1.5 text-[12px] leading-snug text-muted-foreground">{tile.hint}</dd>
         </div>
       ))}
@@ -122,9 +122,9 @@ function CampaignQuota({ campaigns }: { campaigns: CampaignProgress[] }) {
   return (
     <div>
       <h3 className="text-[13px] font-semibold text-ink">Quantidade garantida por campanha</h3>
-      <ul className="mt-3 divide-y divide-line border-y border-line">
+      <ul className="mt-3 space-y-2">
         {campaigns.map((c) => (
-          <li key={c.campaignId} className="space-y-2 py-4">
+          <li key={c.campaignId} className="space-y-2 rounded-3xl bg-surface p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="font-medium text-ink">{c.title}</p>
               <p className="text-[13px] text-muted-foreground">
@@ -173,7 +173,7 @@ function AgeBars({ title, rows, minGroup, total }: { title: string; rows: AgeBan
                     <span className="flex items-center gap-2">
                       <span
                         aria-hidden
-                        className="h-3 rounded-r-[4px] bg-primary transition-opacity group-hover:opacity-80"
+                        className="h-3 rounded-full bg-primary transition-opacity group-hover:opacity-80"
                         style={{ width: `${Math.max(((row.share ?? 0) / max) * 100, row.share ? 2 : 0) * 0.8}%` }}
                       />
                       <span className="text-[13px] font-medium text-ink tabular-nums">{pct(row.share)}</span>
@@ -221,7 +221,7 @@ function HourHistogram({ values }: { values: number[] }) {
               >
                 <span
                   className={cn(
-                    "block w-full max-w-6 rounded-t-[4px] bg-primary transition-opacity",
+                    "block w-full max-w-6 rounded-t-md bg-primary transition-opacity",
                     focus !== null && focus !== hour && "opacity-45",
                     "group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ring"
                   )}

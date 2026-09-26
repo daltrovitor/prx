@@ -1,28 +1,25 @@
 // Hello World
 "use client";
 
-import { useEffect, useRef, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLenis } from "lenis/react";
 import type { User } from "@/hooks/use-auth";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import {
-  IconBank,
-  IconHome,
-  IconLive,
-  IconLogout,
-  IconPass,
-  IconProfile,
-} from "@/components/icons/prx-icons";
+import { IconBank, IconBell, IconHome, IconLive, IconLogout, IconPass, IconProfile, IconQr } from "@/components/icons/prx-icons";
 import { AppNavProvider, useAppNav, type AppTab } from "@/components/app/app-nav";
 import { SmoothScroll } from "@/components/app/smooth-scroll";
 import { usePassData, firstName } from "@/components/app/use-pass-data";
+import { useLiveData } from "@/components/app/use-prx-stores";
+import { NoticesSheet, useNotices } from "@/components/app/notifications";
+import { Avatar, IconButton, initialsOf } from "@/components/app/ui";
 import { HomeScreen } from "@/components/app/screens/home-screen";
 import { PassScreen } from "@/components/app/screens/pass-screen";
 import { BankScreen } from "@/components/app/screens/bank-screen";
 import { LiveScreen } from "@/components/app/screens/live-screen";
 import { ProfileScreen } from "@/components/app/screens/profile-screen";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useThemeScope } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -55,14 +52,18 @@ export function AppShell(props: AppShellProps) {
   );
 }
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? "P") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+/** @usuario a partir do e-mail, como o identificador curto da referência. */
+function handleOf(email: string): string {
+  return `@${(email || "membro").split("@")[0].toLowerCase()}`;
 }
 
 function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
+  useThemeScope("app");
   const { tab, go } = useAppNav();
   const pass = usePassData(user);
+  const { data: live } = useLiveData(user.id);
+  const notices = useNotices(pass, live?.wallet ?? null);
+  const [noticesOpen, setNoticesOpen] = useState(false);
   const lenis = useLenis();
   const previousTab = useRef(tab);
 
@@ -74,19 +75,20 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
   }, [tab, lenis]);
 
   const member = pass.member;
+  const name = member.name || "Membro PRX";
 
   return (
     <div className="prx-app min-h-dvh bg-background text-foreground">
       <a
         href="#conteudo"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:bg-ink focus:px-4 focus:py-3 focus:text-white"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-full focus:bg-ink focus:px-4 focus:py-3 focus:text-background"
       >
         Pular para o conteúdo
       </a>
 
       {/* Trilho lateral (desktop) */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-card px-4 py-7 lg:flex">
-        <button type="button" onClick={() => go("home")} className="cursor-pointer self-start px-2" aria-label="PRX — ir para o início">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-card px-4 py-7 lg:flex">
+        <button type="button" onClick={() => go("home")} className="cursor-pointer self-start px-3" aria-label="PRX — ir para o início">
           <PrxLogo variant="compact" title="" className="h-7 w-auto text-ink" />
         </button>
 
@@ -100,90 +102,79 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
                 onClick={() => go(itemTab)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex min-h-12 cursor-pointer items-center gap-3 rounded-[3px] px-3 text-[15px] transition-colors",
-                  active ? "bg-surface font-semibold text-ink" : "text-muted-foreground hover:bg-surface hover:text-ink"
+                  "relative flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl px-4 text-[15px] transition-colors",
+                  active ? "font-semibold text-ink" : "text-muted-foreground hover:bg-surface hover:text-ink"
                 )}
               >
                 {active && (
-                  <motion.span
-                    layoutId="rail-indicator"
-                    className="absolute inset-y-2.5 left-0 w-[2px] bg-primary"
-                    transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                  />
+                  <motion.span layoutId="rail-pill" className="absolute inset-0 rounded-2xl bg-surface" transition={{ type: "spring", stiffness: 300, damping: 28 }} />
                 )}
-                <Icon size={20} strokeWidth={active ? 2.1 : 1.75} />
-                {label}
+                <span className={cn("relative", active && "text-primary")}>
+                  <Icon size={20} strokeWidth={active ? 2.1 : 1.75} />
+                </span>
+                <span className="relative">{label}</span>
               </button>
             );
           })}
         </nav>
 
-        <div className="mt-auto border-t border-line pt-5">
-          <div className="flex items-center gap-3 px-2">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-ink font-display text-sm font-semibold text-white">
-              {initials(member.name || "PRX")}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink">{member.name || "Membro PRX"}</p>
-              <p className="truncate text-[13px] text-muted-foreground">Nível {member.prxLevel || 1}</p>
-            </div>
-          </div>
-          <div className="mt-3">
-            <ThemeToggle showLabel className="w-full justify-start rounded-[3px] border-line text-[14px]" />
-          </div>
+        <div className="mt-auto space-y-2">
+          <ThemeToggle variant="app" showLabel className="w-full justify-start" />
           <button
             type="button"
             onClick={onLogout}
-            className="mt-2 flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[3px] px-3 text-[15px] text-muted-foreground transition-colors hover:bg-surface hover:text-ink"
+            className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface hover:text-ink"
           >
-            <IconLogout size={20} />
+            <IconLogout size={18} />
             Sair
           </button>
         </div>
       </aside>
 
-      {/* Barra superior (mobile e tablet) */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-card/95 px-3 min-[380px]:px-4 backdrop-blur lg:hidden">
-        <button type="button" onClick={() => go("home")} className="-ml-1 flex min-h-12 cursor-pointer items-center px-1" aria-label="PRX — ir para o início">
-          <PrxLogo variant="compact" title="" className="h-6 w-auto text-ink" />
-        </button>
-        <div className="flex items-center gap-1.5 min-[360px]:gap-2">
-          <ThemeToggle />
-          <button
-            type="button"
-            onClick={() => go("pass", "missions")}
-            className="flex min-h-12 cursor-pointer items-center gap-1.5 pl-1 text-xs min-[360px]:text-[13px] text-muted-foreground"
-            aria-label={`Nível ${member.prxLevel || 1}, ${member.prxScore.toLocaleString("pt-BR")} XP. Ver missões`}
-          >
-            <span className="font-mono text-ink hidden min-[360px]:inline">{member.prxScore.toLocaleString("pt-BR")} XP</span>
-            <span className="bg-ink px-1.5 py-0.5 font-mono text-[11px] min-[360px]:text-[12px] leading-5 text-white">LV {member.prxLevel || 1}</span>
-          </button>
-        </div>
-      </header>
+      <div className="lg:pl-64">
+        {/* Cabeçalho da referência: avatar, saudação, @usuário, QR e avisos */}
+        <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-md lg:static lg:bg-transparent lg:backdrop-blur-none">
+          <div className="mx-auto flex h-[72px] w-full max-w-[1120px] items-center justify-between gap-3 px-4 sm:px-6 lg:h-24 lg:px-12">
+            <button type="button" onClick={() => go("profile")} className="flex min-w-0 cursor-pointer items-center gap-3 text-left" aria-label={`Perfil de ${name}`}>
+              <Avatar name={name} src={member.avatarUrl} size={44} />
+              <span className="min-w-0">
+                <span className="block truncate text-[17px] font-semibold leading-tight tracking-[-0.01em] text-ink">Olá, {firstName(member)}</span>
+                <span className="block truncate text-[13px] text-muted-foreground">{handleOf(member.email)}</span>
+              </span>
+            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <IconButton label="Meus QR Codes" onClick={() => go("pass", "vouchers")}>
+                <IconQr size={19} />
+              </IconButton>
+              <IconButton label="Avisos" badge={notices.length} onClick={() => setNoticesOpen(true)}>
+                <IconBell size={19} />
+              </IconButton>
+            </div>
+          </div>
+        </header>
 
-      <main id="conteudo" className="lg:pl-60">
-        <div className="mx-auto w-full max-w-[1120px] px-3.5 min-[380px]:px-4 pb-28 min-[380px]:pb-32 pt-5 sm:px-6 lg:px-12 lg:pb-20 lg:pt-12">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={tab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            >
-              {tab === "home" && <HomeScreen pass={pass} firstName={firstName(member)} />}
-              {tab === "pass" && <PassScreen pass={pass} />}
-              {tab === "bank" && <BankScreen member={member} />}
-              {tab === "live" && <LiveScreen member={member} />}
-              {tab === "profile" && (
-                <ProfileScreen pass={pass} onLogout={onLogout} onViewShowcase={onViewShowcase} initials={initials(member.name || "PRX")} />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </main>
+        <main id="conteudo">
+          <div className="mx-auto w-full max-w-[1120px] px-4 pb-32 pt-3 sm:px-6 lg:px-12 lg:pb-20 lg:pt-2">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={tab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              >
+                {tab === "home" && <HomeScreen pass={pass} />}
+                {tab === "pass" && <PassScreen pass={pass} />}
+                {tab === "bank" && <BankScreen member={member} />}
+                {tab === "live" && <LiveScreen member={member} />}
+                {tab === "profile" && <ProfileScreen pass={pass} onLogout={onLogout} onViewShowcase={onViewShowcase} initials={initialsOf(name)} />}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </main>
+      </div>
 
-      {/* Barra de abas inferior (mobile e tablet), no estilo dos apps sociais */}
+      {/* Barra de abas inferior (mobile e tablet) */}
       <nav
         aria-label="Seções do app"
         className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-card/95 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden"
@@ -198,20 +189,26 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
                   onClick={() => go(itemTab)}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex h-[58px] min-[380px]:h-[62px] w-full cursor-pointer flex-col items-center justify-center gap-1 text-[10px] min-[360px]:text-[11px] font-medium transition-colors select-none",
-                    active ? "text-ink font-semibold" : "text-muted-foreground"
+                    "flex h-[62px] w-full cursor-pointer flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors select-none",
+                    active ? "font-semibold text-ink" : "text-muted-foreground"
                   )}
                 >
-                  {active && (
+                  <span className="relative flex h-8 w-14 items-center justify-center">
+                    {active && (
+                      <motion.span
+                        layoutId="tabbar-pill"
+                        className="absolute inset-0 rounded-full bg-primary/[0.1]"
+                        transition={{ type: "spring", stiffness: 300, damping: 28 }}
+                      />
+                    )}
                     <motion.span
-                      layoutId="tabbar-indicator"
-                      className="absolute left-1/2 top-0 h-[2.5px] w-7 min-[380px]:w-8 -translate-x-1/2 bg-primary"
-                      transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                    />
-                  )}
-                  <motion.span whileTap={{ scale: 0.88 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}>
-                    <Icon size={21} strokeWidth={active ? 2.2 : 1.7} />
-                  </motion.span>
+                      className={cn("relative", active && "text-primary")}
+                      whileTap={{ scale: 0.88 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                    >
+                      <Icon size={21} strokeWidth={active ? 2.2 : 1.7} />
+                    </motion.span>
+                  </span>
                   {label}
                 </button>
               </li>
@@ -219,6 +216,8 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
           })}
         </ul>
       </nav>
+
+      <NoticesSheet open={noticesOpen} onClose={() => setNoticesOpen(false)} notices={notices} onGo={go} />
     </div>
   );
 }

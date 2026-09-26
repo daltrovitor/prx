@@ -120,7 +120,7 @@ export function ConfirmToastProvider({ children }: { children: React.ReactNode }
     <ConfirmToastContext.Provider value={{ confirmDelete, showToast }}>
       {children}
 
-      {/* Pilha de notificações: cartões brancos, borda lateral indica o tipo. */}
+      {/* Pilha de notificações: cartões brancos arredondados, o ponto colorido indica o tipo. */}
       <aside
         aria-live="polite"
         aria-label="Notificações"
@@ -138,37 +138,41 @@ export function ConfirmToastProvider({ children }: { children: React.ReactNode }
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
                 transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                className={`pointer-events-auto relative border border-[#e7e7ec] border-l-2 bg-white p-4 pr-12 text-[#0b0b10] shadow-[0_12px_32px_-12px_rgba(11,11,16,0.25)] ${
-                  danger ? "border-l-[#c8102e]" : toast.type === "success" ? "border-l-[#0f7b4f]" : "border-l-[#0b0b10]"
-                }`}
+                className="pointer-events-auto relative flex gap-3 rounded-2xl border border-[#e9e9ee] bg-white p-4 pr-12 text-[#0b0b10] shadow-[0_16px_40px_-16px_rgba(11,11,16,0.3)]"
               >
-                {toast.title && <p className="text-[15px] font-semibold">{toast.title}</p>}
-                <p className={`text-sm leading-relaxed text-[#5b5b66] ${toast.title ? "mt-1" : ""}`}>{toast.message}</p>
+                <span
+                  aria-hidden
+                  className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${danger ? "bg-[#c8102e]" : toast.type === "success" ? "bg-[#0f7b4f]" : "bg-[#6c0cf0]"}`}
+                />
+                <div className="min-w-0 flex-1">
+                  {toast.title && <p className="text-[15px] font-semibold">{toast.title}</p>}
+                  <p className={`text-sm leading-relaxed text-[#5b5b66] ${toast.title ? "mt-1" : ""}`}>{toast.message}</p>
 
-                {toast.isConfirm && (
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleUserDecision(toast, false)}
-                      className="min-h-10 flex-1 cursor-pointer rounded-[3px] border border-[#e7e7ec] px-3 text-sm font-medium transition-colors hover:border-[#0b0b10]"
-                    >
-                      {toast.cancelText}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleUserDecision(toast, true)}
-                      className="min-h-10 flex-1 cursor-pointer rounded-[3px] bg-[#c8102e] px-3 text-sm font-medium text-white transition-colors hover:bg-[#a50d26]"
-                    >
-                      {toast.confirmText}
-                    </button>
-                  </div>
-                )}
+                  {toast.isConfirm && (
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleUserDecision(toast, false)}
+                        className="min-h-10 flex-1 cursor-pointer rounded-full bg-[#f2f2f5] px-4 text-sm font-medium transition-colors hover:bg-[#e9e9ee]"
+                      >
+                        {toast.cancelText}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUserDecision(toast, true)}
+                        className="min-h-10 flex-1 cursor-pointer rounded-full bg-[#c8102e] px-4 text-sm font-medium text-white transition-colors hover:bg-[#a50d26]"
+                      >
+                        {toast.confirmText}
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 <button
                   type="button"
                   onClick={() => handleUserDecision(toast, false)}
                   aria-label="Fechar notificação"
-                  className="absolute right-1 top-1 flex h-10 w-10 cursor-pointer items-center justify-center text-[#5b5b66] transition-colors hover:text-[#0b0b10]"
+                  className="absolute right-1.5 top-1.5 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[#5b5b66] transition-colors hover:bg-[#f2f2f5] hover:text-[#0b0b10]"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" aria-hidden="true">
                     <path d="M5 5l14 14M19 5 5 19" />

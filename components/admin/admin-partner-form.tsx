@@ -21,17 +21,23 @@ interface ApiResult {
 type AccessMode = "none" | "link" | "create";
 
 /** Credencial gerada: aparece uma única vez, para o admin repassar ao parceiro. */
-export function TemporaryCredential({ email, password }: { email: string; password: string }) {
+export function TemporaryCredential({
+  email,
+  password,
+  note = "Esta senha não será mostrada de novo. Envie ao parceiro por um canal seguro; ela é pedida outra vez na hora de aceitar o contrato.",
+}: {
+  email: string;
+  password: string;
+  note?: string;
+}) {
   return (
-    <div className="space-y-3 border border-line p-4">
+    <div className="space-y-3 rounded-3xl bg-surface p-4">
       <p className="text-[15px] font-semibold text-ink">Login criado para {email}</p>
-      <div className="flex items-center justify-between gap-3 bg-surface px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3 rounded-2xl bg-card px-3.5 py-2.5">
         <code className="font-mono text-base tracking-[0.06em] text-ink">{password}</code>
         <CopyButton value={password} label="Copiar senha" />
       </div>
-      <Notice tone="warning">
-        Esta senha não será mostrada de novo. Envie ao parceiro por um canal seguro; ela é pedida outra vez na hora de aceitar o contrato.
-      </Notice>
+      <Notice tone="warning">{note}</Notice>
     </div>
   );
 }
@@ -340,7 +346,7 @@ function AccessForm({ partner, onSaved }: { partner: Partner; onSaved: () => voi
       }}
     >
       {partner.ownerEmail && (
-        <div className="flex items-center justify-between gap-3 border border-line p-3.5">
+        <div className="flex items-center justify-between gap-3 rounded-3xl bg-surface p-4">
           <div className="min-w-0">
             <p className="text-[13px] text-muted-foreground">Login atual</p>
             <p className="truncate text-[15px] text-ink">{partner.ownerEmail}</p>

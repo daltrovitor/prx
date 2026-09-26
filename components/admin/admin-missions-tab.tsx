@@ -139,7 +139,7 @@ export function AdminMissionsTab({ missions, onRefresh }: AdminMissionsTabProps)
               key={template.title}
               type="button"
               onClick={() => openWith(null, template)}
-              className="flex min-h-10 shrink-0 cursor-pointer items-center gap-2 rounded-[2px] border border-line px-3 text-sm text-ink transition-colors hover:border-ink"
+              className="flex min-h-10 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line"
             >
               {template.title}
               <span className="font-mono text-[12px] text-primary">+{template.xpReward}</span>
@@ -151,9 +151,9 @@ export function AdminMissionsTab({ missions, onRefresh }: AdminMissionsTabProps)
       {missions.length === 0 ? (
         <EmptyState title="Nenhuma missão publicada" body="Use um modelo acima ou crie do zero." />
       ) : (
-        <ul className="grid gap-px border border-line bg-line md:grid-cols-2">
+        <ul className="grid gap-3 md:grid-cols-2">
           {missions.map((mission) => (
-            <li key={mission.id} className="flex flex-col justify-between gap-5 bg-white p-5">
+            <li key={mission.id} className="flex flex-col justify-between gap-5 rounded-3xl bg-surface p-5">
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <Tag>{mission.category || "Geral"}</Tag>

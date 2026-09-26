@@ -102,19 +102,19 @@ export function QrScanner({ onScan, active = true }: QrScannerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="relative mx-auto aspect-square w-full max-w-[340px] overflow-hidden bg-ink">
+      <div className="relative mx-auto aspect-square w-full max-w-[340px] overflow-hidden rounded-3xl bg-[#0b0b10]">
         <div id={regionId} className="h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
         {status !== "running" && (
           <p className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-white/70">
             {status === "starting" ? "Abrindo a câmera…" : status === "error" ? "Câmera indisponível" : "Câmera desligada"}
           </p>
         )}
-        {/* Retículo de leitura em cantos retos */}
-        <span aria-hidden className="pointer-events-none absolute inset-[18%] border-2 border-white/0 [box-shadow:0_0_0_9999px_rgba(11,11,16,0.35)]">
-          <span className="absolute -left-0.5 -top-0.5 h-6 w-6 border-l-2 border-t-2 border-white" />
-          <span className="absolute -right-0.5 -top-0.5 h-6 w-6 border-r-2 border-t-2 border-white" />
-          <span className="absolute -bottom-0.5 -left-0.5 h-6 w-6 border-b-2 border-l-2 border-white" />
-          <span className="absolute -bottom-0.5 -right-0.5 h-6 w-6 border-b-2 border-r-2 border-white" />
+        {/* Retículo de leitura com cantos arredondados */}
+        <span aria-hidden className="pointer-events-none absolute inset-[18%] rounded-3xl [box-shadow:0_0_0_9999px_rgba(11,11,16,0.35)]">
+          <span className="absolute -left-0.5 -top-0.5 h-7 w-7 rounded-tl-2xl border-l-[3px] border-t-[3px] border-white" />
+          <span className="absolute -right-0.5 -top-0.5 h-7 w-7 rounded-tr-2xl border-r-[3px] border-t-[3px] border-white" />
+          <span className="absolute -bottom-0.5 -left-0.5 h-7 w-7 rounded-bl-2xl border-b-[3px] border-l-[3px] border-white" />
+          <span className="absolute -bottom-0.5 -right-0.5 h-7 w-7 rounded-br-2xl border-b-[3px] border-r-[3px] border-white" />
         </span>
       </div>
 
@@ -125,7 +125,7 @@ export function QrScanner({ onScan, active = true }: QrScannerProps) {
           <IconRefresh size={16} />
           Trocar câmera
         </Button>
-        <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[3px] border border-line px-3.5 text-sm font-medium text-ink transition-colors hover:border-ink">
+        <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
           <IconUpload size={16} />
           Enviar foto
           <input type="file" accept="image/*" className="sr-only" onChange={scanFile} />
