@@ -74,12 +74,16 @@ export default function OfflinePage() {
       }
 
       // Preparação estrita de estados iniciais no frame 0
+      // Apenas o símbolo está presente no centro. PRX, subtítulo e barra estão 100% invisíveis.
       gsap.set(q("[data-symbol-group]"), { x: SYMBOL_CENTER_OFFSET });
       gsap.set(q("[data-piece='white']"), { x: -90, y: -20, autoAlpha: 0 });
       gsap.set(q("[data-piece='color']"), { x: 90, y: 20, autoAlpha: 0 });
+      gsap.set(q("[data-wordmark-group]"), { autoAlpha: 0 });
       gsap.set(q("[data-letter]"), { y: 130 });
       gsap.set(q("[data-piece='x-arm']"), { x: 46, y: -46, autoAlpha: 0 });
+      gsap.set(q("[data-tagline-group]"), { autoAlpha: 0 });
       gsap.set(q("#app-offline-tc-rect"), { attr: { width: 0 } });
+      gsap.set(q("[data-bar-group]"), { autoAlpha: 0 });
       gsap.set(q("[data-bar]"), { scaleX: 0, transformOrigin: "50% 50%" });
 
       // Revela o SVG já nos estados iniciais aplicados
@@ -92,13 +96,21 @@ export default function OfflinePage() {
         },
       });
 
-      // Linha do tempo oficial PRX idêntica à do site online:
+      // Linha do tempo oficial PRX:
+      // Fase 1: Somente o ícone (peças branca e colorida) deslizam e se encontram no centro
       tl.to(q("[data-piece='white']"), { x: 0, y: 0, autoAlpha: 1, duration: 0.85 }, 0.1)
         .to(q("[data-piece='color']"), { x: 0, y: 0, autoAlpha: 1, duration: 0.85 }, 0.18)
+
+      // Fase 2: O ícone desliza para a esquerda e o PRX aparece
         .to(q("[data-symbol-group]"), { x: 0, duration: 0.85, ease: "expo.inOut" }, 0.8)
+        .set(q("[data-wordmark-group]"), { autoAlpha: 1 }, 0.8)
         .to(q("[data-letter]"), { y: 0, duration: 0.9, stagger: 0.09, ease: "expo.out" }, 1.38)
         .to(q("[data-piece='x-arm']"), { x: 0, y: 0, autoAlpha: 1, duration: 0.7, ease: "back.out(2)" }, 1.78)
+
+      // Fase 3: A barra e o subtítulo aparecem
+        .set(q("[data-tagline-group]"), { autoAlpha: 1 }, 2.0)
         .to(q("#app-offline-tc-rect"), { attr: { width: PRX_LAYOUT.viewBox.full[2] }, duration: 0.9, ease: "power3.inOut" }, 2.0)
+        .set(q("[data-bar-group]"), { autoAlpha: 1 }, 2.35)
         .to(q("[data-bar]"), { scaleX: 1, duration: 0.7, ease: "power3.out" }, 2.35)
         .to({}, { duration: 0.35 });
     },
@@ -209,7 +221,7 @@ export default function OfflinePage() {
             </g>
           </g>
 
-          <g transform={PRX_LAYOUT.wordFull}>
+          <g data-wordmark-group transform={PRX_LAYOUT.wordFull} style={{ opacity: 0, visibility: "hidden" }}>
             <g clipPath="url(#app-offline-wc)">
               <path data-letter fill="currentColor" fillRule="evenodd" d={PRX_PATHS.p} style={{ transform: "translateY(130px)" }} />
               <path data-letter fill="currentColor" fillRule="evenodd" d={PRX_PATHS.r} style={{ transform: "translateY(130px)" }} />
@@ -218,11 +230,13 @@ export default function OfflinePage() {
             <path data-piece="x-arm" fill="url(#app-offline-x)" d={PRX_PATHS.xArm} style={{ opacity: 0, visibility: "hidden" }} />
           </g>
 
-          <g clipPath="url(#app-offline-tc)">
+          <g data-tagline-group clipPath="url(#app-offline-tc)" style={{ opacity: 0, visibility: "hidden" }}>
             <path fill="currentColor" transform={PRX_LAYOUT.tagline} d={PRX_PATHS.tagline} />
           </g>
 
-          <rect data-bar x={bar.x} y={bar.y} width={bar.w} height={bar.h} fill="url(#app-offline-b)" style={{ transform: "scaleX(0)", transformOrigin: "50% 50%" }} />
+          <g data-bar-group style={{ opacity: 0, visibility: "hidden" }}>
+            <rect data-bar x={bar.x} y={bar.y} width={bar.w} height={bar.h} fill="url(#app-offline-b)" style={{ transform: "scaleX(0)", transformOrigin: "50% 50%" }} />
+          </g>
         </svg>
       </div>
 
