@@ -219,7 +219,7 @@ export default function OfflinePage() {
           </g>
 
           <g transform={PRX_LAYOUT.wordFull}>
-            <g clipPath="url(#app-offline-wc)">
+            <g clipPath="url(#app-offline-wc)" style={{ clipPath: "url(#app-offline-wc)" }}>
               <path data-letter fill="currentColor" fillRule="evenodd" d={PRX_PATHS.p} />
               <path data-letter fill="currentColor" fillRule="evenodd" d={PRX_PATHS.r} />
               <path data-letter fill="url(#app-offline-x)" d={PRX_PATHS.xMain} />
@@ -227,7 +227,7 @@ export default function OfflinePage() {
             <path data-piece="x-arm" fill="url(#app-offline-x)" d={PRX_PATHS.xArm} />
           </g>
 
-          <g clipPath="url(#app-offline-tc)">
+          <g clipPath="url(#app-offline-tc)" style={{ clipPath: "url(#app-offline-tc)" }}>
             <path fill="currentColor" transform={PRX_LAYOUT.tagline} d={PRX_PATHS.tagline} />
           </g>
 

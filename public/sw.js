@@ -5,7 +5,7 @@
  * Android (Chrome e PWA instalada) e navegadores desktop modernos.
  */
 
-const CACHE_NAME = 'prx-offline-v3';
+const CACHE_NAME = 'prx-offline-v4';
 const OFFLINE_URL = '/offline.html';
 
 // Lista de assets críticos pré-armazenados no cache durante o install
