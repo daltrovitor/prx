@@ -373,6 +373,113 @@ export function EmptyState({ title, body, action }: { title: string; body?: stri
   );
 }
 
+/** Caixa de seleção com rótulo clicável e área de toque de 48px. */
+export function Checkbox({
+  label,
+  hint,
+  checked,
+  onChange,
+  disabled,
+  className,
+}: {
+  label: ReactNode;
+  hint?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const id = useId();
+  return (
+    <div className={cn("flex min-h-12 items-start gap-3 py-1", className)}>
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        aria-describedby={hint ? `${id}-hint` : undefined}
+        suppressHydrationWarning
+        className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded-[2px] border-input accent-primary disabled:cursor-not-allowed"
+      />
+      <div className="min-w-0">
+        <label htmlFor={id} className={cn("block cursor-pointer text-[15px] leading-snug text-ink", disabled && "cursor-not-allowed text-muted-foreground")}>
+          {label}
+        </label>
+        {hint && (
+          <p id={`${id}-hint`} className="mt-0.5 text-[13px] text-muted-foreground">
+            {hint}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Grupo de opções exclusivas em cartões (role radiogroup). */
+export function RadioCards<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+  className,
+}: {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: ReadonlyArray<{ value: T; title: string; meta?: string; body?: string }>;
+  className?: string;
+}) {
+  const name = useId();
+  return (
+    <fieldset className={cn("space-y-1.5", className)}>
+      <legend className="mb-1.5 block text-[13px] font-medium text-ink">{label}</legend>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {options.map((option) => {
+          const active = option.value === value;
+          const id = `${name}-${option.value}`;
+          return (
+            <label
+              key={option.value}
+              className={cn(
+                "flex min-h-12 cursor-pointer flex-col gap-0.5 rounded-[3px] border p-3.5 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring",
+                active ? "border-primary bg-primary/[0.04]" : "border-line hover:border-ink"
+              )}
+            >
+              <input
+                type="radio"
+                name={name}
+                value={option.value}
+                checked={active}
+                onChange={() => onChange(option.value)}
+                aria-labelledby={`${id}-title`}
+                aria-describedby={option.meta || option.body ? `${id}-desc` : undefined}
+                className="sr-only"
+              />
+              <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <span id={`${id}-title`} className="text-[15px] font-semibold text-ink">
+                  {option.title}
+                </span>
+                {option.meta && <span className="font-mono text-[13px] text-ink">{option.meta}</span>}
+              </span>
+              {option.body && (
+                <span aria-hidden className="text-[13px] leading-snug text-muted-foreground">
+                  {option.body}
+                </span>
+              )}
+              {(option.meta || option.body) && (
+                <span id={`${id}-desc`} className="sr-only">
+                  {[option.meta, option.body].filter(Boolean).join(". ")}
+                </span>
+              )}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 /** Formatação monetária em reais com números tabulares. */
 export function formatBRL(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

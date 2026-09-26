@@ -5,10 +5,30 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { errorMessage } from "@/lib/errors";
 import type { BenefitRow, MissionRow, VoucherRow } from "@/lib/db-rows";
 import type { Benefit, MissionVerificationType, PassMission } from "@/lib/pass-data";
+import { availabilityIssue, mapBenefitRow, partnerStatuses } from "@/lib/partners/catalog";
+import { planRank } from "@/lib/partners/plans";
 
 function isUuid(id?: string | null): boolean {
   if (!id) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+async function visibleCatalog(benefits: Benefit[]): Promise<Benefit[]> {
+  const now = new Date();
+  const candidates = benefits.filter((b) => availabilityIssue(b, now) === null);
+  let statuses = new Map<string, string>();
+  try {
+    statuses = await partnerStatuses(candidates.map((b) => b.partnerId));
+  } catch (err) {
+    // Sem as tabelas de parceiros (migração pendente) nenhum benefício é validável.
+    console.warn("Catálogo sem status de parceiros:", errorMessage(err));
+    return [];
+  }
+  return candidates
+    .filter((b) => statuses.get(b.partnerId) === "ATIVO" || statuses.get(b.partnerId) === "PENDENTE")
+    .map((b, index) => ({ b, index }))
+    .sort((x, y) => planRank(y.b.visibilityPlan) - planRank(x.b.visibilityPlan) || x.index - y.index)
+    .map(({ b }) => b);
 }
 
 export async function GET(req: NextRequest) {
@@ -30,20 +50,7 @@ export async function GET(req: NextRequest) {
 
         if (!resBenefits.error && Array.isArray(resBenefits.data)) {
           supabaseBenefitsQueried = true;
-          benefits = resBenefits.data.map((b: BenefitRow) => ({
-            id: b.id,
-            partnerId: b.partner_id || b.id,
-            partnerName: b.partner_name,
-            partnerLogo: b.partner_logo ?? "",
-            partnerBanner: b.partner_banner ?? "",
-            partnerLocation: b.partner_location || "São Paulo, SP",
-            categoryId: b.category_id,
-            title: b.title,
-            description: b.description || "",
-            discountLabel: b.discount_label,
-            minPrxLevel: b.min_nxt_level || 1,
-            terms: Array.isArray(b.terms) ? b.terms : [b.terms || "Apresente o QR Code no balcão."],
-          }));
+          benefits = resBenefits.data.map((b: BenefitRow) => mapBenefitRow(b));
 
           // Keep passStore strictly synced with current Supabase benefits
           passStore.setBenefits(benefits);
@@ -106,8 +113,9 @@ export async function GET(req: NextRequest) {
               code: v.code,
               benefitId: v.benefit_id ?? "",
               benefitTitle: v.benefit_title ?? "",
-              partnerId: v.partner_id || v.id,
+              partnerId: v.partner_id || "",
               partnerName: v.partner_name ?? "",
+              expiresAt: v.expires_at ?? null,
               discountLabel: v.discount_label ?? "",
               status: v.status,
               qrPayload: v.qr_payload ?? "",
@@ -144,6 +152,10 @@ export async function GET(req: NextRequest) {
         !b.partnerName?.toLowerCase().includes("ironbox") &&
         !b.title?.toLowerCase().includes("ironbox")
     );
+
+    // Catálogo só com o que pode ser validado hoje: benefício com parceiro dono,
+    // dentro da vigência e de parceria ativa. Mídia paga sobe na ordem (cláusula 15.1).
+    benefits = await visibleCatalog(benefits);
 
     if (missions.length === 0) {
       // Initialize with PDF templates

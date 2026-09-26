@@ -1,0 +1,41 @@
+import type { CommercialSummary, PartnerSnapshot } from "@/lib/partners/types";
+
+export const partnerSnapshot: PartnerSnapshot = {
+  tradeName: "Café Aurora",
+  legalName: "Aurora Cafeteria LTDA",
+  documentType: "CNPJ",
+  document: "11222333000181",
+  location: "Goiânia, GO",
+  representative: { name: "Marina Alves", document: "52998224725", role: "Sócia-administradora", email: "marina@aurora.com.br", phone: "(62) 99999-0000" },
+  contact: { name: "Loja Setor Bueno", phone: "(62) 3333-0000", email: "loja@aurora.com.br" },
+};
+
+export const summary: CommercialSummary = {
+  benefitTitle: "Café coado grátis",
+  benefitDescription: "Um café coado de 200 ml grátis por membro PRX, no balcão.",
+  eligibleItem: "Café coado 200 ml",
+  categoryId: "gastronomia",
+  normalPrice: 9,
+  offerKind: "preco",
+  prxPrice: 0,
+  discountPercent: null,
+  giftDescription: "",
+  catalogLabel: "",
+  quantity: 100,
+  quantityUnit: "unidades",
+  perUserLimit: 1,
+  startDate: "2026-10-01",
+  endDate: "2026-10-31",
+  channels: "Loja Setor Bueno — Av. T-10, 500, Goiânia/GO",
+  redemptionModes: ["qr_presencial"],
+  usageDeadlineDays: 7,
+  earlyEndOnSellOut: false,
+  exclusive: true,
+  exclusivityMonths: 3,
+  plan: "spotlight",
+  mediaPeriods: 1,
+  mediaPrice: 299,
+  commission: "Sem comissão: pagamento direto no estabelecimento",
+  minPrxLevel: 1,
+  rules: ["Válido de segunda a sexta"],
+};
