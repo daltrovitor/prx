@@ -12,6 +12,7 @@ import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { PointsSheet } from "@/components/app/points/points-sheet";
 import { ActionTile, EmptyState, ProgressBar, SectionHeader, Sheet } from "@/components/app/ui";
 import {
+  IconBank,
   IconCalendar,
   IconCard,
   IconChevronDown,
@@ -67,6 +68,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
     { label: "Convidar", Icon: IconUsers, tab: "pass", sub: "convidar" },
     { label: "Chaves Pix", Icon: IconPix, tab: "bank", sub: "chaves" },
     { label: "PRX Coins", Icon: IconCoin, tab: "home", sub: "pontos" },
+    { label: "PRX Map", Icon: IconBank, tab: "bank", sub: "mapa" },
   ];
 
   const paymentCard = <PaymentCard card={account?.virtualCard ?? null} holder={member.name || "Membro PRX"} onClick={() => go("bank", "cartoes")} />;
@@ -129,7 +131,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
                   <button
                     type="button"
                     onClick={() => go("pass", `beneficio:${benefit.id}`)}
-                    className="flex h-full w-full cursor-pointer flex-col justify-between gap-6 rounded-3xl bg-surface p-5 text-left transition-colors hover:bg-line"
+                    className="flex h-full w-full cursor-pointer flex-col justify-between gap-6 rounded-3xl glass p-5 text-left glass-lift"
                   >
                     <span className="text-2xl font-semibold leading-none tracking-[-0.03em] text-primary">{benefit.discountLabel}</span>
                     <span>
@@ -147,14 +149,14 @@ export function HomeScreen({ pass }: { pass: PassData }) {
       <aside className="min-w-0 space-y-9 lg:col-span-5" aria-label="Resumo">
         <div className="hidden lg:block">{paymentCard}</div>
 
-        <section aria-labelledby="home-vouchers" className="flex items-center justify-between gap-4 rounded-3xl bg-surface p-5">
+        <section aria-labelledby="home-vouchers" className="flex items-center justify-between gap-4 rounded-3xl glass p-5">
           <div>
             <h2 id="home-vouchers" className="text-[13px] font-medium text-muted-foreground">
               Vouchers ativos
             </h2>
             <p className="mt-1 text-[30px] font-semibold leading-none tracking-[-0.035em] text-ink">{activeVouchers.length}</p>
           </div>
-          <TextLink onClick={() => go("pass", activeVouchers.length > 0 ? "vouchers" : null)} className="bg-card hover:bg-background">
+          <TextLink onClick={() => go("pass", activeVouchers.length > 0 ? "vouchers" : null)}>
             {activeVouchers.length > 0 ? "Mostrar QR" : "Explorar"}
           </TextLink>
         </section>
@@ -162,7 +164,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
         <section aria-labelledby="home-missions">
           <SectionHeader id="home-missions" title="Missões" action={<TextLink onClick={() => go("pass", "missions")}>Ver todas</TextLink>} />
           {suggestedMissions.length === 0 ? (
-            <p className="mt-3 rounded-3xl bg-surface p-5 text-sm text-muted-foreground">Nenhuma missão aberta agora. Novas missões aparecem aqui.</p>
+            <p className="mt-3 rounded-3xl glass p-5 text-sm text-muted-foreground">Nenhuma missão aberta agora. Novas missões aparecem aqui.</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {suggestedMissions.map((mission) => (
@@ -170,7 +172,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
                   <button
                     type="button"
                     onClick={() => go("pass", "missions")}
-                    className="flex w-full cursor-pointer items-center gap-4 rounded-3xl bg-surface p-4 text-left transition-colors hover:bg-line"
+                    className="flex w-full cursor-pointer items-center gap-4 rounded-3xl glass p-4 text-left glass-lift"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-medium text-ink">{mission.title}</p>
@@ -197,7 +199,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
             <button
               type="button"
               onClick={() => go("live")}
-              className="mt-3 flex w-full cursor-pointer items-end justify-between gap-5 rounded-3xl bg-surface p-5 text-left transition-colors hover:bg-line"
+              className="mt-3 flex w-full cursor-pointer items-end justify-between gap-5 rounded-3xl glass p-5 text-left glass-lift"
             >
               <div className="min-w-0 space-y-3">
                 <span className="inline-flex rounded-full bg-primary/[0.09] px-2.5 py-0.5 text-[12px] font-semibold text-primary">{nextEvent.seriesLabel}</span>

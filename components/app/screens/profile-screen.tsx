@@ -1,11 +1,14 @@
 // Hello World
 "use client";
 
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { PassData } from "@/components/app/use-pass-data";
 import { useAppNav } from "@/components/app/app-nav";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { Avatar, Button, ProgressBar } from "@/components/app/ui";
+import { Avatar, Button, Notice, ProgressBar } from "@/components/app/ui";
+import { useConfirmToast } from "@/components/ui/confirm-toast";
+import { canUseBiometrics, registerPasskey } from "@/lib/passkeys/client";
+import { readKnownAccount, updateKnownAccount } from "@/lib/known-account";
 import { IconCard, IconChevronRight, IconExternal, IconPix, IconTicket, IconUsers } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { levelProgress } from "@/lib/pass-data";
@@ -51,7 +54,7 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenP
         <Metric label="Amigos" value={String(referralInfo.friendsInvitedCount)} />
       </section>
 
-      <section aria-labelledby="profile-progress" className="space-y-3 rounded-3xl bg-surface p-5">
+      <section aria-labelledby="profile-progress" className="space-y-3 rounded-3xl glass p-5">
         <h2 id="profile-progress" className="text-lg font-semibold tracking-[-0.02em] text-ink">
           Progresso
         </h2>
@@ -84,7 +87,9 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenP
         </ul>
       </section>
 
-      <section aria-labelledby="profile-appearance" className="flex items-center justify-between gap-4 rounded-3xl bg-surface p-4 pl-5">
+      <BiometricsCard />
+
+      <section aria-labelledby="profile-appearance" className="flex items-center justify-between gap-4 rounded-3xl glass p-4 pl-5">
         <h2 id="profile-appearance" className="text-[15px] font-medium text-ink">
           Aparência
         </h2>
@@ -101,9 +106,113 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenP
   );
 }
 
+interface PasskeySummary {
+  id: string;
+  deviceName: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+const since = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "short", year: "numeric" });
+
+/** Entrar com biometria/rosto: ativa neste aparelho e lista (ou remove) os aparelhos cadastrados. */
+function BiometricsCard() {
+  const { showToast } = useConfirmToast();
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [passkeys, setPasskeys] = useState<PasskeySummary[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/passkeys", { cache: "no-store" });
+      const json = (await res.json().catch(() => ({}))) as { passkeys?: PasskeySummary[]; error?: string };
+      if (!res.ok || !json.passkeys) throw new Error(json.error || "Não foi possível carregar.");
+      setPasskeys(json.passkeys);
+      if (json.passkeys.length === 0 && readKnownAccount()?.passkey) updateKnownAccount({ passkey: false });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setPasskeys([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void canUseBiometrics().then((ok) => {
+      if (alive) setSupported(ok);
+    });
+    void (async () => {
+      if (alive) await load();
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [load]);
+
+  async function enable() {
+    setBusy("enable");
+    setError(null);
+    const result = await registerPasskey();
+    setBusy(null);
+    if (!result.ok) return setError(result.error);
+    showToast("success", "Biometria ativada. Na próxima visita, entre com o rosto ou a digital.");
+    await load();
+  }
+
+  async function remove(id: string) {
+    setBusy(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/auth/passkeys?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error || "Não foi possível remover.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sem conexão.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section aria-labelledby="profile-biometrics" className="space-y-4 rounded-3xl glass p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 id="profile-biometrics" className="text-lg font-semibold tracking-[-0.02em] text-ink">
+            Entrar com biometria
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">Rosto ou digital deste aparelho na tela de login. A biometria nunca sai do aparelho.</p>
+        </div>
+        {supported && (
+          <Button size="sm" className="min-h-12" onClick={() => void enable()} disabled={busy !== null}>
+            {busy === "enable" ? "Ativando…" : "Ativar neste aparelho"}
+          </Button>
+        )}
+      </div>
+      {supported === false && <Notice>Este navegador não oferece biometria. No celular, abra o PRX pelo navegador padrão ou pelo app instalado.</Notice>}
+      {passkeys && passkeys.length > 0 && (
+        <ul className="divide-y divide-line rounded-2xl bg-surface px-4">
+          {passkeys.map((p) => (
+            <li key={p.id} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-[15px] font-medium text-ink">{p.deviceName || "Aparelho"}</p>
+                <p className="text-[13px] text-muted-foreground">Desde {since.format(new Date(p.createdAt)).replace(".", "")}</p>
+              </div>
+              <Button size="sm" variant="danger" className="min-h-11" onClick={() => void remove(p.id)} disabled={busy !== null}>
+                {busy === p.id ? "Removendo…" : "Remover"}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <Notice tone="error">{error}</Notice>}
+    </section>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-3xl bg-surface p-4 sm:p-5">
+    <div className="rounded-3xl glass p-4 sm:p-5">
       <p className="text-[13px] text-muted-foreground">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold tracking-[-0.03em] text-ink tabular-nums">{value}</p>
     </div>
@@ -116,7 +225,7 @@ function Row({ children, icon, onClick }: { children: ReactNode; icon: ReactNode
       <button
         type="button"
         onClick={onClick}
-        className="flex min-h-14 w-full cursor-pointer items-center gap-3.5 rounded-3xl bg-surface px-4 text-left text-[15px] text-ink transition-colors hover:bg-line"
+        className="flex min-h-14 w-full cursor-pointer items-center gap-3.5 rounded-3xl glass px-4 text-left text-[15px] text-ink glass-lift"
       >
         <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-ink">
           {icon}

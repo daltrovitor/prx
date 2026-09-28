@@ -18,6 +18,7 @@ import {
   type PointRuleTrigger,
 } from "@/lib/points/types";
 import { behaviorCoinsPerMonth, coinsPerRealFromRules } from "@/lib/points/economics";
+import { AdminClaimsQueue } from "@/components/admin/admin-claims-queue";
 
 interface RuleForm {
   title: string;
@@ -146,16 +147,18 @@ export function AdminPointsTab({ rules, onRefresh }: { rules: PointRule[]; onRef
         </Button>
       </div>
 
+      <AdminClaimsQueue />
+
       <dl className="grid gap-3 sm:grid-cols-3">
         <Kpi label="Emissão em compras" value={`${k.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} coin por R$ 1`} />
-        <Kpi label="Coins/mês de um membro assíduo (check-ins)" value={monthly.toLocaleString("pt-BR")} />
+        <Kpi label="Coins/mês de comportamento (se tudo aprovado)" value={monthly.toLocaleString("pt-BR")} />
         <Kpi label="Regras ativas" value={`${rules.filter((r) => r.active).length} de ${rules.length}`} />
       </dl>
 
       {rules.length === 0 ? (
         <EmptyState title="Nenhuma regra" body="Crie a primeira regra de bom comportamento." action={<Button onClick={openCreate}>Criar regra</Button>} />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-line">
+        <div className="glass overflow-x-auto rounded-3xl">
           <table className="w-full min-w-[860px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">
@@ -269,9 +272,10 @@ export function AdminPointsTab({ rules, onRefresh }: { rules: PointRule[]; onRef
             {(id) => <Input id={id} type="number" min={0} max={999} value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />}
           </Field>
           <Checkbox className="sm:col-span-2" label="Regra ativa" checked={form.active} onChange={(active) => setForm({ ...form, active })} />
-          {form.trigger === "checkin" && Number(form.coins) > 0 && (
+          {form.trigger === "checkin" && (
             <Notice tone="neutral" className="sm:col-span-2">
-              Coins de check-in não vêm de uma compra com comissão: o lastro deles é a retenção do membro. Acompanhe o custo na aba Financeiro.
+              Bom comportamento passa pela fila de análise: o membro envia um relato e os pontos só entram quando alguém da equipe aprova. Esses coins não vêm de
+              compra com comissão; acompanhe o custo na aba Financeiro.
             </Notice>
           )}
           {error && (
@@ -301,7 +305,7 @@ function ruleToForm(rule: PointRule): RuleForm {
 
 function Kpi({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-surface p-5">
+    <div className="rounded-2xl glass p-5">
       <dt className="text-[13px] text-muted-foreground">{label}</dt>
       <dd className="mt-2 text-[22px] font-light leading-tight tracking-[-0.02em] text-ink">{value}</dd>
     </div>

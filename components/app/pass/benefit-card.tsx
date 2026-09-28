@@ -30,7 +30,7 @@ export function BenefitCard({ benefit, redeemed, locked, onSelect }: BenefitCard
     <button
       type="button"
       onClick={() => onSelect(benefit)}
-      className="group flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-3xl bg-surface p-2 text-left transition-colors hover:bg-line"
+      className="group flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-3xl glass p-2 text-left glass-lift"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-card">
         {src ? (

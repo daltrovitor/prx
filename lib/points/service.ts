@@ -6,9 +6,9 @@ import type { Benefit } from "@/lib/pass-data";
 import { calculatePrxLevel } from "@/lib/pass-data";
 import { DEFAULT_PARTNER_FEE_PCT, purchaseReward } from "@/lib/points/economics";
 import { matchPartner, verticalOf, type MatchablePartner } from "@/lib/points/partner-match";
-import { getRulesRepository, getWalletRepository, INSUFFICIENT_COINS, type ApplyResult } from "@/lib/points/repository";
+import { claimsReaderFor, getLedgerReaders, getRulesRepository, getWalletRepository, INSUFFICIENT_COINS, type ApplyResult } from "@/lib/points/repository";
 import { claimStatus, toMemberRule } from "@/lib/points/rules";
-import type { PartnerMatchMethod, PartnerPurchase, PointRule, PointRuleTrigger, PointsWallet } from "@/lib/points/types";
+import type { BehaviorClaim, ClaimStatus, PartnerMatchMethod, PartnerPurchase, PointRule, PointRuleTrigger, PointsWallet } from "@/lib/points/types";
 import type { Partner } from "@/lib/partners/types";
 
 /**
@@ -26,12 +26,13 @@ async function ruleFor(trigger: PointRuleTrigger): Promise<PointRule | null> {
 
 export async function getWallet(userId: string): Promise<PointsWallet> {
   const wallet = getWalletRepository(userId);
-  const [balance, transactions, claims, rules, purchases] = await Promise.all([
+  const [balance, transactions, claims, rules, purchases, history] = await Promise.all([
     wallet.getBalance(userId),
     wallet.listTransactions(userId, 100),
     wallet.lastClaims(userId),
     listActiveRules(),
     wallet.listPurchases(userId, 20),
+    wallet.listClaims(userId, 30),
   ]);
   const now = new Date();
   return {
@@ -41,26 +42,67 @@ export async function getWallet(userId: string): Promise<PointsWallet> {
     transactions,
     rules: rules.map((rule) => toMemberRule(rule, claims[rule.id] ?? null, now)),
     purchases,
+    claims: history,
   };
 }
 
-/** Check-in de bom comportamento declarado pelo membro, limitado pela periodicidade da regra. */
-export async function claimCheckin(userId: string, ruleId: string): Promise<ApplyResult> {
+/**
+ * Bom comportamento enviado pelo membro. Nada é creditado agora: o envio
+ * entra na fila de análise da equipe PRX, com coins e XP congelados, e só
+ * vira pontos quando aprovado (reviewClaim). A periodicidade conta envios
+ * em análise e aprovados; recusados liberam novo envio.
+ */
+export async function submitClaim(member: { id: string; name: string; email: string }, ruleId: string, evidence: string): Promise<BehaviorClaim> {
   const rule = await getRulesRepository().getRule(ruleId);
   if (!rule || !rule.active) throw new PartnerError("Esta ação não está disponível.", 404);
   if (rule.trigger !== "checkin") throw new PartnerError("Esta recompensa é creditada automaticamente.", 409);
-  const wallet = getWalletRepository(userId);
-  const claims = await wallet.lastClaims(userId);
+  const wallet = getWalletRepository(member.id);
+  const claims = await wallet.lastClaims(member.id);
   const status = claimStatus(rule, claims[rule.id] ?? null);
+  if (status.status === "pending") throw new PartnerError("Seu envio anterior ainda está em análise.", 409);
   if (status.status === "done") throw new PartnerError("Você já garantiu esta recompensa.", 409);
-  if (status.status === "cooldown") throw new PartnerError("Você já fez este check-in no período. Volte no próximo.", 409);
-  return wallet.apply(userId, {
-    coinsDelta: rule.coins,
-    xpDelta: rule.xp,
-    source: "behavior",
+  if (status.status === "cooldown") throw new PartnerError("Você já enviou este bom comportamento no período. Volte no próximo.", 409);
+  return wallet.insertClaim({
+    userId: member.id,
+    userName: member.name,
+    userEmail: member.email,
     ruleId: rule.id,
-    description: rule.title,
+    ruleTitle: rule.title,
+    coins: rule.coins,
+    xp: rule.xp,
+    evidence,
   });
+}
+
+/** Fila de análise do admin (Supabase e memória, quando os dois existem). */
+export async function listClaimsForReview(status: ClaimStatus | "all", limit = 100): Promise<BehaviorClaim[]> {
+  const lists = await Promise.all(getLedgerReaders().map((r) => r.listClaimsByStatus(status, limit)));
+  return lists.flat().sort((a, b) => (status === "pending" ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt))).slice(0, limit);
+}
+
+/**
+ * Aprova ou recusa um envio. Na aprovação, credita os coins e o XP
+ * congelados no envio (idempotente pelo id do envio) e só então marca
+ * como aprovado; um clique duplo nunca credita duas vezes.
+ */
+export async function reviewClaim(claimId: string, decision: "approve" | "reject", note: string, reviewer: string): Promise<BehaviorClaim> {
+  const reader = claimsReaderFor(claimId);
+  const claim = await reader.getClaim(claimId);
+  if (!claim) throw new PartnerError("Envio não encontrado.", 404);
+  if (claim.status !== "pending") throw new PartnerError(`Este envio já foi ${claim.status === "approved" ? "aprovado" : "recusado"}.`, 409);
+  if (decision === "approve" && (claim.coins > 0 || claim.xp > 0)) {
+    await getWalletRepository(claim.userId).apply(claim.userId, {
+      coinsDelta: claim.coins,
+      xpDelta: claim.xp,
+      source: "behavior",
+      ruleId: claim.ruleId || null,
+      referenceId: `claim:${claim.id}`,
+      description: claim.ruleTitle,
+    });
+  }
+  const decided = await reader.decideClaim(claimId, { status: decision === "approve" ? "approved" : "rejected", note, reviewer });
+  if (!decided) throw new PartnerError("Este envio acabou de ser decidido por outra pessoa.", 409);
+  return decided;
 }
 
 /** Garante que o membro tem coins suficientes antes de gerar o voucher. */

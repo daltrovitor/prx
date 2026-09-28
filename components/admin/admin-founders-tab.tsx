@@ -86,7 +86,7 @@ export function AdminFoundersTab() {
         <ul className="grid gap-3 md:grid-cols-2">
           {shown.map((s) => (
             <li key={s.id}>
-              <button type="button" onClick={() => setOpenId(s.id)} className="flex h-full w-full cursor-pointer flex-col gap-3 rounded-3xl bg-surface p-5 text-left transition-colors hover:bg-line">
+              <button type="button" onClick={() => setOpenId(s.id)} className="flex h-full w-full cursor-pointer flex-col gap-3 rounded-3xl glass p-5 text-left glass-lift">
                 <span className="flex items-start justify-between gap-3">
                   <span className="text-[17px] font-semibold text-ink">{s.startupName}</span>
                   <Tag tone={TONE[s.status]}>{FOUNDERS_STATUS_LABEL[s.status]}</Tag>
@@ -137,7 +137,7 @@ function SubmissionReview({ submission, onSaved }: { submission: FoundersSubmiss
   return (
     <div className="space-y-6">
       <p className="text-[15px] leading-relaxed text-ink">{submission.oneLiner}</p>
-      <dl className="divide-y divide-line rounded-3xl bg-surface px-4 text-sm">
+      <dl className="divide-y divide-line rounded-3xl glass px-4 text-sm">
         <div className="flex justify-between gap-4 py-3">
           <dt className="text-muted-foreground">Estágio</dt>
           <dd className="text-ink">{STARTUP_STAGE_LABEL[submission.stage]}</dd>

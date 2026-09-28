@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     if (!user) throw new PartnerError("Não autenticado.", 401);
     return NextResponse.json({ success: true, reels: await memberFeed(user.id) }, { headers: NO_STORE });
   } catch (error) {
-    return errorResponse(error, "Erro ao carregar os Reels.");
+    return errorResponse(error, "Erro ao carregar os Destaques.");
   }
 }
 

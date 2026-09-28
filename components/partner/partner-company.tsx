@@ -64,7 +64,7 @@ export function PartnerCompany({ profile, missing, onSaved }: { profile: Partner
         <h2 id="company-title" className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">
           Empresa
         </h2>
-        <dl className="divide-y divide-line rounded-3xl bg-surface px-5 text-[15px]">
+        <dl className="divide-y divide-line rounded-3xl glass px-5 text-[15px]">
           <div className="py-3">
             <dt className="text-[13px] text-muted-foreground">Nome fantasia</dt>
             <dd className="text-ink">{profile.tradeName}</dd>

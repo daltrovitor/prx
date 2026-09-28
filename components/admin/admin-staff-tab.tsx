@@ -93,7 +93,7 @@ export function AdminStaffTab() {
       </div>
 
       {portalUrl && (
-        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-3xl glass p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-[13px] text-muted-foreground">Portal da equipe (envie aos funcionários)</p>
             <p className="mt-1 break-all font-mono text-[15px] text-ink">{portalUrl}</p>
@@ -119,7 +119,7 @@ export function AdminStaffTab() {
       ) : (
         <ul className="space-y-3">
           {staff.map((member) => (
-            <li key={member.id} className="grid gap-4 rounded-3xl bg-surface p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+            <li key={member.id} className="grid gap-4 rounded-3xl glass-soft p-5 lg:grid-cols-[1fr_auto] lg:items-center">
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-[17px] font-semibold text-ink">{member.name}</p>

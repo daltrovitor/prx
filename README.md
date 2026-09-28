@@ -41,7 +41,7 @@ Sem variáveis do Supabase o app roda com contas de demonstração, que só exis
 
 ## Estrutura
 
-- `app/`: rotas (App Router). `/` é a landing e o app; `/admin` e `/partner` são servidas pelos subdomínios (`proxy.ts`). Páginas públicas: `/institucional`, `/termos`, `/privacidade` e `/em-breve` (raiz do domínio `prx.app.br`).
+- `app/`: rotas (App Router). `/` é a landing e o app; `/admin` e `/partner` são servidas pelos subdomínios (`proxy.ts`). Páginas públicas: `/termos`, `/privacidade`, `/sou-pai` (cadastro da Conta Pai) e `/em-breve` (raiz do domínio `prx.app.br`). `/nova-landing` é a prévia da nova página inicial, só para administradores (aba "Nova landing" do painel).
 - `components/app/`: shell do app, telas (Início, Pass, Reels, Bank, Live e Perfil no cabeçalho) e UI do Modelo Padrão.
 - `components/brand/`: logo vetorial e abertura animada.
 - `components/icons/`: ícones próprios da PRX.

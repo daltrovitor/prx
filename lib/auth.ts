@@ -331,9 +331,19 @@ export async function getCurrentUser(req?: NextRequest): Promise<StoredUser | nu
 
     const verification = verifySessionToken(token);
     if (!verification.valid || !verification.payload?.sub) return null;
+    return await loadSessionUser(verification.payload.sub, verification.payload);
+  } catch {
+    return null;
+  }
+}
 
-    const userId = verification.payload.sub;
-
+/**
+ * Carrega o usuário de uma sessão pelo id (perfil no Supabase, com a memória de
+ * demonstração como reserva). Usado pelo cookie de sessão e pela entrada com
+ * biometria, que precisa emitir uma sessão nova sem senha.
+ */
+export async function loadSessionUser(userId: string, hint: { email?: string; role?: string; name?: string } = {}): Promise<StoredUser | null> {
+  try {
     // 1. Try querying Supabase public.profiles if supabaseAdmin is available
     try {
       const { supabaseAdmin } = await import("@/lib/supabase/client");
@@ -348,18 +358,18 @@ export async function getCurrentUser(req?: NextRequest): Promise<StoredUser | nu
             .maybeSingle();
           profile = data;
         }
-        if (!profile && verification.payload.email) {
+        if (!profile && hint.email) {
           const { data } = await supabaseAdmin
             .from("profiles")
             .select("*")
-            .eq("email", verification.payload.email.toLowerCase().trim())
+            .eq("email", hint.email.toLowerCase().trim())
             .maybeSingle();
           profile = data;
         }
 
         if (profile) {
-          let userRole = asMemberRole(profile.role || verification.payload.role);
-          const userEmail = (profile.email || verification.payload.email || "").toLowerCase().trim();
+          let userRole = asMemberRole(profile.role || hint.role);
+          const userEmail = (profile.email || hint.email || "").toLowerCase().trim();
           if (userRole !== "admin" && isAllowlistedAdmin(userEmail)) {
             userRole = "admin";
           }
@@ -375,8 +385,8 @@ export async function getCurrentUser(req?: NextRequest): Promise<StoredUser | nu
 
           return {
             id: profile.id,
-            email: profile.email || verification.payload.email || "",
-            fullName: profile.full_name || profile.name || verification.payload.name || "Membro PRX",
+            email: profile.email || hint.email || "",
+            fullName: profile.full_name || profile.name || hint.name || "Membro PRX",
             passwordHash: "",
             salt: "",
             role: userRole,
@@ -395,7 +405,7 @@ export async function getCurrentUser(req?: NextRequest): Promise<StoredUser | nu
     }
 
     // 2. Fallback to in-memory store (e.g. demo accounts or fallback mode)
-    const user = userStore.findById(userId) || userStore.findByEmail(verification.payload.email);
+    const user = userStore.findById(userId) || (hint.email ? userStore.findByEmail(hint.email) : undefined);
     return user ? { ...user, prxLevel: calculatePrxLevel(user.prxScore) } : null;
   } catch {
     return null;

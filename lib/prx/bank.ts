@@ -129,7 +129,7 @@ export function summarize(list: BankTransaction[]): { income: number; outcome: n
 
 /** Períodos do PRX Map: mês, trimestre e ano. */
 export const MAP_PERIODS = [
-  { value: 30, label: "Mensal", long: "Últimos 30 dias" },
+  { value: 30, label: "Mensal (30 dias)", long: "Últimos 30 dias" },
   { value: 90, label: "90 dias", long: "Trimestre" },
   { value: 365, label: "Ano", long: "Últimos 12 meses" },
 ] as const satisfies ReadonlyArray<{ value: StatementPeriod; label: string; long: string }>;

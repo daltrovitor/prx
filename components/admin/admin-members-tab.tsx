@@ -115,7 +115,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
       {filtered.length === 0 ? (
         <EmptyState title="Nenhum membro encontrado" body={query ? "Tente outro nome ou e-mail." : "Os cadastros aparecem aqui."} />
       ) : (
-        <div className="overflow-x-auto rounded-3xl border border-line">
+        <div className="glass overflow-x-auto rounded-3xl">
           <table className="w-full min-w-[680px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">

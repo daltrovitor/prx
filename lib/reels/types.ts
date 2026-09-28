@@ -2,9 +2,10 @@
 import { z } from "zod";
 
 /**
- * PRX Reels: vídeos verticais (9:16) de parceiros credenciados, exibidos no
- * feed da aba Reels. O conteúdo é curado pela PRX (admin) e cada vídeo leva a
- * uma ação direta: benefício do PASS, catálogo ou loja do parceiro.
+ * PRX Destaques (antes "Reels"): vídeos verticais (9:16) com produtos e
+ * novidades de parceiros, exibidos no feed da aba Destaques. O conteúdo é
+ * curado pela PRX (admin) e cada vídeo leva a uma ação direta: benefício do
+ * PASS, catálogo ou loja do parceiro. Os nomes técnicos (reels) ficam iguais.
  */
 
 export const REEL_COLLECTIONS = ["drops", "vibe", "descubra"] as const;
@@ -83,7 +84,9 @@ const mediaUrl = (label: string) =>
 
 export const reelInputSchema = z
   .object({
-    partnerId: z.string().trim().min(1, "Escolha o parceiro do vídeo."),
+    /** Parceiro cadastrado (opcional): sem ele, o vídeo mostra a marca informada em brandName. */
+    partnerId: z.string().trim().max(100).default(""),
+    brandName: z.string().trim().max(80).default(""),
     collection: z.enum(REEL_COLLECTIONS).default("descubra"),
     title: z.string().trim().min(2, "Informe o título.").max(80),
     caption: z.string().trim().max(220).default(""),
@@ -95,6 +98,8 @@ export const reelInputSchema = z
     sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
     active: z.boolean().default(true),
   })
+  .refine((reel) => reel.partnerId.length > 0 || reel.brandName.length >= 2, { message: "Escolha o parceiro ou informe o nome da marca.", path: ["brandName"] })
+  .refine((reel) => reel.ctaKind !== "benefit" || reel.partnerId.length > 0, { message: "O botão de benefício precisa de um parceiro cadastrado.", path: ["partnerId"] })
   .refine((reel) => reel.ctaKind !== "benefit" || reel.ctaTarget.length > 0, { message: "Escolha o benefício do botão.", path: ["ctaTarget"] })
   .refine((reel) => reel.ctaKind !== "external" || /^https:\/\//i.test(reel.ctaTarget), { message: "O link da loja precisa começar com https://.", path: ["ctaTarget"] });
 

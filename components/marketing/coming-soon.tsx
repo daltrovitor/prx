@@ -6,6 +6,7 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { PrxRevealMark, addPrxRevealTweens, showPrxRevealFinal } from "@/components/brand/prx-logo-reveal";
 import { AppThemeScope } from "@/components/marketing/app-theme-scope";
+import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 
 gsap.registerPlugin(useGSAP);
 
@@ -132,6 +133,7 @@ export function ComingSoon() {
         <a href="/privacidade" className="inline-flex min-h-10 cursor-pointer items-center px-2 hover:text-ink">
           Privacidade
         </a>
+        <ViraWebCredit className="mt-1" />
       </footer>
     </div>
   );

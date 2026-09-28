@@ -3,6 +3,7 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { TermsConsent } from "@/components/auth/terms-consent";
+import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { CONSENT_REQUIRED_MESSAGE } from "@/lib/legal-version";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { useRouter } from "next/navigation";
@@ -1332,6 +1333,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
             © 2026 PRX. Todos os direitos reservados.
           </div>
         </div>
+        <ViraWebCredit className="mt-6 font-sans" />
       </footer>
     </div>
   );

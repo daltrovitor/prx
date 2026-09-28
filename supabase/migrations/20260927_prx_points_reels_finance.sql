@@ -3,7 +3,7 @@
 -- PRX 2.0 — PONTOS (PRX COINS), NÍVEIS INFINITOS, REELS, FINANCEIRO E LGPD
 -- (27/09/2026)
 --
--- 1. PRX Coins no perfil (100 de boas-vindas) e régua de níveis infinita
+-- 1. PRX Coins no perfil (começam em 0) e régua de níveis infinita
 --    (xp_for_level(n) = floor(250 · (n − 1)^1.65)).
 -- 2. Regras de bom comportamento (behavior_point_rules) e extrato imutável
 --    de coins e XP (point_transactions), creditados só por função atômica.
@@ -23,7 +23,7 @@ begin;
 create extension if not exists "pgcrypto";
 
 -- 1. PERFIL: PRX COINS E ACEITE DOS TERMOS ------------------------------------
-alter table public.profiles add column if not exists prx_coins integer not null default 100;
+alter table public.profiles add column if not exists prx_coins integer not null default 0;
 alter table public.profiles add column if not exists terms_accepted_at timestamptz;
 alter table public.profiles add column if not exists terms_version text;
 
@@ -79,7 +79,7 @@ begin
   if session_user = 'supabase_auth_admin' then
     new.nxt_score := 250;
     new.nxt_level := 1;
-    new.prx_coins := 100;
+    new.prx_coins := 0;
   end if;
   return new;
 end;

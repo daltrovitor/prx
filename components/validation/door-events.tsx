@@ -78,7 +78,7 @@ export function DoorEvents({ endpoint, refreshKey, onValidate, emptyBody }: { en
                     setOpenId(event.id);
                     setQuery("");
                   }}
-                  className={`grid w-full cursor-pointer grid-cols-[auto_1fr] items-start gap-4 rounded-3xl p-5 text-left transition-colors ${openId === event.id ? "bg-line" : "bg-surface hover:bg-line"}`}
+                  className={`grid w-full cursor-pointer grid-cols-[auto_1fr] items-start gap-4 rounded-3xl p-5 text-left transition-colors ${openId === event.id ? "bg-line" : "glass glass-lift"}`}
                 >
                   <EventDate iso={event.startsAt} />
                   <span className="min-w-0 space-y-1.5">
@@ -119,7 +119,7 @@ export function DoorEvents({ endpoint, refreshKey, onValidate, emptyBody }: { en
                 {attendees.length === 0 ? (
                   <EmptyState title={open.attendees.length === 0 ? "Nenhum ingresso confirmado" : "Ninguém com esse nome"} />
                 ) : (
-                  <ul className="divide-y divide-line rounded-3xl bg-surface px-4">
+                  <ul className="divide-y divide-line rounded-3xl glass px-4">
                     {attendees.map((a) => (
                       <li key={a.code} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0">

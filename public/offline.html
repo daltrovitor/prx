@@ -429,7 +429,22 @@
         padding-right: env(safe-area-inset-right);
       }
     }
-  </style>
+      .credit {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+      font-size: 12px;
+      color: #5b5b66;
+    }
+    .credit a { display: inline-flex; align-items: center; min-height: 40px; cursor: pointer; border-radius: 6px; }
+    .credit img { height: 20px; width: auto; }
+    html.dark .credit { color: #9ca3af; }
+    html.dark .credit a { background: rgba(255, 255, 255, 0.95); padding: 0 8px; }
+</style>
 </head>
 <body>
   <!-- Header com Theme Toggle -->
@@ -558,6 +573,13 @@
       </div>
     </div>
   </main>
+
+  <footer class="credit">
+    <span>Desenvolvido por</span>
+    <a href="https://viraweb.online" target="_blank" rel="noopener noreferrer" aria-label="ViraWeb (abre em nova aba)">
+      <img src="https://viraweb.online/viraweb3.png" alt="ViraWeb" height="20" loading="lazy" decoding="async">
+    </a>
+  </footer>
 
   <script>
     // 1. Gerenciamento do Tema Claro / Escuro sincronizado

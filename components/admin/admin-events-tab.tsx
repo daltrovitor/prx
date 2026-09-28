@@ -157,7 +157,7 @@ function EventTable({ events, onOpen, caption }: { events: AdminEvent[]; onOpen:
   return (
     <div className="space-y-3">
       <h3 className="text-[13px] font-semibold text-muted-foreground">{caption}</h3>
-      <div className="overflow-x-auto rounded-3xl border border-line">
+      <div className="glass overflow-x-auto rounded-3xl">
         <table className="w-full min-w-[860px] text-left text-sm">
           <caption className="sr-only">{caption}</caption>
           <thead>
@@ -445,7 +445,7 @@ function EventForm({ event, partners, onSaved }: { event: LiveEvent | null; part
       <p className="col-span-full -mt-3 text-[13px] text-muted-foreground">Preço 0 = gratuito (ingresso sai na hora). Pago = reserva que a PRX confirma até o pagamento online entrar.</p>
       <ul className="col-span-full space-y-3">
         {draft.batches.map((batch, index) => (
-          <li key={batch.id} className="grid gap-3 rounded-3xl bg-surface p-4 sm:grid-cols-[1fr_120px_120px_auto_auto] sm:items-end">
+          <li key={batch.id} className="grid gap-3 rounded-3xl glass-soft p-4 sm:grid-cols-[1fr_120px_120px_auto_auto] sm:items-end">
             <Field label="Nome do lote">{(id) => <Input id={id} value={batch.name} maxLength={60} onChange={(e) => setBatch(index, { name: e.target.value })} />}</Field>
             <Field label="Preço (R$)">{(id) => <Input id={id} inputMode="decimal" value={batch.price} onChange={(e) => setBatch(index, { price: e.target.value })} />}</Field>
             <Field label="Quantidade">{(id) => <Input id={id} type="number" min={1} inputMode="numeric" placeholder="∞" value={batch.quantity} onChange={(e) => setBatch(index, { quantity: e.target.value })} />}</Field>
@@ -668,7 +668,7 @@ function EventDetail({ event, onBack, onEdit, onChanged, onDeleted }: { event: A
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {kpis.map((kpi) => (
-          <div key={kpi.label} className="rounded-3xl bg-surface p-5">
+          <div key={kpi.label} className="rounded-3xl glass p-5">
             <p className="text-[13px] text-muted-foreground">{kpi.label}</p>
             <p className="mt-2 text-[26px] font-light leading-none tracking-[-0.03em] text-ink tabular-nums">{kpi.value}</p>
           </div>
@@ -678,7 +678,7 @@ function EventDetail({ event, onBack, onEdit, onChanged, onDeleted }: { event: A
       {feedback && <Notice tone={feedback.ok ? "success" : "error"}>{feedback.text}</Notice>}
 
       {event.status !== "cancelled" && !event.ended && (
-        <form onSubmit={(e) => void sendInvite(e)} className="grid gap-4 rounded-3xl bg-surface p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <form onSubmit={(e) => void sendInvite(e)} className="grid gap-4 rounded-3xl glass p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <Field label="Convite (cortesia) para o e-mail do membro">
             {(id) => <Input id={id} type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} required className="in-[.bg-surface]:bg-card" />}
           </Field>
@@ -717,7 +717,7 @@ function EventDetail({ event, onBack, onEdit, onChanged, onDeleted }: { event: A
         {shown.length === 0 ? (
           <EmptyState title={tickets.length === 0 ? "Nenhum ingresso ainda" : "Nada com esse filtro"} body={tickets.length === 0 ? "Reservas, ingressos gratuitos e convites aparecem aqui." : undefined} />
         ) : (
-          <div className="overflow-x-auto rounded-3xl border border-line">
+          <div className="glass overflow-x-auto rounded-3xl">
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead>
                 <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">

@@ -12,7 +12,7 @@ import { REEL_COLLECTION_LABEL, type MemberReel, type ReelAction } from "@/lib/r
 import { cn } from "@/lib/utils";
 
 /*
- * Feed vertical de vídeos dos parceiros (9:16), no formato de Reels/Shorts.
+ * Destaques: feed vertical de vídeos dos parceiros (9:16), no formato de Reels/Shorts.
  * Um vídeo por tela com snap; o que está visível toca sem som, toque pausa,
  * o botão de som vale para o feed inteiro. Cada vídeo termina num cartão com a
  * ação direta: benefício do PASS, catálogo ou loja do parceiro.
@@ -158,18 +158,18 @@ export function ReelsScreen({ member }: { member: User }) {
     }
   }
 
-  const frame = "mx-auto h-[calc(100dvh-72px-62px-max(0.25rem,env(safe-area-inset-bottom)))] w-full overflow-hidden sm:rounded-2xl lg:h-[calc(100dvh-96px-24px)] lg:max-w-[440px]";
+  const frame = "mx-auto h-[calc(100dvh-72px-62px-max(0.5rem,env(safe-area-inset-bottom)))] w-full overflow-hidden sm:rounded-2xl lg:h-[calc(100dvh-96px-24px)] lg:max-w-[440px]";
 
   if (reels === null) {
-    return <div role="status" aria-label="Carregando Reels" className={cn(frame, "bg-surface")} />;
+    return <div role="status" aria-label="Carregando Destaques" className={cn(frame, "bg-surface")} />;
   }
 
   if (reels.length === 0) {
     return (
       <div className="px-4 pt-3 sm:px-0">
-        <h1 className="sr-only">Reels</h1>
+        <h1 className="sr-only">Destaques</h1>
         <EmptyState
-          title={failed ? "Não foi possível carregar os Reels" : "Os primeiros drops estão chegando"}
+          title={failed ? "Não foi possível carregar os Destaques" : "Os primeiros drops estão chegando"}
           body={failed ? "Confira a conexão e tente de novo." : "Vídeos de lançamentos, bastidores e descobertas das marcas PRX aparecem aqui."}
           action={failed ? <Button onClick={() => void load()}>Tentar de novo</Button> : <Button variant="secondary" onClick={() => go("pass")}>Explorar o PASS</Button>}
         />
@@ -178,8 +178,8 @@ export function ReelsScreen({ member }: { member: User }) {
   }
 
   return (
-    <section aria-label="Reels dos parceiros" className="relative">
-      <h1 className="sr-only">Reels</h1>
+    <section aria-label="Destaques dos parceiros" className="relative">
+      <h1 className="sr-only">Destaques</h1>
       <div
         ref={scrollerRef}
         tabIndex={0}

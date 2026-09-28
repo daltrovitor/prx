@@ -58,14 +58,19 @@ export async function engage(userId: string, reelId: string, action: ReelAction)
 }
 
 async function withPartner(input: ReelInput) {
+  const catalogTarget = input.ctaKind === "catalog" ? "" : input.ctaTarget;
+  if (!input.partnerId) {
+    // Marca sem cadastro de parceiro: o vídeo mostra o nome informado.
+    return { ...input, ctaTarget: catalogTarget, partnerName: input.brandName, partnerLogo: "" };
+  }
   const partner = await getPartnerRepository().getPartner(input.partnerId);
-  if (!partner) throw new PartnerError("Parceiro não encontrado. Cadastre-o na aba Parceiros.", 404);
+  if (!partner) throw new PartnerError("Parceiro não encontrado. Cadastre-o na aba Parceiros ou informe só o nome da marca.", 404);
   if (input.ctaKind === "benefit") {
     const benefit = await getBenefit(input.ctaTarget);
     if (!benefit) throw new PartnerError("Benefício do botão não encontrado.", 404);
     if (benefit.partnerId !== partner.id) throw new PartnerError("O benefício do botão precisa ser deste parceiro.", 422);
   }
-  return { ...input, ctaTarget: input.ctaKind === "catalog" ? "" : input.ctaTarget, partnerName: partner.tradeName, partnerLogo: partner.logoUrl };
+  return { ...input, ctaTarget: catalogTarget, partnerName: partner.tradeName, partnerLogo: partner.logoUrl };
 }
 
 export async function createReel(input: ReelInput): Promise<PartnerReel> {

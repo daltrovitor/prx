@@ -28,8 +28,9 @@ import {
 import { PIX_KEY_LABEL, detectPixKeyType, parsePixPayload, type PixKeyType } from "@/lib/prx/pix";
 import { cn } from "@/lib/utils";
 
-type BankSection = "extrato" | "pix" | "cobrar" | "cartoes" | "chaves";
-const SECTIONS: ReadonlyArray<BankSection> = ["extrato", "pix", "cobrar", "cartoes", "chaves"];
+type BankSection = "extrato" | "pix" | "cobrar" | "mapa" | "cartoes" | "chaves";
+/** PRX Map fica entre Cobrar e Cartões. */
+const SECTIONS: ReadonlyArray<BankSection> = ["extrato", "pix", "cobrar", "mapa", "cartoes", "chaves"];
 
 type Run = (body: { action: string } & Record<string, unknown>) => Promise<ActionResult & { reward?: PartnerReward | null }>;
 
@@ -151,12 +152,7 @@ export function BankScreen({ member }: { member: User }) {
         />
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-8">
-          <PrxMap transactions={account.transactions} hidden={hidden} />
-        </div>
-        <YieldSoonCard className="lg:col-span-4" />
-      </div>
+      <YieldSoonCard />
 
       <Segmented
         label="Seções do PRX BANK"
@@ -166,6 +162,7 @@ export function BankScreen({ member }: { member: User }) {
           { value: "extrato", label: "Extrato" },
           { value: "pix", label: "Pix" },
           { value: "cobrar", label: "Cobrar" },
+          { value: "mapa", label: "PRX Map" },
           { value: "cartoes", label: "Cartões" },
           { value: "chaves", label: "Chaves Pix", count: account.pixKeys.length },
         ]}
@@ -174,6 +171,7 @@ export function BankScreen({ member }: { member: User }) {
       {section === "extrato" && <StatementPanel account={account} hidden={hidden} />}
       {section === "pix" && (active ? <PixPanel account={account} run={run} /> : <ActivationPanel title="Pix disponível na ativação" onKeys={() => go("bank", "chaves")} />)}
       {section === "cobrar" && (active ? <ChargePanel account={account} run={run} /> : <ActivationPanel title="Cobranças com QR Code na ativação" onKeys={() => go("bank", "chaves")} />)}
+      {section === "mapa" && <PrxMap transactions={account.transactions} hidden={hidden} />}
       {section === "cartoes" && <CardsPanel account={account} run={run} holder={member.name || "Membro PRX"} />}
       {section === "chaves" && <KeysPanel account={account} run={run} />}
     </div>
@@ -185,18 +183,18 @@ export function BankScreen({ member }: { member: User }) {
 /** Rentabilidade automática do saldo: anunciada com transparência, ainda sem render nada. */
 function YieldSoonCard({ className }: { className?: string }) {
   return (
-    <section aria-labelledby="yield-soon" className={cn("flex flex-col justify-between gap-6 rounded-2xl bg-surface p-5 sm:p-6", className)}>
-      <div className="space-y-3">
-        <Tag>Em breve</Tag>
-        <h2 id="yield-soon" className="text-lg font-semibold leading-snug tracking-[-0.02em] text-ink sm:text-xl">
-          Seu saldo rendendo 100% do CDI, todo dia útil
-        </h2>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
-          Sem aplicar, sem resgatar: o que estiver na conta rende sozinho e continua disponível para Pix e cartão.
-        </p>
+    <section aria-labelledby="yield-soon" className={cn("flex flex-col gap-3 rounded-2xl glass p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8", className)}>
+      <div className="min-w-0 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="yield-soon" className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-ink sm:text-base">
+            Seu saldo rendendo 100% do CDI, todo dia útil
+          </h2>
+          <Tag>Em breve</Tag>
+        </div>
+        <p className="text-[13px] leading-relaxed text-muted-foreground">Sem aplicar, sem resgatar: o que estiver na conta rende sozinho e continua disponível.</p>
       </div>
-      <p className="border-t border-line pt-4 text-[12px] leading-relaxed text-muted-foreground">
-        Em fase de homologação regulatória com o banco parceiro. Nada rende até a liberação oficial, e a data será avisada aqui.
+      <p className="shrink-0 text-[12px] leading-relaxed text-muted-foreground sm:max-w-[260px] sm:text-right">
+        Em fase de homologação regulatória com o banco parceiro. Nada rende até a liberação oficial.
       </p>
     </section>
   );
@@ -491,7 +489,7 @@ function ChargePanel({ account, run }: { account: BankAccountView; run: Run }) {
       </form>
       <div className="lg:col-span-7">
         {current ? (
-          <div className="space-y-4 rounded-3xl bg-surface p-5 sm:p-6">
+          <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
             <div className="flex items-center gap-2">
               <p className="text-3xl font-light tracking-[-0.03em] text-ink">{current.amount ? formatBRL(current.amount) : "Valor livre"}</p>
               {current.paid ? <Tag tone="success">Recebido</Tag> : <Tag>Aguardando</Tag>}
@@ -554,7 +552,7 @@ function CardsPanel({ account, run, holder }: { account: BankAccountView; run: R
       <div className="space-y-6 lg:col-span-6">
         <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Cartão físico</h2>
         {request ? (
-          <div className="space-y-4 rounded-3xl bg-surface p-5 sm:p-6">
+          <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[15px] font-medium text-ink">Pedido registrado</p>
               <Tag tone={request.status === "delivered" ? "success" : "neutral"}>{CARD_REQUEST_STATUS_LABEL[request.status]}</Tag>
@@ -581,7 +579,7 @@ function CardsPanel({ account, run, holder }: { account: BankAccountView; run: R
             )}
           </div>
         ) : (
-          <div className="space-y-4 rounded-3xl bg-surface p-5 sm:p-6">
+          <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
             <p className="text-[15px] text-ink">Peça o cartão físico sem anuidade. Ele é produzido depois da ativação da conta.</p>
             <Button onClick={() => setRequestOpen(true)}>Pedir cartão físico</Button>
           </div>
@@ -695,7 +693,7 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
         ) : (
           <ul className="space-y-2">
             {account.pixKeys.map((k) => (
-              <li key={k.id} className="flex items-center justify-between gap-3 rounded-3xl bg-surface px-4 py-3 sm:gap-4">
+              <li key={k.id} className="flex items-center justify-between gap-3 rounded-3xl glass-soft px-4 py-3 sm:gap-4">
                 <div className="min-w-0 pr-2">
                   <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground sm:text-[13px]">
                     {PIX_KEY_LABEL[k.type]} <Tag tone={k.status === "active" ? "success" : "neutral"}>{PIX_KEY_STATUS_LABEL[k.status]}</Tag>

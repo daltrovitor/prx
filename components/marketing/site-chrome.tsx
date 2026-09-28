@@ -3,27 +3,28 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { AppThemeScope } from "@/components/marketing/app-theme-scope";
+import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { COMPANY } from "@/lib/company";
 import { cn } from "@/lib/utils";
 
 /*
- * Moldura das páginas públicas (institucional e documentos legais):
- * cabeçalho limpo, rodapé corporativo e o tema do Modelo Padrão.
+ * Moldura das páginas públicas (documentos legais e Sou Pai):
+ * cabeçalho em vidro, rodapé corporativo e o tema do Modelo Padrão.
  * Server Component: nada aqui precisa de JavaScript no navegador.
  */
 
 const NAV = [
-  { href: "/institucional#pass", label: "Pass" },
-  { href: "/institucional#bank", label: "Bank" },
-  { href: "/institucional#live", label: "Live" },
-  { href: "/institucional#reels", label: "Reels" },
+  { href: "/", label: "Início" },
+  { href: "/sou-pai", label: "Sou Pai" },
+  { href: "/termos", label: "Termos" },
+  { href: "/privacidade", label: "Privacidade" },
 ];
 
 export function SiteHeader({ cta = true }: { cta?: boolean }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-line/70 bg-background/85 backdrop-blur-md">
+    <header className="glass-bar sticky top-0 z-40 border-x-0 border-t-0">
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-6 lg:h-[72px] lg:px-10">
-        <Link href="/institucional" className="flex min-h-12 cursor-pointer items-center" aria-label="PRX — página institucional">
+        <Link href="/" className="flex min-h-12 cursor-pointer items-center" aria-label="PRX — página inicial">
           <PrxLogo variant="compact" title="" className="h-6 w-auto text-ink sm:h-7" />
         </Link>
         <nav aria-label="Produtos PRX" className="hidden items-center gap-1 md:flex">
@@ -52,17 +53,17 @@ export function SiteFooter() {
     {
       title: "Produtos",
       links: [
-        { href: "/institucional#pass", label: "PRX PASS" },
-        { href: "/institucional#bank", label: "PRX BANK" },
-        { href: "/institucional#live", label: "PRX LIVE" },
-        { href: "/institucional#reels", label: "PRX Reels" },
+        { href: "/", label: "PRX PASS" },
+        { href: "/#bank", label: "PRX BANK" },
+        { href: "/#live", label: "PRX LIVE" },
+        { href: "/#reels", label: "Destaques" },
       ],
     },
     {
       title: "Empresa",
       links: [
-        { href: "/institucional", label: "Sobre a PRX" },
-        { href: "/institucional#impacto", label: "Impacto" },
+        { href: "/", label: "Sobre a PRX" },
+        { href: "/sou-pai", label: "Sou Pai" },
         { href: "/em-breve", label: "Lista VIP" },
         { href: `mailto:${COMPANY.supportEmail}`, label: "Contato" },
       ],
@@ -78,7 +79,7 @@ export function SiteFooter() {
   ];
 
   return (
-    <footer className="border-t border-line bg-surface/60">
+    <footer className="border-t border-line bg-surface">
       <div className="mx-auto max-w-[1200px] px-4 py-14 sm:px-6 lg:px-10">
         <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
           <div className="space-y-4">
@@ -110,6 +111,7 @@ export function SiteFooter() {
             antes da ativação.
           </p>
         </div>
+        <ViraWebCredit className="mt-6 md:justify-start" />
       </div>
     </footer>
   );
@@ -118,8 +120,9 @@ export function SiteFooter() {
 /** Página pública completa: tema, cabeçalho, conteúdo e rodapé. */
 export function SitePage({ children, className, cta = true }: { children: ReactNode; className?: string; cta?: boolean }) {
   return (
-    <div className={cn("prx-app flex min-h-dvh flex-col bg-background text-foreground selection:bg-[#6c0cf0] selection:text-white", className)}>
+    <div className={cn("prx-app isolate flex min-h-dvh flex-col bg-background text-foreground selection:bg-[#6c0cf0] selection:text-white", className)}>
       <AppThemeScope />
+      <div aria-hidden className="prx-ambient" />
       <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-3 focus:text-background">
         Pular para o conteúdo
       </a>

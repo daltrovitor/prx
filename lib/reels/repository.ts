@@ -183,6 +183,13 @@ const globalState = globalThis as unknown as { __prxReels?: MemoryReels };
 const memory = (): MemoryReels => (globalState.__prxReels ??= { reels: [], reactions: new Set(), media: new Map() });
 const COUNTER_FIELD: Record<ReelCounter, "views" | "likes" | "saves" | "ctaClicks"> = { views: "views", likes: "likes", saves: "saves", cta_clicks: "ctaClicks" };
 
+/** Campos gravados: o nome da marca avulsa já vem resolvido em partnerName. */
+function stored(input: ReelInput & { partnerName: string; partnerLogo: string }) {
+  const copy: Partial<typeof input> = { ...input };
+  delete copy.brandName;
+  return copy as Omit<typeof input, "brandName">;
+}
+
 class MemoryReelsRepository implements ReelsRepository {
   async list(filter?: { activeOnly?: boolean }) {
     const list = memory().reels.filter((r) => !filter?.activeOnly || r.active);
@@ -196,7 +203,7 @@ class MemoryReelsRepository implements ReelsRepository {
 
   async insert(input: ReelInput & { partnerName: string; partnerLogo: string }) {
     const now = new Date().toISOString();
-    const reel: PartnerReel = { ...input, id: crypto.randomUUID(), views: 0, likes: 0, saves: 0, ctaClicks: 0, createdAt: now, updatedAt: now };
+    const reel: PartnerReel = { ...stored(input), id: crypto.randomUUID(), views: 0, likes: 0, saves: 0, ctaClicks: 0, createdAt: now, updatedAt: now };
     memory().reels.push(reel);
     return structuredClone(reel);
   }
@@ -205,7 +212,7 @@ class MemoryReelsRepository implements ReelsRepository {
     const state = memory();
     const index = state.reels.findIndex((r) => r.id === id);
     if (index === -1) return null;
-    state.reels[index] = { ...state.reels[index], ...input, updatedAt: new Date().toISOString() };
+    state.reels[index] = { ...state.reels[index], ...stored(input), updatedAt: new Date().toISOString() };
     return structuredClone(state.reels[index]);
   }
 

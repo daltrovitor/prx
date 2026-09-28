@@ -204,7 +204,7 @@ export function ValidatorPanel({ validation, hint }: { validation: Validation; h
           <ul className="space-y-2">
             {history.map((entry) =>
               entry.kind === "ticket" ? (
-                <li key={entry.key} className="flex items-center justify-between gap-4 rounded-3xl bg-surface px-4 py-3">
+                <li key={entry.key} className="flex items-center justify-between gap-4 rounded-3xl glass-soft px-4 py-3">
                   <div className="min-w-0">
                     <p className="font-mono text-sm text-ink">{entry.ticket.code}</p>
                     <p className="truncate text-[13px] text-muted-foreground">
@@ -214,7 +214,7 @@ export function ValidatorPanel({ validation, hint }: { validation: Validation; h
                   <Tag tone="accent">Entrada</Tag>
                 </li>
               ) : (
-                <li key={entry.key} className="flex items-center justify-between gap-4 rounded-3xl bg-surface px-4 py-3">
+                <li key={entry.key} className="flex items-center justify-between gap-4 rounded-3xl glass-soft px-4 py-3">
                   <div className="min-w-0">
                     <p className="font-mono text-sm text-ink">{entry.voucher.code}</p>
                     <p className="truncate text-[13px] text-muted-foreground">

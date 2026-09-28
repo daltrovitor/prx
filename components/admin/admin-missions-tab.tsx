@@ -153,7 +153,7 @@ export function AdminMissionsTab({ missions, onRefresh }: AdminMissionsTabProps)
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
           {missions.map((mission) => (
-            <li key={mission.id} className="flex flex-col justify-between gap-5 rounded-3xl bg-surface p-5">
+            <li key={mission.id} className="flex flex-col justify-between gap-5 rounded-3xl glass-soft p-5">
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <Tag>{mission.category || "Geral"}</Tag>

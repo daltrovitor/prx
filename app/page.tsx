@@ -4,19 +4,25 @@
 import { useState, type ReactNode } from "react";
 import { ScrollytellingContainer } from "@/components/scrollytelling-container";
 import { AppShell } from "@/components/app/app-shell";
+import { QuickLogin } from "@/components/auth/quick-login";
+import { useKnownAccount } from "@/lib/known-account";
 import { PrxLoader } from "@/components/brand/prx-loader";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function HomePage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, unlocked } = useAuth();
+  const known = useKnownAccount();
   const [viewMode, setViewMode] = useState<"app" | "showcase">("app");
   const [introDone, setIntroDone] = useState(false);
 
   let content: ReactNode = null;
 
-  if (!loading && user && viewMode === "app") {
+  if (!loading && known && (!user || !unlocked)) {
+    // "Lembrar de mim": pula a landing e abre a tela de login dedicada (senha ou biometria).
+    content = <QuickLogin account={known} />;
+  } else if (!loading && user && viewMode === "app") {
     content = <AppShell user={user} onLogout={() => void logout()} onViewShowcase={() => setViewMode("showcase")} />;
   } else if (!loading && user) {
     // Membro logado revendo a apresentação (landing) do PRX.

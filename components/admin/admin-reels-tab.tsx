@@ -20,6 +20,7 @@ import {
 
 interface ReelForm {
   partnerId: string;
+  brandName: string;
   collection: ReelCollection;
   title: string;
   caption: string;
@@ -34,6 +35,7 @@ interface ReelForm {
 
 const EMPTY: ReelForm = {
   partnerId: "",
+  brandName: "",
   collection: "descubra",
   title: "",
   caption: "",
@@ -48,19 +50,43 @@ const EMPTY: ReelForm = {
 
 const compact = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
 
+/**
+ * Envio em duas etapas: o servidor valida e devolve uma URL assinada do
+ * Supabase Storage, e o navegador manda o arquivo direto para lá (sem o limite
+ * de corpo da hospedagem). Sem Supabase, o arquivo vai para a própria API.
+ */
 async function upload(file: File, kind: "video" | "poster"): Promise<string> {
-  const body = new FormData();
-  body.append("file", file);
-  body.append("kind", kind);
-  const res = await fetch("/api/admin/reels/upload", { method: "POST", body });
-  const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-  if (!res.ok || !json.url) throw new Error(json.error || "Falha no envio.");
-  return json.url;
+  const res = await fetch("/api/admin/reels/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind, contentType: file.type, size: file.size }),
+  });
+  const json = (await res.json().catch(() => ({}))) as { mode?: "signed" | "direct"; signedUrl?: string; publicUrl?: string; error?: string };
+  if (!res.ok) throw new Error(json.error || "Falha no envio.");
+
+  if (json.mode === "signed" && json.signedUrl && json.publicUrl) {
+    const body = new FormData();
+    body.append("cacheControl", "31536000");
+    body.append("", file);
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const put = await fetch(json.signedUrl, { method: "PUT", headers: { "x-upsert": "false", ...(anon ? { apikey: anon } : {}) }, body });
+    if (!put.ok) throw new Error(`O Storage recusou o arquivo (${put.status}). Tente de novo.`);
+    return json.publicUrl;
+  }
+
+  const form = new FormData();
+  form.append("file", file);
+  form.append("kind", kind);
+  const direct = await fetch("/api/admin/reels/upload", { method: "POST", body: form });
+  const data = (await direct.json().catch(() => ({}))) as { url?: string; error?: string };
+  if (!direct.ok || !data.url) throw new Error(data.error || "Falha no envio.");
+  return data.url;
 }
 
 /**
- * Reels de parceiros: vídeos verticais 9:16 do feed da aba Reels.
- * O feed mostra a marca parceira e o botão de ação; métricas ficam só aqui.
+ * Destaques: vídeos verticais 9:16 com produtos e novidades dos parceiros no
+ * feed da aba Destaques. O feed mostra a marca e o botão de ação; métricas
+ * ficam só aqui. Parceiro cadastrado é opcional (basta o nome da marca).
  */
 export function AdminReelsTab({ partners, benefits }: { partners: PartnerOverview[]; benefits: Benefit[] }) {
   const { confirmDelete, showToast } = useConfirmToast();
@@ -80,7 +106,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
     try {
       const res = await fetch("/api/admin/reels", { cache: "no-store" });
       const json = (await res.json().catch(() => ({}))) as { reels?: PartnerReel[]; error?: string };
-      if (!res.ok || !json.reels) throw new Error(json.error || "Não foi possível carregar os Reels.");
+      if (!res.ok || !json.reels) throw new Error(json.error || "Não foi possível carregar os Destaques.");
       setReels(json.reels);
       setLoadError(null);
     } catch (err) {
@@ -145,7 +171,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
     setError(null);
     try {
       await save(editing ? { id: editing.id, ...payload(form) } : payload(form), editing ? "PUT" : "POST");
-      showToast("success", editing ? "Vídeo atualizado." : "Vídeo publicado no feed.");
+      showToast("success", editing ? "Destaque atualizado." : "Vídeo publicado nos Destaques.");
       setOpen(false);
       await load();
     } catch (err) {
@@ -181,11 +207,13 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 id="reels-title" className="text-2xl font-semibold tracking-[-0.03em] text-ink">
-            Reels de parceiros
+            Destaques
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Vídeos verticais 9:16 do feed Reels. Cada vídeo leva a um benefício, ao catálogo ou à loja do parceiro.</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Vídeos verticais 9:16 com produtos e novidades dos parceiros. Cada vídeo leva a um benefício, ao catálogo ou à loja.
+          </p>
         </div>
-        <Button onClick={openCreate} disabled={selectable.length === 0} title={selectable.length === 0 ? "Cadastre um parceiro primeiro" : undefined}>
+        <Button onClick={openCreate}>
           <IconPlus size={18} />
           Novo vídeo
         </Button>
@@ -202,9 +230,9 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
       {reels === null ? (
         <div role="status" aria-label="Carregando" className="h-32 rounded-2xl bg-surface" />
       ) : reels.length === 0 ? (
-        <EmptyState title="Nenhum vídeo no feed" body="Publique o primeiro vídeo vertical de um parceiro." action={selectable.length > 0 ? <Button onClick={openCreate}>Publicar vídeo</Button> : undefined} />
+        <EmptyState title="Nenhum vídeo nos Destaques" body="Publique o primeiro vídeo vertical de um parceiro." action={<Button onClick={openCreate}>Publicar vídeo</Button>} />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-line">
+        <div className="glass overflow-x-auto rounded-3xl">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">
@@ -271,21 +299,24 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
         open={open}
         onClose={() => setOpen(false)}
         size="lg"
-        title={editing ? "Editar vídeo" : "Novo vídeo no feed"}
-        description="Formato vertical 9:16, até 60 segundos. O feed mostra o nome do parceiro e o botão de ação."
+        title={editing ? "Editar destaque" : "Novo vídeo nos Destaques"}
+        description="Formato vertical 9:16, até 60 segundos e 50 MB. O feed mostra a marca e o botão de ação."
         footer={
           <Button block type="submit" form="reel-form" disabled={saving || uploading !== null}>
-            {uploading ? "Enviando arquivo…" : saving ? "Salvando…" : editing ? "Salvar vídeo" : "Publicar no feed"}
+            {uploading ? "Enviando arquivo…" : saving ? "Salvando…" : editing ? "Salvar destaque" : "Publicar nos Destaques"}
           </Button>
         }
       >
         <form id="reel-form" onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
-          <Field label="Parceiro">
-            {(id) => (
-              <Select id={id} required value={form.partnerId} onChange={(e) => setForm({ ...form, partnerId: e.target.value, ctaTarget: form.ctaKind === "benefit" ? "" : form.ctaTarget })}>
-                <option value="" disabled>
-                  Escolha o parceiro
-                </option>
+          <Field label="Parceiro" hint={selectable.length === 0 ? "Nenhum parceiro cadastrado: informe só a marca ao lado." : undefined}>
+            {(id, describedBy) => (
+              <Select
+                id={id}
+                aria-describedby={describedBy}
+                value={form.partnerId}
+                onChange={(e) => setForm({ ...form, partnerId: e.target.value, ctaKind: !e.target.value && form.ctaKind === "benefit" ? "catalog" : form.ctaKind, ctaTarget: form.ctaKind === "benefit" ? "" : form.ctaTarget })}
+              >
+                <option value="">Sem cadastro (só a marca)</option>
                 {selectable.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.tradeName}
@@ -294,6 +325,11 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
               </Select>
             )}
           </Field>
+          {!form.partnerId && (
+            <Field label="Nome da marca" hint="Aparece no cartão do vídeo.">
+              {(id, describedBy) => <Input id={id} aria-describedby={describedBy} required minLength={2} maxLength={80} value={form.brandName} onChange={(e) => setForm({ ...form, brandName: e.target.value })} />}
+            </Field>
+          )}
           <Field label="Coleção">
             {(id) => (
               <Select id={id} value={form.collection} onChange={(e) => setForm({ ...form, collection: e.target.value as ReelCollection })}>
@@ -312,13 +348,13 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
             {(id) => <Textarea id={id} rows={2} maxLength={220} value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} />}
           </Field>
 
-          <MediaField label="Vídeo vertical (MP4, WEBM ou MOV)" value={form.videoUrl} busy={uploading === "video"} accept="video/mp4,video/webm,video/quicktime" onUrl={(videoUrl) => setForm({ ...form, videoUrl })} onFile={(e) => void onFile(e, "video")} />
+          <MediaField label="Vídeo vertical (MP4, WEBM ou MOV, até 50 MB)" value={form.videoUrl} busy={uploading === "video"} accept="video/mp4,video/webm,video/quicktime" onUrl={(videoUrl) => setForm({ ...form, videoUrl })} onFile={(e) => void onFile(e, "video")} />
           <MediaField label="Capa (JPG, PNG ou WEBP)" value={form.posterUrl} busy={uploading === "poster"} accept="image/jpeg,image/png,image/webp" onUrl={(posterUrl) => setForm({ ...form, posterUrl })} onFile={(e) => void onFile(e, "poster")} />
 
           <Field label="Ação do botão">
             {(id) => (
               <Select id={id} value={form.ctaKind} onChange={(e) => setForm({ ...form, ctaKind: e.target.value as ReelCtaKind, ctaTarget: "" })}>
-                {REEL_CTA_KINDS.map((k) => (
+                {REEL_CTA_KINDS.filter((k) => k !== "benefit" || form.partnerId).map((k) => (
                   <option key={k} value={k}>
                     {REEL_CTA_LABEL[k]}
                   </option>
@@ -369,6 +405,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
 function reelToForm(reel: PartnerReel): ReelForm {
   return {
     partnerId: reel.partnerId,
+    brandName: reel.partnerId ? "" : reel.partnerName,
     collection: reel.collection,
     title: reel.title,
     caption: reel.caption,
@@ -413,7 +450,7 @@ function MediaField({
 
 function Kpi({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-surface p-4 sm:p-5">
+    <div className="rounded-2xl glass p-4 sm:p-5">
       <dt className="text-[13px] text-muted-foreground">{label}</dt>
       <dd className="mt-2 text-[26px] font-light leading-none tracking-[-0.03em] text-ink tabular-nums">{value}</dd>
     </div>

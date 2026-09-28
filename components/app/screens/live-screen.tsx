@@ -145,7 +145,7 @@ function EventsPanel({ events, member, reserve, onDone }: { events: PublicEvent[
             <button
               type="button"
               onClick={() => open(event)}
-              className="group grid w-full cursor-pointer grid-cols-[auto_1fr] items-start gap-4 rounded-3xl bg-surface p-5 text-left transition-colors hover:bg-line sm:grid-cols-[110px_1fr_auto] sm:items-center sm:gap-8 sm:p-6"
+              className="group grid w-full cursor-pointer grid-cols-[auto_1fr] items-start gap-4 rounded-3xl glass p-5 text-left glass-lift sm:grid-cols-[110px_1fr_auto] sm:items-center sm:gap-8 sm:p-6"
             >
               <EventDate iso={event.startsAt} />
               <div className="min-w-0 space-y-1.5 sm:space-y-2">
@@ -369,7 +369,7 @@ function TicketSheet({ ticket, onClose, cancel }: { ticket: MemberTicket | null;
 function TicketCard({ ticket, onOpen }: { ticket: MemberTicket; onOpen: () => void }) {
   const event = ticket.event;
   return (
-    <button type="button" onClick={onOpen} className="flex w-full cursor-pointer items-stretch overflow-hidden rounded-3xl bg-surface text-left transition-colors hover:bg-line">
+    <button type="button" onClick={onOpen} className="flex w-full cursor-pointer items-stretch overflow-hidden rounded-3xl glass text-left glass-lift">
       <div className={cn("flex flex-col justify-between rounded-3xl p-5", ticket.status === "valid" ? "bg-primary" : "bg-ink/80")}>
         {event ? <EventDate iso={event.startsAt} tone="dark" /> : <span className="text-white">—</span>}
       </div>
@@ -490,7 +490,7 @@ function RunStage({ stage, ticket, member, reserve, cancel }: { stage: PublicEve
 
   return (
     <section aria-labelledby={`run-${stage.id}`} className="space-y-6">
-      <div className="flex items-start justify-between gap-4 rounded-3xl bg-surface p-5 sm:gap-6 sm:p-6">
+      <div className="flex items-start justify-between gap-4 rounded-3xl glass p-5 sm:gap-6 sm:p-6">
         <div>
           <h2 id={`run-${stage.id}`} className="text-xl font-semibold tracking-[-0.02em] text-ink sm:text-2xl">
             {stage.title}
@@ -504,7 +504,7 @@ function RunStage({ stage, ticket, member, reserve, cancel }: { stage: PublicEve
       </div>
 
       {ticket ? (
-        <div className="space-y-4 rounded-3xl bg-surface p-5 sm:p-6">
+        <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
           <Tag tone={statusTone(ticket.status)}>{ticket.status === "valid" ? "Inscrição confirmada" : TICKET_STATUS_LABEL[ticket.status]}</Tag>
           {ticket.runDetails && (
             <dl className="grid grid-cols-3 gap-4 text-sm">
@@ -766,7 +766,7 @@ function FoundersPanel({ submissions, submit }: { submissions: MemberSubmission[
             {submissions.map((submission) => {
               const stepIndex = FOUNDERS_PIPELINE.findIndex((p) => p.status === submission.status);
               return (
-                <li key={submission.id} className="rounded-3xl bg-surface p-5">
+                <li key={submission.id} className="rounded-3xl glass-soft p-5">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-[17px] font-semibold text-ink">{submission.startupName}</p>
                     {submission.status === "not_selected" && <Tag>{FOUNDERS_STATUS_LABEL.not_selected}</Tag>}

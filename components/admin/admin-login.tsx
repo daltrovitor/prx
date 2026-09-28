@@ -3,6 +3,7 @@
 
 import { useState, type FormEvent } from "react";
 import { PrxLogo } from "@/components/brand/prx-logo";
+import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { Button, Field, Input, Notice } from "@/components/app/ui";
 import { useMainSiteUrl } from "@/lib/site";
 
@@ -73,18 +74,19 @@ export function PanelLogin({
   }
 
   return (
-    <div className="prx-app grid min-h-dvh bg-background lg:grid-cols-[38.2fr_61.8fr]">
-      {/* bg-ink/text-background inverte no modo escuro: o bloco da marca mantém contraste nos dois temas. */}
-      <aside className="flex flex-col justify-between gap-10 bg-ink p-8 text-background sm:p-12">
-        <PrxLogo variant="full" title="PRX" className="h-10 w-auto self-start text-background sm:h-12" />
+    <div className="prx-app isolate grid min-h-dvh bg-background lg:grid-cols-[38.2fr_61.8fr]">
+      <div aria-hidden className="prx-ambient" />
+      {/* Bloco da marca em metal violeta holográfico: branco de alto contraste nos dois temas. */}
+      <aside className="prx-holo m-2 flex flex-col justify-between gap-10 rounded-[28px] p-8 sm:m-3 sm:p-12">
+        <PrxLogo variant="full" title="PRX" className="h-10 w-auto self-start text-white sm:h-12" />
         <div className="max-w-sm space-y-3">
           <p className="font-display text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">{sideTitle}</p>
-          <p className="text-[15px] leading-relaxed text-background/75">{sideBody}</p>
+          <p className="text-[15px] leading-relaxed text-white/80">{sideBody}</p>
         </div>
       </aside>
 
-      <main className="flex items-center justify-center px-5 py-12 sm:px-10">
-        <div className="w-full max-w-md space-y-8">
+      <main className="flex flex-col items-center justify-center gap-10 px-5 py-12 sm:px-10">
+        <div className="glass w-full max-w-md space-y-8 rounded-[28px] p-6 sm:p-9">
           <div>
             <h1 className="font-display text-4xl font-semibold leading-none tracking-[-0.04em] text-ink">{title}</h1>
             <p className="mt-3 text-[15px] text-muted-foreground">{description}</p>
@@ -109,6 +111,7 @@ export function PanelLogin({
             ← Voltar para o app PRX
           </a>
         </div>
+        <ViraWebCredit />
       </main>
     </div>
   );
