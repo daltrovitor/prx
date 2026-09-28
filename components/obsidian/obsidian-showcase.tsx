@@ -51,7 +51,7 @@ const ASSETS: ReadonlyArray<Asset> = [
 const THEME_QUERY = "/?tema=obsidian";
 
 const DASHBOARDS: ReadonlyArray<{ panel: PanelPrefix | null; title: string; body: string }> = [
-  { panel: null, title: "App do membro", body: "Início, Conta, Experiências, Comunidade e Mais. Contas de responsável abrem a Conta Pai." },
+  { panel: null, title: "App do membro", body: "Início, PRX Pass, Destaques, PRX Bank e PRX Live. Contas de responsável abrem a Conta Pai." },
   { panel: "adminprx", title: "Painel Admin", body: "Membros, parceiros, benefícios, eventos e finanças." },
   { panel: "partnerprx", title: "Portal do Parceiro", body: "Validação de vouchers, eventos, contratos e métricas." },
   { panel: "staffprx", title: "Equipe PRX", body: "Portaria dos eventos e balcão de benefícios." },

@@ -17,17 +17,18 @@ import { PrxLogo } from "@/components/brand/prx-logo";
 import { cn } from "@/lib/utils";
 import {
   IconArrowRight,
+  IconBank,
   IconBarcode,
   IconChevronRight,
-  IconCommunity,
   IconHome,
-  IconMore,
+  IconLive,
   IconPaperPlane,
+  IconPass,
   IconPixDiamonds,
+  IconQr,
   IconReceive,
+  IconReels,
   IconSend,
-  IconStar,
-  IconWallet,
 } from "@/components/icons/prx-icons";
 import {
   OBSIDIAN_IMAGES,
@@ -65,14 +66,14 @@ const EDGE_LAYERS = [1, 2, 3, 4, 5, 6, 7, 8];
 /* App de demonstração (a tela viva do PRX)                                   */
 /* -------------------------------------------------------------------------- */
 
-type PhoneTab = "home" | "conta" | "experiencias" | "comunidade" | "mais";
+type PhoneTab = "home" | "pass" | "reels" | "bank" | "live" | "profile";
 
 const PHONE_DOCK: ReadonlyArray<ObsidianDockItem<PhoneTab>> = [
   { id: "home", label: "Início", Icon: IconHome },
-  { id: "conta", label: "Conta", Icon: IconWallet },
-  { id: "experiencias", label: "Experiências", Icon: IconStar },
-  { id: "comunidade", label: "Comunidade", Icon: IconCommunity },
-  { id: "mais", label: "Mais", Icon: IconMore },
+  { id: "pass", label: "PRX Pass", Icon: IconPass },
+  { id: "reels", label: "Destaques", Icon: IconReels },
+  { id: "bank", label: "PRX Bank", Icon: IconBank },
+  { id: "live", label: "PRX Live", Icon: IconLive },
 ];
 
 const DEMO = {
@@ -106,26 +107,22 @@ const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className?: string; height?: number }) {
   const [tab, setTab] = useState<PhoneTab>("home");
   const [hidden, setHidden] = useState(false);
-  const [experience, setExperience] = useState<"pass" | "live">("pass");
   const scroller = useRef<HTMLDivElement>(null);
 
   const go = (next: PhoneTab) => {
     setTab(next);
     scroller.current?.scrollTo({ top: 0 });
   };
-  const openExperience = (which: "pass" | "live") => {
-    setExperience(which);
-    go("experiencias");
-  };
   const openPillar = (id: PillarId) => {
-    if (id === "pass" || id === "live") openExperience(id);
-    else go("mais");
+    if (id === "pass") go("pass");
+    else if (id === "live") go("live");
+    else go("profile");
   };
 
   const actions: ReadonlyArray<ObsidianAction> = [
-    { key: "pix", label: "Pix", Icon: IconPixDiamonds, onClick: () => go("conta") },
-    { key: "pagar", label: "Pagar", Icon: IconBarcode, onClick: () => go("conta") },
-    { key: "transferir", label: "Transferir", Icon: IconPaperPlane, onClick: () => go("conta") },
+    { key: "pix", label: "Pix", Icon: IconPixDiamonds, onClick: () => go("bank") },
+    { key: "pagar", label: "Pagar", Icon: IconBarcode, onClick: () => go("bank") },
+    { key: "transferir", label: "Transferir", Icon: IconPaperPlane, onClick: () => go("bank") },
   ];
 
   return (
@@ -146,7 +143,7 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
         {tab === "home" && (
           <div className="relative px-5 pb-[104px]">
             <ObsidianCrystal sizes="320px" className="absolute -right-[92px] -top-[46px] -z-10 h-[400px] w-[340px]" />
-            <PhoneHeader onHome={() => go("home")} onProfile={() => go("mais")} />
+            <PhoneHeader onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")} />
             <ObsidianGreeting name={DEMO.name} as="p" density="phone" className="mt-2" />
             <ObsidianBalanceCard
               density="phone"
@@ -154,7 +151,7 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
               value={DEMO.balance}
               hidden={hidden}
               onToggleHidden={() => setHidden((h) => !h)}
-              onOpen={() => go("conta")}
+              onOpen={() => go("bank")}
               actions={actions}
             />
             <ul aria-label="Ecossistema PRX" className="-mx-5 mt-3 flex gap-2.5 overflow-x-auto px-5 scrollbar-none">
@@ -164,19 +161,74 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
                 </li>
               ))}
             </ul>
-            <ObsidianSectionHeader title="Próximos eventos" actionLabel="Ver todos" onAction={() => openExperience("live")} className="mt-1" />
+            <ObsidianSectionHeader title="Próximos eventos" actionLabel="Ver todos" onAction={() => go("live")} className="mt-1" />
             <ObsidianEventCard
               density="phone"
               title="Resenha"
               meta="25 out · Goiânia"
-              onOpen={() => openExperience("live")}
+              onOpen={() => go("live")}
               trailing={<ObsidianAvatarStack people={DEMO.friends} extra={120} />}
             />
           </div>
         )}
 
-        {tab === "conta" && (
-          <PhonePage title="PRX Bank" onHome={() => go("home")} onProfile={() => go("mais")}>
+        {tab === "pass" && (
+          <PhonePage title="PRX Pass" onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")}>
+            <Banner image={OBSIDIAN_IMAGES.cardMetal} title="PRX Pass" caption="Benefícios exclusivos" />
+            <div className="glass mt-3 flex items-center justify-between rounded-[20px] p-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
+                  <IconQr size={18} />
+                </span>
+                <div>
+                  <p className="text-[13.5px] font-medium text-ink">Voucher Ativo</p>
+                  <p className="text-[11.5px] text-muted-foreground">Ingresso Cinemark VIP</p>
+                </div>
+              </div>
+              <span className="ob-label text-[10px] tracking-wider text-primary">PRONTO</span>
+            </div>
+            <ObsidianSectionHeader title="Vantagens do seu plano" className="mt-4" />
+            <ul className="mt-2 space-y-2">
+              {DEMO.benefits.map((b) => (
+                <li key={b.id} className="glass flex items-center gap-3 rounded-[18px] p-3.5">
+                  <span className="w-[62px] shrink-0 text-[17px] font-light tracking-[-0.01em] text-primary">{b.discount}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13.5px] font-medium text-ink">{b.partner}</span>
+                    <span className="block truncate text-[11.5px] text-muted-foreground">{b.title}</span>
+                  </span>
+                  <IconChevronRight size={14} className="text-muted-foreground" />
+                </li>
+              ))}
+            </ul>
+          </PhonePage>
+        )}
+
+        {tab === "reels" && (
+          <PhonePage title="Destaques" onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")}>
+            <Banner image={OBSIDIAN_IMAGES.liveConcert} title="Momentos PRX" caption="Experiências em alta" />
+            <div className="glass mt-3 rounded-[22px] p-5">
+              <p className="ob-label text-[10px] text-muted-foreground">Comunidade e Moedas</p>
+              <p className="mt-2 text-[19px] font-light leading-snug text-ink">
+                Compartilhe seus melhores momentos no ecossistema e acumule PRX Coins.
+              </p>
+              <button
+                type="button"
+                onClick={() => go("live")}
+                className="mt-4 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-[#fff]"
+              >
+                Ver os próximos eventos <IconArrowRight size={14} />
+              </button>
+            </div>
+            <ObsidianSectionHeader title="Vão com você" className="mt-5" />
+            <div className="glass flex items-center justify-between rounded-[20px] p-4">
+              <ObsidianAvatarStack people={DEMO.friends} extra={12} />
+              <span className="text-[12px] text-muted-foreground">amigos na Resenha</span>
+            </div>
+          </PhonePage>
+        )}
+
+        {tab === "bank" && (
+          <PhonePage title="PRX Bank" onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")}>
             <ObsidianBalanceCard density="phone" value={DEMO.balance} hidden={hidden} onToggleHidden={() => setHidden((h) => !h)} actions={actions} />
             <ObsidianSectionHeader title="Atividade" className="mt-5" />
             <ul className="glass mt-1 divide-y divide-white/[0.06] rounded-[20px] px-4">
@@ -198,78 +250,36 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
           </PhonePage>
         )}
 
-        {tab === "experiencias" && (
-          <PhonePage title="Experiências" onHome={() => go("home")} onProfile={() => go("mais")}>
-            <div className="glass-chip inline-grid grid-cols-2 rounded-full p-1">
-              {(["pass", "live"] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setExperience(value)}
-                  aria-pressed={experience === value}
-                  className={cn(
-                    "ob-label relative min-h-9 cursor-pointer rounded-full px-4 text-[10px] tracking-[0.16em] transition-colors",
-                    experience === value ? "bg-white/[0.1] text-ink" : "text-muted-foreground"
-                  )}
+        {tab === "live" && (
+          <PhonePage title="PRX Live" onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")}>
+            <Banner image={OBSIDIAN_IMAGES.liveConcert} title="PRX Live" caption="Eventos · festivais" />
+            <div className="mt-3 space-y-2.5">
+              <ObsidianEventCard density="phone" title="Resenha" meta="25 out · Goiânia" trailing={<ObsidianAvatarStack people={DEMO.friends} extra={120} />} />
+              <ObsidianEventCard density="phone" title="Corrida PRX" meta="12 nov · Goiânia" image={OBSIDIAN_IMAGES.meHorizon} />
+            </div>
+          </PhonePage>
+        )}
+
+        {tab === "profile" && (
+          <PhonePage title="Meu Perfil" onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")}>
+            <div className="glass flex items-center gap-4 rounded-[22px] p-4">
+              <div className="flex h-13 w-13 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2a2342,#0e0f16)] text-[18px] font-semibold text-ink ring-2 ring-primary/40">
+                R
+              </div>
+              <div>
+                <p className="text-[16px] font-semibold text-ink">Rafael Santos</p>
+                <p className="ob-label text-[11px] text-muted-foreground">Nível 3 · Membro Black</p>
+              </div>
+            </div>
+            <ul className="glass mt-4 divide-y divide-white/[0.06] rounded-[22px] px-4">
+              {["Meus Vouchers e Ingressos", "Conta Pai e Família", "Segurança e Biometria", "Aparência", "PRX Invest · em breve"].map((item, idx) => (
+                <li
+                  key={item}
+                  onClick={() => {
+                    if (idx === 0) go("pass");
+                  }}
+                  className="flex min-h-12 cursor-pointer items-center justify-between text-[14px] text-ink transition-colors hover:text-primary"
                 >
-                  PRX {value.toUpperCase()}
-                </button>
-              ))}
-            </div>
-            {experience === "pass" ? (
-              <>
-                <Banner image={OBSIDIAN_IMAGES.cardMetal} title="PRX Pass" caption="Benefícios exclusivos" />
-                <ul className="mt-3 space-y-2">
-                  {DEMO.benefits.map((b) => (
-                    <li key={b.id} className="glass flex items-center gap-3 rounded-[18px] p-3.5">
-                      <span className="w-[62px] shrink-0 text-[17px] font-light tracking-[-0.01em] text-primary">{b.discount}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13.5px] font-medium text-ink">{b.partner}</span>
-                        <span className="block truncate text-[11.5px] text-muted-foreground">{b.title}</span>
-                      </span>
-                      <IconChevronRight size={14} className="text-muted-foreground" />
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <>
-                <Banner image={OBSIDIAN_IMAGES.liveConcert} title="PRX Live" caption="Eventos · experiências" />
-                <div className="mt-3 space-y-2.5">
-                  <ObsidianEventCard density="phone" title="Resenha" meta="25 out · Goiânia" trailing={<ObsidianAvatarStack people={DEMO.friends} extra={120} />} />
-                  <ObsidianEventCard density="phone" title="Corrida PRX" meta="12 nov · Goiânia" image={OBSIDIAN_IMAGES.meHorizon} />
-                </div>
-              </>
-            )}
-          </PhonePage>
-        )}
-
-        {tab === "comunidade" && (
-          <PhonePage title="Comunidade" onHome={() => go("home")} onProfile={() => go("mais")}>
-            <div className="glass rounded-[22px] p-5">
-              <p className="ob-label text-[10px] text-muted-foreground">Convide amigos</p>
-              <p className="mt-2 text-[20px] font-light leading-snug text-ink">Cada amigo que entra rende PRX Coins pra vocês dois.</p>
-              <button
-                type="button"
-                onClick={() => openExperience("live")}
-                className="mt-4 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-[#fff]"
-              >
-                Ver os próximos eventos <IconArrowRight size={14} />
-              </button>
-            </div>
-            <ObsidianSectionHeader title="Vão com você" className="mt-5" />
-            <div className="glass flex items-center justify-between rounded-[20px] p-4">
-              <ObsidianAvatarStack people={DEMO.friends} extra={12} />
-              <span className="text-[12px] text-muted-foreground">amigos na Resenha</span>
-            </div>
-          </PhonePage>
-        )}
-
-        {tab === "mais" && (
-          <PhonePage title="Mais" onHome={() => go("home")} onProfile={() => go("mais")}>
-            <ul className="glass divide-y divide-white/[0.06] rounded-[22px] px-4">
-              {["Perfil e nível", "Conta Pai", "Segurança e biometria", "Aparência", "PRX Invest · em breve", "PRX Me · em breve"].map((item) => (
-                <li key={item} className="flex min-h-12 items-center justify-between text-[14px] text-ink">
                   {item}
                   <IconChevronRight size={14} className="text-muted-foreground" />
                 </li>
@@ -281,7 +291,7 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
 
       <ObsidianDock
         items={PHONE_DOCK}
-        active={tab}
+        active={tab === "profile" ? null : tab}
         onSelect={go}
         density="phone"
         label="Navegação do app de demonstração"
@@ -317,19 +327,35 @@ function StatusBar() {
   );
 }
 
-function PhoneHeader({ onHome, onProfile }: { onHome: () => void; onProfile: () => void }) {
+function PhoneHeader({
+  onHome,
+  onProfile,
+  onVouchers,
+}: {
+  onHome: () => void;
+  onProfile: () => void;
+  onVouchers: () => void;
+}) {
   return (
     <div className="flex h-[52px] items-center justify-between">
       <button type="button" onClick={onHome} aria-label="PRX — início" className="flex min-h-11 cursor-pointer items-center">
         <PrxLogo variant="compact" title="" className="h-[22px] w-auto text-ink" />
       </button>
-      <span className="flex items-center gap-1">
-        <ObsidianBell count={1} className="h-11 w-11" />
+      <span className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onVouchers}
+          aria-label="Vouchers e QR Codes"
+          className="glass-chip flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-ink transition-transform hover:scale-105 active:scale-95"
+        >
+          <IconQr size={16} />
+        </button>
+        <ObsidianBell count={1} className="h-10 w-10" />
         <button
           type="button"
           onClick={onProfile}
           aria-label="Perfil de Rafael"
-          className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-[linear-gradient(135deg,#2a2342,#0e0f16)] text-[14px] font-semibold text-ink ring-1 ring-white/[0.2]"
+          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-[linear-gradient(135deg,#2a2342,#0e0f16)] text-[13px] font-semibold text-ink ring-1 ring-white/[0.2] transition-transform hover:scale-105 active:scale-95"
         >
           R
         </button>
@@ -338,10 +364,22 @@ function PhoneHeader({ onHome, onProfile }: { onHome: () => void; onProfile: () 
   );
 }
 
-function PhonePage({ title, children, onHome, onProfile }: { title: string; children: ReactNode; onHome: () => void; onProfile: () => void }) {
+function PhonePage({
+  title,
+  children,
+  onHome,
+  onProfile,
+  onVouchers,
+}: {
+  title: string;
+  children: ReactNode;
+  onHome: () => void;
+  onProfile: () => void;
+  onVouchers: () => void;
+}) {
   return (
     <div className="px-5 pb-[112px]">
-      <PhoneHeader onHome={onHome} onProfile={onProfile} />
+      <PhoneHeader onHome={onHome} onProfile={onProfile} onVouchers={onVouchers} />
       <p className="ob-display mb-5 mt-3 text-[24px] text-ink">{title}</p>
       {children}
     </div>

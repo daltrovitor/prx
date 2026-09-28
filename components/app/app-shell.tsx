@@ -5,11 +5,19 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLenis } from "lenis/react";
 import type { User } from "@/hooks/use-auth";
+import {
+  IconBank,
+  IconHome,
+  IconLive,
+  IconLogout,
+  IconPass,
+  IconQr,
+  IconReels,
+} from "@/components/icons/prx-icons";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { IconCommunity, IconHome, IconLogout, IconMore, IconStar, IconWallet } from "@/components/icons/prx-icons";
 import { AppNavProvider, useAppNav, type AppTab } from "@/components/app/app-nav";
 import { SmoothScroll } from "@/components/app/smooth-scroll";
-import { usePassData } from "@/components/app/use-pass-data";
+import { usePassData, firstName } from "@/components/app/use-pass-data";
 import { useLiveData, usePointsWallet } from "@/components/app/use-prx-stores";
 import { NoticesSheet, useNotices } from "@/components/app/notifications";
 import { Avatar, initialsOf } from "@/components/app/ui";
@@ -27,29 +35,16 @@ import { cn } from "@/lib/utils";
 import { calculatePrxLevel } from "@/lib/pass-data";
 
 /**
- * Dock de 5 destinos (Cyber-Luxury Obsidian). As abas internas continuam as
- * mesmas (links #bank/pix etc. seguem valendo); o dock só as agrupa:
- * Experiências reúne PASS e LIVE, Comunidade abre os Destaques e Mais é o perfil.
+ * 5 destinos oficiais do PRX (Início, PRX Pass, Destaques, PRX Bank, PRX Live).
+ * Perfil, notificações e vouchers ficam fixos no topo do cabeçalho.
  */
-type DockId = "home" | "conta" | "experiencias" | "comunidade" | "mais";
-
-const DOCK: ReadonlyArray<ObsidianDockItem<DockId>> = [
+const NAV_ITEMS: ReadonlyArray<ObsidianDockItem<AppTab>> = [
   { id: "home", label: "Início", Icon: IconHome },
-  { id: "conta", label: "Conta", Icon: IconWallet },
-  { id: "experiencias", label: "Experiências", Icon: IconStar },
-  { id: "comunidade", label: "Comunidade", Icon: IconCommunity },
-  { id: "mais", label: "Mais", Icon: IconMore },
+  { id: "pass", label: "PRX Pass", Icon: IconPass },
+  { id: "reels", label: "Destaques", Icon: IconReels },
+  { id: "bank", label: "PRX Bank", Icon: IconBank },
+  { id: "live", label: "PRX Live", Icon: IconLive },
 ];
-
-const TAB_OF_DOCK: Record<DockId, AppTab> = { home: "home", conta: "bank", experiencias: "pass", comunidade: "reels", mais: "profile" };
-
-function dockOf(tab: AppTab): DockId {
-  if (tab === "bank") return "conta";
-  if (tab === "pass" || tab === "live") return "experiencias";
-  if (tab === "reels") return "comunidade";
-  if (tab === "profile") return "mais";
-  return "home";
-}
 
 interface AppShellProps {
   user: User;
@@ -69,7 +64,7 @@ export function AppShell(props: AppShellProps) {
   );
 }
 
-/** true depois que a página rola: o cabeçalho transparente ganha o vidro fumê. */
+/** true depois que a página rola: o cabeçalho ganha o vidro fumê / glass-bar. */
 function useScrolled(threshold = 8): boolean {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -110,12 +105,6 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
   const name = member.name || "Membro PRX";
   const level = points?.level ?? member.prxLevel ?? calculatePrxLevel(member.prxScore ?? 0);
   const immersive = tab === "reels";
-  const activeDock = dockOf(tab);
-  const selectDock = (id: DockId) => {
-    // Experiências lembra se a pessoa estava no LIVE.
-    if (id === "experiencias" && (tab === "pass" || tab === "live")) return;
-    go(TAB_OF_DOCK[id]);
-  };
 
   return (
     <div className="prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground">
@@ -136,20 +125,25 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
         Pular para o conteúdo
       </a>
 
-      {/* Trilho lateral (desktop): vidro fumê flutuante com os mesmos 5 destinos do dock */}
+      {/* Trilho lateral (desktop): vidro fumê flutuante com os 5 destinos oficiais */}
       <aside className="glass-bar fixed inset-y-3 left-3 z-40 hidden w-[232px] flex-col rounded-[28px] px-3 py-7 lg:flex">
-        <button type="button" onClick={() => go("home")} className="cursor-pointer self-start px-3" aria-label="PRX — ir para o início">
+        <button
+          type="button"
+          onClick={() => go("home")}
+          className="cursor-pointer self-start px-3"
+          aria-label="PRX — ir para o início"
+        >
           <PrxLogo variant="compact" title="" className="h-7 w-auto text-ink" />
         </button>
 
         <nav aria-label="Seções do app" className="mt-12 flex flex-col gap-1">
-          {DOCK.map(({ id, label, Icon }) => {
-            const active = activeDock === id;
+          {NAV_ITEMS.map(({ id, label, Icon }) => {
+            const active = tab === id;
             return (
               <button
                 key={id}
                 type="button"
-                onClick={() => selectDock(id)}
+                onClick={() => go(id)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "relative flex min-h-12 cursor-pointer items-center gap-3.5 rounded-[18px] px-4 transition-colors",
@@ -165,7 +159,12 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
                 )}
                 <span className="relative">
                   <Icon size={20} strokeWidth={active ? 1.9 : 1.5} />
-                  {active && <span aria-hidden className="absolute -right-1.5 -top-1 h-1.5 w-1.5 rounded-full bg-[#9468fa] shadow-[0_0_8px_rgba(148,104,250,0.95)]" />}
+                  {active && (
+                    <span
+                      aria-hidden
+                      className="absolute -right-1.5 -top-1 h-1.5 w-1.5 rounded-full bg-[#9468fa] shadow-[0_0_8px_rgba(148,104,250,0.95)]"
+                    />
+                  )}
                 </span>
                 <span className="ob-label relative text-[12px] tracking-[0.16em]">{label}</span>
               </button>
@@ -187,8 +186,9 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
       </aside>
 
       <div className="relative z-10 lg:pl-64">
-        {/* Cabeçalho minimalista: marca · sino com ponto violeta · avatar. Transparente no topo,
-            vidro fumê depois que a página rola. */}
+        {/* Cabeçalho minimalista com as localizações originais:
+            - Esquerda: Logo (mobile) / "Olá, [Nome]" (desktop)
+            - Direita: Vouchers (QR) · Notificações (Sino) · Perfil (Avatar + Nível) */}
         <header className="sticky top-0 z-30 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 lg:px-9 lg:pt-3">
           <div
             className={cn(
@@ -196,22 +196,47 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
               scrolled && "glass-bar"
             )}
           >
-            <button type="button" onClick={() => go("home")} className="flex min-h-12 shrink-0 cursor-pointer items-center lg:invisible" aria-label="PRX — ir para o início">
+            <button
+              type="button"
+              onClick={() => go("home")}
+              className="flex min-h-12 shrink-0 cursor-pointer items-center lg:invisible"
+              aria-label="PRX — ir para o início"
+            >
               <PrxLogo variant="compact" title="" className="h-7 w-auto text-ink" />
             </button>
-            <div className="flex min-w-0 items-center gap-1.5">
-              <ObsidianBell count={notices.length} onClick={() => setNoticesOpen(true)} />
+            <p className="hidden text-[20px] font-semibold tracking-[-0.02em] text-ink lg:block">
+              Olá, {firstName(member)}
+            </p>
+            <div className="flex min-w-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => go("pass", "vouchers")}
+                aria-label="Meus Vouchers e QR Codes"
+                title="Meus Vouchers"
+                className="glass-chip flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-ink transition-transform hover:scale-[1.03] active:scale-95 lg:h-12 lg:w-12"
+              >
+                <IconQr size={19} />
+              </button>
+              <ObsidianBell
+                count={notices.length}
+                onClick={() => setNoticesOpen(true)}
+                className="h-11 w-11 lg:h-12 lg:w-12"
+              />
               <button
                 type="button"
                 onClick={() => go("profile")}
                 aria-current={tab === "profile" ? "page" : undefined}
                 aria-label={`Perfil de ${name}, nível ${level}`}
                 className={cn(
-                  "flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full transition-shadow",
+                  "glass-chip flex h-11 min-w-11 max-w-[200px] shrink cursor-pointer items-center gap-2.5 rounded-full p-1 text-left transition-[box-shadow,transform] hover:scale-[1.02] active:scale-95 min-[380px]:pr-4 lg:h-12",
                   tab === "profile" && "ring-2 ring-primary/60"
                 )}
               >
-                <Avatar name={name} src={member.avatarUrl} size={44} className="ring-1 ring-black/10 dark:ring-white/[0.18]" />
+                <Avatar name={name} src={member.avatarUrl} size={36} className="ring-1 ring-black/10 dark:ring-white/[0.18]" />
+                <span className="hidden min-w-0 min-[380px]:block">
+                  <span className="block truncate text-[13.5px] font-semibold leading-tight text-ink">{firstName(member)}</span>
+                  <span className="block truncate text-[11px] leading-tight text-muted-foreground">Nível {level.toLocaleString("pt-BR")}</span>
+                </span>
               </button>
             </div>
           </div>
@@ -221,11 +246,12 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
           <div
             className={cn(
               "mx-auto w-full max-w-[1120px]",
-              immersive ? "px-0 pb-[calc(78px+max(0.5rem,env(safe-area-inset-bottom)))] sm:px-6 lg:px-12 lg:pb-6" : "px-4 pb-36 pt-2 sm:px-6 lg:px-12 lg:pb-20 lg:pt-4"
+              immersive
+                ? "px-0 pb-[calc(78px+max(0.5rem,env(safe-area-inset-bottom)))] sm:px-6 lg:px-12 lg:pb-6"
+                : "px-4 pb-36 pt-2 sm:px-6 lg:px-12 lg:pb-20 lg:pt-4"
             )}
           >
             {notice && !immersive && <div className="mb-6">{notice}</div>}
-            {activeDock === "experiencias" && <ExperienceSwitch tab={tab} onChange={(next) => go(next)} />}
             {isTabLoading ? (
               <CircleLoader minHeight={380} label="Carregando janela..." />
             ) : (
@@ -242,7 +268,14 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
                   {tab === "reels" && <ReelsScreen member={member} />}
                   {tab === "bank" && <BankScreen member={member} />}
                   {tab === "live" && <LiveScreen member={member} />}
-                  {tab === "profile" && <ProfileScreen pass={pass} onLogout={onLogout} onViewShowcase={onViewShowcase} initials={initialsOf(name)} />}
+                  {tab === "profile" && (
+                    <ProfileScreen
+                      pass={pass}
+                      onLogout={onLogout}
+                      onViewShowcase={onViewShowcase}
+                      initials={initialsOf(name)}
+                    />
+                  )}
                 </motion.div>
               </AnimatePresence>
             )}
@@ -252,43 +285,15 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
 
       {/* Floating Bottom Navigation Dock (mobile e tablet) */}
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-        <ObsidianDock items={DOCK} active={activeDock} onSelect={selectDock} className="pointer-events-auto mx-auto max-w-lg" />
+        <ObsidianDock
+          items={NAV_ITEMS}
+          active={tab === "profile" ? null : tab}
+          onSelect={(id) => go(id)}
+          className="pointer-events-auto mx-auto max-w-lg"
+        />
       </div>
 
       <NoticesSheet open={noticesOpen} onClose={() => setNoticesOpen(false)} notices={notices} onGo={go} />
-    </div>
-  );
-}
-
-/** Experiências = PRX PASS + PRX LIVE: alternância em pílula acima da tela. */
-function ExperienceSwitch({ tab, onChange }: { tab: AppTab; onChange: (tab: "pass" | "live") => void }) {
-  const options = [
-    { value: "pass" as const, label: "PRX PASS" },
-    { value: "live" as const, label: "PRX LIVE" },
-  ];
-  return (
-    <div role="group" aria-label="Experiências" className="glass-chip mb-7 inline-grid grid-cols-2 rounded-full p-1">
-      {options.map(({ value, label }) => {
-        const active = tab === value;
-        return (
-          <button
-            key={value}
-            type="button"
-            aria-current={active ? "page" : undefined}
-            onClick={() => onChange(value)}
-            className={cn("ob-label relative min-h-11 cursor-pointer rounded-full px-5 text-[11px] tracking-[0.16em] transition-colors", active ? "text-ink" : "text-muted-foreground hover:text-ink")}
-          >
-            {active && (
-              <motion.span
-                layoutId="experience-pill"
-                className="absolute inset-0 rounded-full bg-card shadow-[0_1px_2px_rgba(22,12,52,0.08)] dark:bg-white/[0.1] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]"
-                transition={{ type: "spring", stiffness: 300, damping: 28 }}
-              />
-            )}
-            <span className="relative">{label}</span>
-          </button>
-        );
-      })}
     </div>
   );
 }
