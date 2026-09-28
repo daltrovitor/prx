@@ -5,12 +5,13 @@ import { useMemo, useState } from "react";
 import type { PassData } from "@/components/app/use-pass-data";
 import type { AppTab } from "@/components/app/app-nav";
 import { EmptyState, Sheet } from "@/components/app/ui";
-import { IconCalendar, IconChevronRight, IconLevel, IconQr } from "@/components/icons/prx-icons";
+import { IconCalendar, IconChevronRight, IconCoin, IconLevel, IconQr } from "@/components/icons/prx-icons";
 import type { MemberWallet } from "@/lib/live/service";
+import type { PointsWallet } from "@/lib/points/types";
 
 export interface Notice {
   id: string;
-  kind: "voucher" | "mission" | "ticket";
+  kind: "voucher" | "mission" | "ticket" | "points";
   title: string;
   body: string;
   tab: AppTab;
@@ -23,9 +24,10 @@ const short = (iso: string) =>
 
 /**
  * Avisos do sino: só coisas reais que pedem ação (voucher esperando uso,
- * missões abertas, ingresso nos próximos 14 dias). Nada de contador inventado.
+ * missões abertas, ingresso nos próximos 14 dias) e as compras em parceiros
+ * pontuadas nos últimos 7 dias. Nada de contador inventado.
  */
-export function useNotices(pass: PassData, wallet: MemberWallet | null): Notice[] {
+export function useNotices(pass: PassData, wallet: MemberWallet | null, points: PointsWallet | null = null): Notice[] {
   const [now] = useState(() => Date.now());
   return useMemo(() => {
     const vouchers: Notice[] = pass.vouchers
@@ -76,11 +78,23 @@ export function useNotices(pass: PassData, wallet: MemberWallet | null): Notice[
         return [{ id: `t-${t.id}`, kind: "ticket" as const, title: `Ingresso: ${event.title}`, body: `${short(event.startsAt)} · ${event.venue}`, tab: "live" as const, sub: "ingressos" }];
       });
 
-    return [...vouchers, ...tickets, ...missions].slice(0, 20);
-  }, [pass.vouchers, pass.missions, wallet, now]);
+    const purchases: Notice[] = (points?.purchases ?? [])
+      .filter((p) => now - new Date(p.createdAt).getTime() <= 7 * DAY && (p.coins > 0 || p.xp > 0))
+      .slice(0, 5)
+      .map((p) => ({
+        id: `c-${p.id}`,
+        kind: "points" as const,
+        title: `Você comprou em ${p.partnerName} e ganhou +${p.coins.toLocaleString("pt-BR")} PRX Coins e +${p.xp.toLocaleString("pt-BR")} XP!`,
+        body: `${short(p.createdAt)} · Pix de ${p.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
+        tab: "home" as const,
+        sub: "pontos",
+      }));
+
+    return [...purchases, ...vouchers, ...tickets, ...missions].slice(0, 20);
+  }, [pass.vouchers, pass.missions, wallet, points?.purchases, now]);
 }
 
-const ICONS = { voucher: IconQr, mission: IconLevel, ticket: IconCalendar } as const;
+const ICONS = { voucher: IconQr, mission: IconLevel, ticket: IconCalendar, points: IconCoin } as const;
 
 export function NoticesSheet({
   open,
@@ -96,7 +110,7 @@ export function NoticesSheet({
   return (
     <Sheet open={open} onClose={onClose} title="Avisos" description={notices.length > 0 ? "O que está esperando por você." : undefined}>
       {notices.length === 0 ? (
-        <EmptyState title="Tudo em dia" body="Vouchers, missões e ingressos que precisarem de você aparecem aqui." />
+        <EmptyState title="Tudo em dia" body="Vouchers, missões, ingressos e pontos de compras em parceiros aparecem aqui." />
       ) : (
         <ul className="-mx-2 space-y-1">
           {notices.map((notice) => {
@@ -115,7 +129,9 @@ export function NoticesSheet({
                     <Icon size={18} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-medium text-ink">{notice.title}</span>
+                    <span className={notice.kind === "points" ? "block text-[15px] font-medium leading-snug text-ink" : "block truncate text-[15px] font-medium text-ink"}>
+                      {notice.title}
+                    </span>
                     <span className="block truncate text-[13px] text-muted-foreground">{notice.body}</span>
                   </span>
                   <IconChevronRight size={18} className="shrink-0 text-muted-foreground" />

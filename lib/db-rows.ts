@@ -28,6 +28,11 @@ export interface BenefitRow {
   campaign_quantity?: number | null;
   campaign_per_user_limit?: number | null;
   campaign_usage_days?: number | null;
+  /** Economia PRX (migração 20260927). */
+  points_cost?: number | null;
+  cost_price?: number | string | null;
+  prx_revenue_per_redemption?: number | string | null;
+  partner_fee_pct?: number | string | null;
 }
 
 export interface PartnerRow {
@@ -142,6 +147,9 @@ export interface ProfileRow {
   role?: "user" | "partner" | "staff" | "admin" | null;
   nxt_score?: number | null;
   nxt_level?: number | null;
+  prx_coins?: number | null;
+  terms_accepted_at?: string | null;
+  terms_version?: string | null;
   wallet_balance?: number | string | null;
   avatar_url?: string | null;
   birth_date?: string | null;

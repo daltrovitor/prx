@@ -52,48 +52,6 @@ export function PaymentCard({ card, holder, onClick }: { card: VirtualCard | nul
   );
 }
 
-/** Cartão do PRX Score: nível, XP e quanto falta para o próximo nível. */
-export function ScoreCard({
-  level,
-  score,
-  pct,
-  remaining,
-  onClick,
-}: {
-  level: number;
-  score: number;
-  pct: number;
-  remaining: number | null;
-  onClick?: () => void;
-}) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 400, damping: 24 }}
-      className={cn(cardShell, "cursor-pointer bg-[#0b0b10] dark:bg-[#1d1d28]")}
-      aria-label={`PRX Score: nível ${level}, ${score.toLocaleString("pt-BR")} XP. Ver missões`}
-    >
-      <span className="flex items-start justify-between">
-        <span className="text-[12px] font-semibold uppercase tracking-[0.06em]">PRX Score</span>
-        <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[12px] font-semibold">Nível {level}</span>
-      </span>
-      <span className="block">
-        <span className="block text-[30px] font-light leading-none tracking-[-0.03em] [font-feature-settings:'pnum']">
-          {score.toLocaleString("pt-BR")} <span className="text-base font-normal text-white/70">XP</span>
-        </span>
-        <span className="mt-3 block h-1.5 overflow-hidden rounded-full bg-white/15">
-          <span className="block h-full rounded-full bg-white" style={{ width: `${Math.max(2, pct)}%` }} />
-        </span>
-        <span className="mt-2 block text-[11px] font-medium text-white/75">
-          {remaining === null ? "Topo da régua alcançado" : `Faltam ${remaining.toLocaleString("pt-BR")} XP para o nível ${level + 1}`}
-        </span>
-      </span>
-    </motion.button>
-  );
-}
-
 /**
  * Cartão virtual na aba Cartões. Número completo e CVV ficam só no emissor e
  * serão exibidos pelo componente seguro do banco parceiro; aqui, final e validade.

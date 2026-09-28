@@ -1,3 +1,4 @@
+// Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { passStore, SystemVoucher } from "@/lib/pass-store";
@@ -11,6 +12,15 @@ import { planRank } from "@/lib/partners/plans";
 function isUuid(id?: string | null): boolean {
   if (!id) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+/** Benefício como o membro vê: sem custo, receita por resgate nem comissão. */
+function forMember(benefit: Benefit): Benefit {
+  const copy = { ...benefit };
+  delete copy.costPrice;
+  delete copy.prxRevenuePerRedemption;
+  delete copy.partnerFeePct;
+  return copy;
 }
 
 async function visibleCatalog(benefits: Benefit[]): Promise<Benefit[]> {
@@ -257,9 +267,12 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    // Custo, receita por resgate e comissão são números internos da PRX: o membro só vê o preço em coins.
+    const memberBenefits = benefits.map(forMember);
+
     return NextResponse.json({
       success: true,
-      benefits,
+      benefits: memberBenefits,
       missions,
       vouchers: userVouchers,
       referralInfo,

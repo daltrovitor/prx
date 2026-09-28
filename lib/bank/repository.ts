@@ -84,6 +84,8 @@ interface TransactionRow {
   counterparty: string | null;
   description: string | null;
   created_at: string;
+  category_id?: string | null;
+  partner_id?: string | null;
 }
 
 const TX_KINDS: readonly TransactionKind[] = ["pix_in", "pix_out", "card", "cashback", "ticket"];
@@ -97,6 +99,8 @@ function mapTransaction(r: TransactionRow): BankTransaction {
     counterparty: r.counterparty ?? "",
     description: r.description ?? "",
     createdAt: r.created_at,
+    categoryId: r.category_id ?? null,
+    partnerId: r.partner_id ?? null,
   };
 }
 
@@ -328,7 +332,91 @@ class MemoryBankRepository implements BankRepository {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Sandbox do banco parceiro (só memória)                                      */
+/* -------------------------------------------------------------------------- */
+
+/** Crédito fictício da conta sandbox: deixa claro no extrato que não é dinheiro real. */
+export const SANDBOX_CREDIT = 1000;
+
+const digits = (length: number) => Array.from({ length }, () => crypto.randomInt(0, 10)).join("");
+
+/**
+ * Ativa a conta em memória como se o banco parceiro tivesse aprovado:
+ * agência/conta de teste, cartão virtual e crédito sandbox. Idempotente.
+ */
+export function sandboxActivate(userId: string): void {
+  const bank = memoryBank(userId);
+  if (bank.account.status === "active") return;
+  if (bank.account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
+  const now = new Date();
+  const expiry = `${String(now.getMonth() + 1).padStart(2, "0")}/${String((now.getFullYear() + 5) % 100).padStart(2, "0")}`;
+  bank.account = {
+    ...bank.account,
+    status: "active",
+    balance: SANDBOX_CREDIT,
+    agency: "0001",
+    accountNumber: `${digits(7)}-${digits(1)}`,
+    activatedAt: now.toISOString(),
+    virtualCard: { last4: digits(4), expiry, locked: false },
+  };
+  bank.pixKeys = bank.pixKeys.map((k) => ({ ...k, status: "active" }));
+  bank.cardRequests = bank.cardRequests.map((r) => (r.status === "waiting_activation" ? { ...r, status: "requested" } : r));
+  bank.transactions.unshift({
+    id: newId(),
+    kind: "pix_in",
+    direction: "in",
+    amount: SANDBOX_CREDIT,
+    counterparty: "PRX Sandbox",
+    description: "Crédito de teste (sandbox, não é dinheiro real)",
+    createdAt: now.toISOString(),
+  });
+}
+
+/** Identificador fim a fim no formato do SPI: E + ISPB (8) + AAAAMMDDHHmm + 11 caracteres. */
+function endToEndId(now: Date): string {
+  const stamp = now.toISOString().replace(/\D/g, "").slice(0, 12);
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const tail = Array.from({ length: 11 }, () => alphabet[crypto.randomInt(0, alphabet.length)]).join("");
+  return `E00000000${stamp}${tail}`;
+}
+
+/** Pix enviado e liquidado na hora pelo sandbox. Devolve o E2E e o lançamento no extrato. */
+export function sandboxSendPix(userId: string, input: { key: string; amount: number; recipient: string; description: string }): { endToEndId: string; transaction: BankTransaction } {
+  const bank = memoryBank(userId);
+  if (bank.account.status !== "active") throw new PartnerError("Ative a conta sandbox para enviar Pix.", 409);
+  const amount = Math.round(input.amount * 100) / 100;
+  if (!(amount > 0)) throw new PartnerError("Informe o valor do Pix.", 422);
+  if (amount > bank.account.balance) throw new PartnerError("Saldo insuficiente para esta transferência.", 409);
+  const now = new Date();
+  const transaction: BankTransaction = {
+    id: newId(),
+    kind: "pix_out",
+    direction: "out",
+    amount,
+    counterparty: input.recipient.slice(0, 80) || input.key,
+    description: input.description.slice(0, 60) || "Pix enviado",
+    createdAt: now.toISOString(),
+  };
+  bank.account.balance = Math.round((bank.account.balance - amount) * 100) / 100;
+  bank.transactions.unshift(transaction);
+  return { endToEndId: endToEndId(now), transaction: structuredClone(transaction) };
+}
+
+/** Marca o nicho e o parceiro de um lançamento (PRX Map). */
+export function sandboxCategorize(userId: string, transactionId: string, categoryId: string, partnerId: string | null, counterparty?: string): void {
+  const tx = memoryBank(userId).transactions.find((t) => t.id === transactionId);
+  if (!tx) return;
+  tx.categoryId = categoryId;
+  tx.partnerId = partnerId;
+  if (counterparty) tx.counterparty = counterparty;
+}
+
 /** Supabase para contas reais (uuid); memória para as contas de demonstração locais. */
 export function getBankRepository(userId: string): BankRepository {
-  return supabaseAdmin && isUuid(userId) ? new SupabaseBankRepository(supabaseAdmin) : new MemoryBankRepository();
+  return usesSupabaseBank(userId) ? new SupabaseBankRepository(supabaseAdmin as SupabaseClient) : new MemoryBankRepository();
+}
+
+export function usesSupabaseBank(userId: string): boolean {
+  return Boolean(supabaseAdmin && isUuid(userId));
 }

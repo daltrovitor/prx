@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { BankAccountView } from "@/lib/prx/bank";
 import type { MemberWallet, PublicEvent } from "@/lib/live/service";
+import type { PointsWallet } from "@/lib/points/types";
 
 /**
  * Dados do PRX BANK e do PRX LIVE vindos do servidor (/api/bank e /api/live),
@@ -20,6 +21,16 @@ interface ResourceState<T> {
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+/** Recompensa de uma compra em parceiro detectada no Pix. */
+export interface PartnerReward {
+  partnerName: string;
+  categoryName: string;
+  coins: number;
+  xp: number;
+  balanceCoins: number;
+  level: number;
+}
+
 function createResource<T>(url: string, pick: (json: Record<string, unknown>) => T | null) {
   let state: ResourceState<T> = { owner: null, data: null, error: null, loading: false };
   let inflight: Promise<void> | null = null;
@@ -29,12 +40,13 @@ function createResource<T>(url: string, pick: (json: Record<string, unknown>) =>
     listeners.forEach((listener) => listener());
   };
 
-  function load(owner: string): Promise<void> {
+  /** force: busca de novo mesmo com dados em cache (mantém os atuais na tela enquanto carrega). */
+  function load(owner: string, force = false): Promise<void> {
     if (state.owner !== owner) {
       state = { owner, data: null, error: null, loading: false };
       inflight = null;
     }
-    if (inflight) return inflight;
+    if (inflight && !force) return inflight;
     emit({ loading: true, error: null });
     inflight = fetch(url, { cache: "no-store" })
       .then(async (res) => {
@@ -118,16 +130,49 @@ export function useBankAccount(userId: string) {
   const { data, loading, error, reload } = useResource(bankResource, userId);
 
   const run = useCallback(
-    async (body: { action: string } & Record<string, unknown>): Promise<ActionResult> => {
+    async (body: { action: string } & Record<string, unknown>): Promise<ActionResult & { reward?: PartnerReward | null }> => {
       const { ok, json } = await postJson("/api/bank", body);
       if (!ok) return failure(json, "Não foi possível concluir a operação.");
       if (json.account) bankResource.set(userId, json.account as BankAccountView);
-      return { ok: true };
+      const reward = (json.reward as PartnerReward | null | undefined) ?? null;
+      // Compra em parceiro mexe em coins e XP: a carteira de pontos recarrega.
+      if (reward) void pointsResource.load(userId, true);
+      return { ok: true, reward };
     },
     [userId]
   );
 
   return { account: data, loading, error, reload, run };
+}
+
+/* -------------------------------------------------------------------------- */
+/* PRX COINS & XP                                                              */
+/* -------------------------------------------------------------------------- */
+
+const pointsResource = createResource<PointsWallet>("/api/points", (json) => (json.wallet as PointsWallet) ?? null);
+
+/** Carteira de pontos: coins, XP, nível, extrato, check-ins e compras em parceiros. */
+export function usePointsWallet(userId: string) {
+  const { data, loading, error, reload } = useResource(pointsResource, userId);
+
+  const checkin = useCallback(
+    async (ruleId: string): Promise<ActionResult & { earned?: { coins: number; xp: number } }> => {
+      const { ok, json } = await postJson("/api/points", { action: "checkin", ruleId });
+      if (!ok) return failure(json, "Não foi possível registrar o check-in.");
+      if (json.wallet) pointsResource.set(userId, json.wallet as PointsWallet);
+      return { ok: true, earned: json.earned as { coins: number; xp: number } };
+    },
+    [userId]
+  );
+
+  const refresh = useCallback(() => pointsResource.load(userId, true), [userId]);
+
+  return { wallet: data, loading, error, reload, refresh, checkin };
+}
+
+/** Recarrega a carteira de pontos depois de algo que gasta ou credita coins (resgate, validação). */
+export function reloadPoints(userId: string): void {
+  void pointsResource.load(userId, true);
 }
 
 /* -------------------------------------------------------------------------- */

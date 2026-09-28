@@ -6,13 +6,14 @@ import { AnimatePresence, motion } from "motion/react";
 import { useLenis } from "lenis/react";
 import type { User } from "@/hooks/use-auth";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { IconBank, IconBell, IconHome, IconLive, IconLogout, IconPass, IconProfile, IconQr } from "@/components/icons/prx-icons";
+import { IconBank, IconBell, IconHome, IconLive, IconLogout, IconPass, IconQr, IconReels } from "@/components/icons/prx-icons";
 import { AppNavProvider, useAppNav, type AppTab } from "@/components/app/app-nav";
 import { SmoothScroll } from "@/components/app/smooth-scroll";
 import { usePassData, firstName } from "@/components/app/use-pass-data";
-import { useLiveData } from "@/components/app/use-prx-stores";
+import { useLiveData, usePointsWallet } from "@/components/app/use-prx-stores";
 import { NoticesSheet, useNotices } from "@/components/app/notifications";
 import { Avatar, IconButton, initialsOf } from "@/components/app/ui";
+import { ReelsScreen } from "@/components/app/screens/reels-screen";
 import { HomeScreen } from "@/components/app/screens/home-screen";
 import { PassScreen } from "@/components/app/screens/pass-screen";
 import { BankScreen } from "@/components/app/screens/bank-screen";
@@ -21,6 +22,7 @@ import { ProfileScreen } from "@/components/app/screens/profile-screen";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
+import { calculatePrxLevel } from "@/lib/pass-data";
 
 interface NavItem {
   tab: AppTab;
@@ -28,13 +30,15 @@ interface NavItem {
   Icon: ComponentType<{ size?: number; strokeWidth?: number }>;
 }
 
+/** Barra de abas: Reels fica exatamente no meio, entre Pass e Bank. O Perfil vive no cabeçalho. */
 const NAV: ReadonlyArray<NavItem> = [
   { tab: "home", label: "Início", Icon: IconHome },
   { tab: "pass", label: "Pass", Icon: IconPass },
+  { tab: "reels", label: "Reels", Icon: IconReels },
   { tab: "bank", label: "Bank", Icon: IconBank },
   { tab: "live", label: "Live", Icon: IconLive },
-  { tab: "profile", label: "Perfil", Icon: IconProfile },
 ];
+
 
 interface AppShellProps {
   user: User;
@@ -52,17 +56,13 @@ export function AppShell(props: AppShellProps) {
   );
 }
 
-/** @usuario a partir do e-mail, como o identificador curto da referência. */
-function handleOf(email: string): string {
-  return `@${(email || "membro").split("@")[0].toLowerCase()}`;
-}
-
 function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
   useThemeScope("app");
   const { tab, go } = useAppNav();
   const pass = usePassData(user);
   const { data: live } = useLiveData(user.id);
-  const notices = useNotices(pass, live?.wallet ?? null);
+  const { wallet: points } = usePointsWallet(user.id);
+  const notices = useNotices(pass, live?.wallet ?? null, points);
   const [noticesOpen, setNoticesOpen] = useState(false);
   const lenis = useLenis();
   const previousTab = useRef(tab);
@@ -76,6 +76,8 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
 
   const member = pass.member;
   const name = member.name || "Membro PRX";
+  const level = points?.level ?? member.prxLevel ?? calculatePrxLevel(member.prxScore ?? 0);
+  const immersive = tab === "reels";
 
   return (
     <div className="prx-app min-h-dvh bg-background text-foreground">
@@ -132,29 +134,47 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
       </aside>
 
       <div className="lg:pl-64">
-        {/* Cabeçalho da referência: avatar, saudação, @usuário, QR e avisos */}
+        {/* Cabeçalho: marca (mobile) ou título da seção (desktop) · QR · avisos · perfil */}
         <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-md lg:static lg:bg-transparent lg:backdrop-blur-none">
-          <div className="mx-auto flex h-[72px] w-full max-w-[1120px] items-center justify-between gap-3 px-4 sm:px-6 lg:h-24 lg:px-12">
-            <button type="button" onClick={() => go("profile")} className="flex min-w-0 cursor-pointer items-center gap-3 text-left" aria-label={`Perfil de ${name}`}>
-              <Avatar name={name} src={member.avatarUrl} size={44} />
-              <span className="min-w-0">
-                <span className="block truncate text-[17px] font-semibold leading-tight tracking-[-0.01em] text-ink">Olá, {firstName(member)}</span>
-                <span className="block truncate text-[13px] text-muted-foreground">{handleOf(member.email)}</span>
-              </span>
+          <div className="mx-auto flex h-[72px] w-full max-w-[1120px] items-center justify-between gap-2 px-4 sm:px-6 lg:h-24 lg:px-12">
+            <button type="button" onClick={() => go("home")} className="flex min-h-12 shrink-0 cursor-pointer items-center lg:hidden" aria-label="PRX — ir para o início">
+              <PrxLogo variant="compact" title="" className="h-6 w-auto text-ink" />
             </button>
-            <div className="flex shrink-0 items-center gap-2">
-              <IconButton label="Meus QR Codes" onClick={() => go("pass", "vouchers")}>
+            <p className="hidden text-[22px] font-semibold tracking-[-0.02em] text-ink lg:block">Olá, {firstName(member)}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <IconButton label="Meus QR Codes" onClick={() => go("pass", "vouchers")} className="h-12 w-12">
                 <IconQr size={19} />
               </IconButton>
-              <IconButton label="Avisos" badge={notices.length} onClick={() => setNoticesOpen(true)}>
+              <IconButton label="Avisos" badge={notices.length} onClick={() => setNoticesOpen(true)} className="h-12 w-12">
                 <IconBell size={19} />
               </IconButton>
+              <button
+                type="button"
+                onClick={() => go("profile")}
+                aria-current={tab === "profile" ? "page" : undefined}
+                aria-label={`Perfil de ${name}, nível ${level}`}
+                className={cn(
+                  "flex h-12 min-w-12 max-w-[190px] shrink cursor-pointer items-center gap-2.5 rounded-full p-1 text-left transition-colors min-[380px]:pr-4",
+                  tab === "profile" ? "bg-primary/[0.1]" : "bg-surface hover:bg-line"
+                )}
+              >
+                <Avatar name={name} src={member.avatarUrl} size={40} />
+                <span className="hidden min-w-0 min-[380px]:block">
+                  <span className="block truncate text-[14px] font-semibold leading-tight text-ink">{firstName(member)}</span>
+                  <span className="block truncate text-[12px] leading-tight text-muted-foreground">Nível {level.toLocaleString("pt-BR")}</span>
+                </span>
+              </button>
             </div>
           </div>
         </header>
 
-        <main id="conteudo">
-          <div className="mx-auto w-full max-w-[1120px] px-4 pb-32 pt-3 sm:px-6 lg:px-12 lg:pb-20 lg:pt-2">
+        <main id="conteudo" className="overflow-x-hidden">
+          <div
+            className={cn(
+              "mx-auto w-full max-w-[1120px]",
+              immersive ? "px-0 pb-[calc(62px+max(0.25rem,env(safe-area-inset-bottom)))] sm:px-6 lg:px-12 lg:pb-6" : "px-4 pb-32 pt-3 sm:px-6 lg:px-12 lg:pb-20 lg:pt-2"
+            )}
+          >
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={tab}
@@ -165,6 +185,7 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
               >
                 {tab === "home" && <HomeScreen pass={pass} />}
                 {tab === "pass" && <PassScreen pass={pass} />}
+                {tab === "reels" && <ReelsScreen member={member} />}
                 {tab === "bank" && <BankScreen member={member} />}
                 {tab === "live" && <LiveScreen member={member} />}
                 {tab === "profile" && <ProfileScreen pass={pass} onLogout={onLogout} onViewShowcase={onViewShowcase} initials={initialsOf(name)} />}

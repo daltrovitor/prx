@@ -1,3 +1,4 @@
+/* Hello World */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -142,6 +143,12 @@ html:not(.dark):has(.prx-app) {
   --ring: #6c0cf0;
   /* A escala rounded-* do tema é proporcional a --radius: xl 14px, 2xl 18px, 3xl 22px. */
   --radius: 0.625rem;
+  /* PRX Map: rampa ordinal de um só violeta (maior fatia = mais escura), validada contra #fff. */
+  --map-1: #2e0673;
+  --map-2: #4b09a8;
+  --map-3: #6c0cf0;
+  --map-4: #9153f4;
+  --map-5: #b288f7;
   color-scheme: light;
   background-color: #ffffff;
 }
@@ -171,6 +178,12 @@ html.dark:has(.prx-app) {
   --input: #2c2c3a;
   --ring: #8b5cf6;
   --radius: 0.625rem;
+  /* PRX Map no escuro: maior fatia = mais clara (mais contraste), validada contra #111117. */
+  --map-1: #e0cffc;
+  --map-2: #c2a1f9;
+  --map-3: #a274f6;
+  --map-4: #8a4ff4;
+  --map-5: #7234e0;
   color-scheme: dark;
   background-color: #09090c;
 }

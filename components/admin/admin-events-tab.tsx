@@ -1,6 +1,7 @@
 // Hello World
 "use client";
 
+import { levelGateOptions } from "@/lib/pass-data";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Button, Checkbox, EmptyState, Field, Input, Notice, Select, Sheet, Tag, Textarea, formatBRL } from "@/components/app/ui";
 import { ImagePicker, useImageUpload } from "@/components/admin/image-picker";
@@ -431,7 +432,7 @@ function EventForm({ event, partners, onSaved }: { event: LiveEvent | null; part
       <Field label="Nível PRX mínimo">
         {(id) => (
           <Select id={id} value={draft.minPrxLevel} onChange={(e) => set("minPrxLevel", e.target.value)}>
-            {[1, 2, 3, 4, 5, 6, 7].map((level) => (
+            {levelGateOptions(Number(draft.minPrxLevel)).map((level) => (
               <option key={level} value={level}>
                 {level === 1 ? "Todos os membros" : `Nível ${level}+`}
               </option>

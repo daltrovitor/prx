@@ -10,6 +10,7 @@ import { VoucherSheet } from "@/components/app/pass/voucher-sheet";
 import { MissionsPanel } from "@/components/app/pass/missions-panel";
 import { ReferralPanel } from "@/components/app/pass/referral-panel";
 import { useBenefitEvents } from "@/components/app/pass/use-benefit-events";
+import { reloadPoints, usePointsWallet } from "@/components/app/use-prx-stores";
 import { Button, EmptyState, Input, Notice, ProgressBar, Segmented, Sheet, Tag } from "@/components/app/ui";
 import { IconQr, IconSearch } from "@/components/icons/prx-icons";
 import { PRX_CATEGORIES, levelProgress, type Benefit, type UserVoucher } from "@/lib/pass-data";
@@ -32,6 +33,8 @@ export function PassScreen({ pass }: { pass: PassData }) {
   const [redeeming, setRedeeming] = useState(false);
   const [redeemError, setRedeemError] = useState<string | null>(null);
   const events = useBenefitEvents();
+  const { wallet } = usePointsWallet(member.id);
+  const coins = wallet?.coins ?? null;
 
   function selectBenefit(benefit: Benefit) {
     events.click(benefit.id);
@@ -57,8 +60,9 @@ export function PassScreen({ pass }: { pass: PassData }) {
     });
   }, [benefits, category, query]);
 
-  const progress = levelProgress(member.prxScore ?? 0);
-  const memberLevel = member.prxLevel || progress.level;
+  const xp = wallet?.xp ?? member.prxScore ?? 0;
+  const progress = levelProgress(xp);
+  const memberLevel = progress.level;
   const activeVouchers = vouchers.filter((v) => v.status === "valid");
   const usedVouchers = vouchers.filter((v) => v.status !== "valid");
 
@@ -79,11 +83,14 @@ export function PassScreen({ pass }: { pass: PassData }) {
     }
     setSelected(null);
     setOpenVoucher(result.voucher);
+    reloadPoints(member.id);
     go("pass", "vouchers");
   }
 
   const selectedVoucher = selected ? activeByBenefit.get(selected.id) : undefined;
   const selectedLocked = selected ? (selected.minPrxLevel || 1) > memberLevel : false;
+  const selectedCost = selected?.pointsCost ?? 0;
+  const missingCoins = coins !== null && selectedCost > coins ? selectedCost - coins : 0;
   const selectedSrc = selected?.partnerBanner?.trim() || selected?.partnerLogo?.trim() || "";
 
   return (
@@ -96,14 +103,16 @@ export function PassScreen({ pass }: { pass: PassData }) {
         <div className="rounded-3xl bg-surface p-5 lg:col-span-5">
           <div className="flex items-baseline justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink">Seu nível</p>
-            <p className="text-[13px] font-medium text-muted-foreground">{(member.prxScore ?? 0).toLocaleString("pt-BR")} XP</p>
+            <p className="text-[13px] font-medium text-muted-foreground">
+              {xp.toLocaleString("pt-BR")} XP · {coins === null ? "—" : coins.toLocaleString("pt-BR")} coins
+            </p>
           </div>
-          <p className="mt-1.5 text-[30px] font-light leading-none tracking-[-0.03em] text-ink">Nível {memberLevel}</p>
+          <p className="mt-1.5 text-[30px] font-light leading-none tracking-[-0.03em] text-ink">Nível {memberLevel.toLocaleString("pt-BR")}</p>
           <div className="mt-4">
             <ProgressBar value={progress.pct} label="Progresso até o próximo nível" />
           </div>
           <p className="mt-2 text-[13px] text-muted-foreground">
-            {progress.next === null ? "Você está no topo da régua." : `${progress.remaining.toLocaleString("pt-BR")} XP para o nível ${progress.level + 1}.`}
+            {`${progress.remaining.toLocaleString("pt-BR")} XP para o nível ${progress.level + 1}.`}
           </p>
         </div>
       </header>
@@ -260,8 +269,16 @@ export function PassScreen({ pass }: { pass: PassData }) {
               Abrir meu voucher
             </Button>
           ) : (
-            <Button block onClick={() => redeem(selected)} disabled={redeeming || selectedLocked}>
-              {selectedLocked ? `Disponível a partir do nível ${selected.minPrxLevel}` : redeeming ? "Gerando voucher…" : "Gerar voucher"}
+            <Button block onClick={() => redeem(selected)} disabled={redeeming || selectedLocked || missingCoins > 0}>
+              {selectedLocked
+                ? `Disponível a partir do nível ${selected.minPrxLevel}`
+                : missingCoins > 0
+                  ? `Faltam ${missingCoins.toLocaleString("pt-BR")} PRX Coins`
+                  : redeeming
+                    ? "Gerando voucher…"
+                    : selectedCost > 0
+                      ? `Resgatar por ${selectedCost.toLocaleString("pt-BR")} PRX Coins`
+                      : "Gerar voucher"}
             </Button>
           ))
         }
@@ -273,7 +290,19 @@ export function PassScreen({ pass }: { pass: PassData }) {
                 <Image src={selectedSrc} alt="" fill sizes="(max-width: 640px) 100vw, 512px" className="object-cover" />
               </div>
             )}
-            <p className="text-4xl font-semibold leading-none tracking-[-0.035em] text-primary">{selected.discountLabel}</p>
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <p className="text-4xl font-semibold leading-none tracking-[-0.035em] text-primary">{selected.discountLabel}</p>
+              {selectedCost > 0 && (
+                <p className="text-[15px] font-medium text-ink">
+                  {selectedCost.toLocaleString("pt-BR")} <span className="text-muted-foreground">PRX Coins</span>
+                </p>
+              )}
+            </div>
+            {missingCoins > 0 && (
+              <Notice tone="neutral">
+                Você tem {coins?.toLocaleString("pt-BR")} coins. Check-ins de bom comportamento e compras em parceiros com Pix PRX completam o que falta.
+              </Notice>
+            )}
             {selected.sponsored && <p className="text-[13px] text-muted-foreground">Patrocinado: o parceiro contratou destaque para esta oferta.</p>}
             {selected.description && <p className="text-[15px] leading-relaxed text-ink">{selected.description}</p>}
             {selected.terms.length > 0 && (

@@ -3,17 +3,25 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import Image from "next/image";
-import { PRX_CATEGORIES, type Benefit } from "@/lib/pass-data";
+import { PRX_CATEGORIES, type Benefit, levelGateOptions } from "@/lib/pass-data";
 import { VISIBILITY_PLANS } from "@/lib/partners/plans";
 import type { PartnerOverview } from "@/lib/partners/service";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { ImagePicker, useImageUpload } from "@/components/admin/image-picker";
 import { Button, EmptyState, Field, Input, Notice, Segmented, Select, Sheet, Tag, Textarea } from "@/components/app/ui";
 import { IconImage, IconPlus } from "@/components/icons/prx-icons";
+import { ViabilityCalculator, evaluateViability, type ViabilityValues } from "@/components/admin/viability-calculator";
+import { DEFAULT_PARTNER_FEE_PCT, MIN_PROFIT_MARGIN_PCT } from "@/lib/points/economics";
+
+export interface AdminEconomy {
+  coinsPerReal: number;
+  behaviorCoinsPerMonth: number;
+}
 
 interface AdminBenefitsTabProps {
   benefits: Benefit[];
   partners: PartnerOverview[];
+  economy: AdminEconomy;
   onRefresh: () => Promise<void>;
 }
 
@@ -28,7 +36,16 @@ interface BenefitForm {
   partnerLogo: string;
   partnerBanner: string;
   terms: string;
+  economics: ViabilityValues;
 }
+
+const EMPTY_ECONOMICS: ViabilityValues = {
+  costPrice: "0",
+  revenuePerRedemption: "0",
+  partnerFeePct: String(DEFAULT_PARTNER_FEE_PCT),
+  minMarginPct: String(MIN_PROFIT_MARGIN_PCT),
+  pointsCost: "",
+};
 
 const EMPTY_FORM: BenefitForm = {
   partnerId: "",
@@ -41,6 +58,12 @@ const EMPTY_FORM: BenefitForm = {
   partnerLogo: "",
   partnerBanner: "",
   terms: "Apresente o QR Code no balcão ao pedir a conta.",
+  economics: EMPTY_ECONOMICS,
+};
+
+const toNumber = (text: string) => {
+  const value = Number(String(text).replace(",", "."));
+  return Number.isFinite(value) ? value : 0;
 };
 
 interface ApiResult {
@@ -50,7 +73,7 @@ interface ApiResult {
 
 type Filter = "all" | "unassigned";
 
-export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefitsTabProps) {
+export function AdminBenefitsTab({ benefits, partners, economy, onRefresh }: AdminBenefitsTabProps) {
   const { confirmDelete, showToast } = useConfirmToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Benefit | null>(null);
@@ -86,6 +109,13 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
       partnerLogo: benefit.partnerLogo || "",
       partnerBanner: benefit.partnerBanner || "",
       terms: benefit.terms?.join("\n") || "",
+      economics: {
+        costPrice: String(benefit.costPrice ?? 0),
+        revenuePerRedemption: String(benefit.prxRevenuePerRedemption ?? 0),
+        partnerFeePct: String(benefit.partnerFeePct ?? DEFAULT_PARTNER_FEE_PCT),
+        minMarginPct: String(MIN_PROFIT_MARGIN_PCT),
+        pointsCost: String(benefit.pointsCost ?? 0),
+      },
     });
     setError(null);
     setOpen(true);
@@ -95,6 +125,11 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
     event.preventDefault();
     if (!form.partnerId) {
       setError("Escolha o parceiro dono do benefício. Só ele poderá validar o QR Code.");
+      return;
+    }
+    const viability = evaluateViability(form.economics, economy.coinsPerReal, economy.behaviorCoinsPerMonth);
+    if (viability.status !== "ok") {
+      setError(`Publicação bloqueada pela calculadora: ${viability.message}`);
       return;
     }
     setSaving(true);
@@ -110,6 +145,10 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
       partnerLogo: form.partnerLogo.trim(),
       partnerBanner: form.partnerBanner.trim(),
       terms: form.terms.split("\n").map((t) => t.trim()).filter(Boolean),
+      pointsCost: viability.evaluatedPoints,
+      costPrice: toNumber(form.economics.costPrice),
+      prxRevenuePerRedemption: toNumber(form.economics.revenuePerRedemption),
+      partnerFeePct: toNumber(form.economics.partnerFeePct),
     };
     try {
       const res = await fetch("/api/admin/benefits", {
@@ -155,6 +194,7 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
   }
 
   const selectedPartner = partnerById.get(form.partnerId);
+  const formViability = evaluateViability(form.economics, economy.coinsPerReal, economy.behaviorCoinsPerMonth);
 
   return (
     <section aria-labelledby="benefits-title" className="space-y-6">
@@ -198,7 +238,7 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
         />
       ) : (
         <div className="overflow-x-auto rounded-3xl border border-line">
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">
                 <th scope="col" className="px-4 py-3 font-medium">Benefício</th>
@@ -206,6 +246,8 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
                 <th scope="col" className="px-4 py-3 font-medium">Oferta</th>
                 <th scope="col" className="px-4 py-3 font-medium">Origem</th>
                 <th scope="col" className="px-4 py-3 font-medium">Nível mín.</th>
+                <th scope="col" className="px-4 py-3 font-medium">PRX Coins</th>
+                <th scope="col" className="px-4 py-3 font-medium">Viabilidade</th>
                 <th scope="col" className="px-4 py-3">
                   <span className="sr-only">Ações</span>
                 </th>
@@ -244,6 +286,10 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
                       {benefit.campaignId ? `Contrato · ${VISIBILITY_PLANS[benefit.visibilityPlan ?? "basico"].label}` : "Avulso"}
                     </td>
                     <td className="px-4 py-3 font-mono text-ink">{benefit.minPrxLevel}</td>
+                    <td className="px-4 py-3 tabular-nums text-ink">{(benefit.pointsCost ?? 0).toLocaleString("pt-BR")}</td>
+                    <td className="px-4 py-3">
+                      <ViabilityTag benefit={benefit} economy={economy} />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
                         <Button variant="secondary" size="sm" onClick={() => openEdit(benefit)}>
@@ -271,8 +317,8 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
         title={editing ? "Editar benefício" : "Novo benefício avulso"}
         description={editing?.campaignId ? "Benefício de contrato: preço, quantidade e vigência seguem o Resumo Comercial aceito." : "Sem contrato de campanha: não tem quantidade garantida nem vigência."}
         footer={
-          <Button block type="submit" form="benefit-form" disabled={saving || logo.busy || banner.busy}>
-            {saving ? "Salvando…" : editing ? "Salvar alterações" : "Publicar benefício"}
+          <Button block type="submit" form="benefit-form" disabled={saving || logo.busy || banner.busy || formViability.status !== "ok"}>
+            {formViability.status !== "ok" ? "Ajuste o preço: risco de prejuízo" : saving ? "Salvando…" : editing ? "Salvar alterações" : "Publicar benefício"}
           </Button>
         }
       >
@@ -320,7 +366,7 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
           <Field label="Nível mínimo">
             {(id) => (
               <Select id={id} value={form.minPrxLevel} onChange={(e) => setForm({ ...form, minPrxLevel: Number(e.target.value) })}>
-                {[1, 2, 3, 4, 5, 6, 7].map((lvl) => (
+                {levelGateOptions(form.minPrxLevel).map((lvl) => (
                   <option key={lvl} value={lvl}>
                     {lvl === 1 ? "Nível 1 (todos)" : `Nível ${lvl}`}
                   </option>
@@ -338,6 +384,19 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
             {(id) => <Textarea id={id} rows={3} value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} />}
           </Field>
 
+          <fieldset className="space-y-3 sm:col-span-2">
+            <legend className="text-[15px] font-semibold text-ink">Preço em PRX Coins e viabilidade</legend>
+            <p className="text-[13px] text-muted-foreground">
+              O membro só vê o preço em coins. Os números abaixo são internos e garantem que o resgate chegue com pelo menos {MIN_PROFIT_MARGIN_PCT}% de lucro.
+            </p>
+            <ViabilityCalculator
+              values={form.economics}
+              onChange={(economics) => setForm((f) => ({ ...f, economics }))}
+              coinsPerReal={economy.coinsPerReal}
+              behaviorCoinsPerMonth={economy.behaviorCoinsPerMonth}
+            />
+          </fieldset>
+
           <ImagePicker label="Logo (vazio usa o do parceiro)" value={form.partnerLogo} busy={logo.busy} onChange={(e) => logo.upload(e, "logo")} square />
           <ImagePicker label="Capa (vazio usa a do parceiro)" value={form.partnerBanner} busy={banner.busy} onChange={(e) => banner.upload(e, "banner")} />
 
@@ -350,4 +409,21 @@ export function AdminBenefitsTab({ benefits, partners, onRefresh }: AdminBenefit
       </Sheet>
     </section>
   );
+}
+
+function ViabilityTag({ benefit, economy }: { benefit: Benefit; economy: AdminEconomy }) {
+  const result = evaluateViability(
+    {
+      costPrice: String(benefit.costPrice ?? 0),
+      revenuePerRedemption: String(benefit.prxRevenuePerRedemption ?? 0),
+      partnerFeePct: String(benefit.partnerFeePct ?? DEFAULT_PARTNER_FEE_PCT),
+      minMarginPct: String(MIN_PROFIT_MARGIN_PCT),
+      pointsCost: String(benefit.pointsCost ?? 0),
+    },
+    economy.coinsPerReal,
+    economy.behaviorCoinsPerMonth
+  );
+  if (!(benefit.costPrice && benefit.costPrice > 0)) return <Tag>Sem custo</Tag>;
+  if (result.status === "ok") return <Tag tone="success">{result.marginOnCostPct?.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% de margem</Tag>;
+  return <Tag tone="warning">{result.status === "loss" ? "Prejuízo" : "Margem baixa"}</Tag>;
 }

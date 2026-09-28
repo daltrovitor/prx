@@ -1,9 +1,11 @@
+// Hello World
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 import { getSessionSecret, DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { isAllowlistedAdmin } from "@/lib/admin-allowlist";
 import { asMemberRole } from "@/lib/db-rows";
+import { calculatePrxLevel } from "@/lib/pass-data";
 
 const AUTH_COOKIE_NAME = "prx_session";
 
@@ -379,7 +381,8 @@ export async function getCurrentUser(req?: NextRequest): Promise<StoredUser | nu
             salt: "",
             role: userRole,
             prxScore: profile.nxt_score ?? 250,
-            prxLevel: profile.nxt_level ?? 1,
+            // Nível sempre derivado do XP pela régua infinita (nxt_level de antes da régua nova pode estar defasado).
+            prxLevel: calculatePrxLevel(profile.nxt_score ?? 250),
             avatarUrl: profile.avatar_url || "",
             walletBalance: Number(profile.wallet_balance ?? 0),
             emailConfirmed: true,
@@ -393,7 +396,7 @@ export async function getCurrentUser(req?: NextRequest): Promise<StoredUser | nu
 
     // 2. Fallback to in-memory store (e.g. demo accounts or fallback mode)
     const user = userStore.findById(userId) || userStore.findByEmail(verification.payload.email);
-    return user || null;
+    return user ? { ...user, prxLevel: calculatePrxLevel(user.prxScore) } : null;
   } catch {
     return null;
   }

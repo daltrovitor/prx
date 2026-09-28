@@ -9,6 +9,7 @@ import { Avatar, Button, ProgressBar } from "@/components/app/ui";
 import { IconCard, IconChevronRight, IconExternal, IconPix, IconTicket, IconUsers } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { levelProgress } from "@/lib/pass-data";
+import { usePointsWallet } from "@/components/app/use-prx-stores";
 
 interface ProfileScreenProps {
   pass: PassData;
@@ -26,8 +27,10 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenProps) {
   const { go } = useAppNav();
-  const { member, vouchers, referralInfo } = pass;
-  const progress = levelProgress(member.prxScore ?? 0);
+  const { member, referralInfo } = pass;
+  const { wallet } = usePointsWallet(member.id);
+  const xp = wallet?.xp ?? member.prxScore ?? 0;
+  const progress = levelProgress(xp);
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -42,9 +45,9 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenP
       </header>
 
       <section aria-label="Resumo do membro" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Nível" value={String(member.prxLevel || progress.level)} />
-        <Metric label="PRX Score" value={(member.prxScore ?? 0).toLocaleString("pt-BR")} />
-        <Metric label="Vouchers usados" value={String(vouchers.filter((v) => v.status !== "valid").length)} />
+        <Metric label="Nível" value={progress.level.toLocaleString("pt-BR")} />
+        <Metric label="XP" value={xp.toLocaleString("pt-BR")} />
+        <Metric label="PRX Coins" value={wallet ? wallet.coins.toLocaleString("pt-BR") : "—"} />
         <Metric label="Amigos" value={String(referralInfo.friendsInvitedCount)} />
       </section>
 
@@ -54,9 +57,7 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenP
         </h2>
         <ProgressBar value={progress.pct} label="Progresso até o próximo nível" />
         <p className="text-sm text-muted-foreground">
-          {progress.next === null
-            ? "Você chegou ao topo da régua do PRX Score."
-            : `Mais ${progress.remaining.toLocaleString("pt-BR")} XP e você sobe para o nível ${progress.level + 1}. Missões e convites são o caminho mais rápido.`}
+          {`Mais ${progress.remaining.toLocaleString("pt-BR")} XP e você sobe para o nível ${progress.level + 1}. A régua não tem teto: hábitos, compras em parceiros e benefícios usados contam.`}
         </p>
       </section>
 

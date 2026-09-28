@@ -2,6 +2,8 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
+import { TermsConsent } from "@/components/auth/terms-consent";
+import { CONSENT_REQUIRED_MESSAGE } from "@/lib/legal-version";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { useRouter } from "next/navigation";
 import { motion, useScroll, useTransform, useSpring, AnimatePresence } from "framer-motion";
@@ -316,13 +318,19 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
   const [googleLoading, setGoogleLoading] = useState(false);
   const [authErrorMsg, setAuthErrorMsg] = useState("");
   const [authSuccessMsg, setAuthSuccessMsg] = useState("");
+  // LGPD: sem o aceite dos Termos e da Política de Privacidade, nenhum botão de acesso funciona.
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleGoogleAuth = async () => {
+    if (!termsAccepted) {
+      setAuthErrorMsg(CONSENT_REQUIRED_MESSAGE);
+      return;
+    }
     try {
       setGoogleLoading(true);
       setAuthErrorMsg("");
       setAuthSuccessMsg("");
-      const res = await loginWithGoogle(rememberMe);
+      const res = await loginWithGoogle(rememberMe, termsAccepted);
       if (!res.success) {
         setAuthErrorMsg(res.error || "Falha ao autenticar com o Google.");
         setGoogleLoading(false);
@@ -337,13 +345,17 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!termsAccepted) {
+      setAuthErrorMsg(CONSENT_REQUIRED_MESSAGE);
+      return;
+    }
     setAuthErrorMsg("");
     setAuthSuccessMsg("");
     setAuthLoading(true);
 
     try {
       if (authTab === "login") {
-        const res = await login(authEmail, authPass, rememberMe);
+        const res = await login(authEmail, authPass, rememberMe, termsAccepted);
         if (res.success) {
           setAuthSuccessMsg("Login realizado com sucesso! Bem-vindo.");
           setTimeout(() => {
@@ -353,7 +365,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
           setAuthErrorMsg(res.error || "Credenciais incorretas. Verifique seu e-mail e senha.");
         }
       } else {
-        const res = await signup(authName, authEmail, authPass);
+        const res = await signup(authName, authEmail, authPass, termsAccepted);
         if (res.success) {
           setAuthSuccessMsg("Conta criada com sucesso! Bem-vindo.");
           setTimeout(() => {
@@ -733,10 +745,12 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                     </button>
                   </div>
 
+                  <TermsConsent checked={termsAccepted} onChange={(value) => { setTermsAccepted(value); if (value) setAuthErrorMsg(""); }} />
+
                   <button
                     type="submit"
-                    disabled={authLoading}
-                    className="relative overflow-hidden group w-full py-3.5 mt-1 bg-gradient-to-r from-[#8B24F0] via-[#9d3df3] to-[#8B24F0] hover:brightness-110 text-white font-bold text-sm rounded-xl shadow-[0_0_25px_rgba(139,36,240,0.55)] hover:shadow-[0_0_40px_rgba(139,36,240,0.9)] hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                    disabled={authLoading || !termsAccepted}
+                    className="relative overflow-hidden group w-full py-3.5 mt-1 bg-gradient-to-r from-[#8B24F0] via-[#9d3df3] to-[#8B24F0] hover:brightness-110 text-white font-bold text-sm rounded-xl shadow-[0_0_25px_rgba(139,36,240,0.55)] hover:shadow-[0_0_40px_rgba(139,36,240,0.9)] hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100 disabled:hover:brightness-100"
                   >
                     <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
                     <span className="relative z-10 flex items-center justify-center space-x-2">
@@ -768,8 +782,8 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                 <button
                   type="button"
                   onClick={handleGoogleAuth}
-                  disabled={authLoading || googleLoading}
-                  className="w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-border hover:border-purple-500/40 flex items-center justify-center space-x-2.5 text-foreground transition-all cursor-pointer group shadow-sm disabled:opacity-50"
+                  disabled={authLoading || googleLoading || !termsAccepted}
+                  className="w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-border hover:border-purple-500/40 flex items-center justify-center space-x-2.5 text-foreground transition-all cursor-pointer group shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border"
                   title={authTab === "login" ? "Continuar com o Google" : "Cadastrar com o Google"}
                 >
                   {googleLoading ? (
@@ -1176,10 +1190,12 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                       </button>
                     </div>
 
+                    <TermsConsent checked={termsAccepted} onChange={(value) => { setTermsAccepted(value); if (value) setAuthErrorMsg(""); }} />
+
                     <button
                       type="submit"
-                      disabled={authLoading}
-                      className="relative overflow-hidden group w-full py-3.5 mt-1 bg-gradient-to-r from-[#8B24F0] via-[#9d3df3] to-[#8B24F0] hover:brightness-110 text-white font-bold text-sm rounded-xl shadow-[0_0_25px_rgba(139,36,240,0.55)] hover:shadow-[0_0_40px_rgba(139,36,240,0.9)] hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                      disabled={authLoading || !termsAccepted}
+                      className="relative overflow-hidden group w-full py-3.5 mt-1 bg-gradient-to-r from-[#8B24F0] via-[#9d3df3] to-[#8B24F0] hover:brightness-110 text-white font-bold text-sm rounded-xl shadow-[0_0_25px_rgba(139,36,240,0.55)] hover:shadow-[0_0_40px_rgba(139,36,240,0.9)] hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100 disabled:hover:brightness-100"
                     >
                       <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
                       <span className="relative z-10 flex items-center justify-center space-x-2">
@@ -1211,8 +1227,8 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                   <button
                     type="button"
                     onClick={handleGoogleAuth}
-                    disabled={authLoading || googleLoading}
-                    className="w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-border hover:border-purple-500/40 flex items-center justify-center space-x-2.5 text-foreground transition-all cursor-pointer group shadow-sm disabled:opacity-50"
+                    disabled={authLoading || googleLoading || !termsAccepted}
+                    className="w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-border hover:border-purple-500/40 flex items-center justify-center space-x-2.5 text-foreground transition-all cursor-pointer group shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border"
                   >
                     {googleLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin text-purple-400" />

@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@/hooks/use-auth";
 import type { Benefit, PassMission, ReferralInfo, UserVoucher } from "@/lib/pass-data";
+import { reloadPoints } from "@/components/app/use-prx-stores";
 
 interface PassDataResponse {
   success?: boolean;
@@ -137,9 +138,14 @@ export function usePassData(user: User): PassData {
     }
   }, []);
 
-  const applyScore = useCallback((score: number, level: number) => {
-    setOverrides((prev) => ({ ...prev, prxScore: score, prxLevel: level }));
-  }, []);
+  const applyScore = useCallback(
+    (score: number, level: number) => {
+      setOverrides((prev) => ({ ...prev, prxScore: score, prxLevel: level }));
+      // XP de missão/indicação muda o nível mostrado na Carteira Central.
+      reloadPoints(user.id);
+    },
+    [user.id]
+  );
 
   return {
     member,

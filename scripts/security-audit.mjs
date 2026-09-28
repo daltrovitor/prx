@@ -1,3 +1,4 @@
+// Hello World
 const BASE_URL = 'http://localhost:3000';
 
 async function runLivePenTest() {
@@ -18,7 +19,8 @@ async function runLivePenTest() {
         email: 'hacker_old@test.com',
         fullName: 'Hacker Veterano',
         password: 'Password123!',
-        birthDate: '1989-01-01' // 36+ anos
+        birthDate: '1989-01-01', // 36+ anos
+        termsAccepted: true
       })
     });
     const data = await res.json();
@@ -47,7 +49,8 @@ async function runLivePenTest() {
         email: testEmail,
         fullName: 'Lucas GenZ',
         password: 'SuperSecret2026!',
-        birthDate: '2004-05-15'
+        birthDate: '2004-05-15',
+        termsAccepted: true
       })
     });
     const data = await res.json();

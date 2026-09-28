@@ -1,3 +1,4 @@
+// Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
@@ -5,12 +6,15 @@ import { sanitizeInput } from "@/lib/security";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { isReservedAdminEmail } from "@/lib/admin-allowlist";
 import { errorMessage } from "@/lib/errors";
+import { CONSENT_REQUIRED_MESSAGE, TERMS_VERSION } from "@/lib/legal";
 
 const SignupSchema = z.object({
   fullName: z.string().min(2, "Nome completo é obrigatório"),
   email: z.string().email("E-mail corporativo ou pessoal válido"),
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
   birthDate: z.string().optional(),
+  // LGPD: sem o aceite dos Termos e da Política de Privacidade não existe conta.
+  termsAccepted: z.literal(true, { error: CONSENT_REQUIRED_MESSAGE }),
 });
 
 export async function POST(req: NextRequest) {
@@ -111,6 +115,8 @@ export async function POST(req: NextRequest) {
             nxt_level: prxLevel,
             wallet_balance: walletBalance,
             avatar_url: avatarUrl,
+            terms_accepted_at: new Date().toISOString(),
+            terms_version: TERMS_VERSION,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "id" }

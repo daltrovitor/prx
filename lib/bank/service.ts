@@ -2,9 +2,11 @@
 import crypto from "crypto";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
-import { getBankRepository } from "@/lib/bank/repository";
+import { getBankRepository, sandboxActivate, sandboxCategorize, sandboxSendPix, usesSupabaseBank } from "@/lib/bank/repository";
 import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type CardRequest, type PixKey } from "@/lib/prx/bank";
-import { isValidCpf } from "@/lib/prx/pix";
+import { detectPixKeyType, isValidCpf } from "@/lib/prx/pix";
+import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
+import { processPartnerPixTransfer, type PartnerPixResult } from "@/lib/points/service";
 
 /**
  * Regras do PRX BANK antes da ativação do banco parceiro: a conta existe,
@@ -14,6 +16,17 @@ import { isValidCpf } from "@/lib/prx/pix";
 
 /** Conta marcada como ativa sem a integração do BaaS publicada nesta versão. */
 const BAAS_PENDING = "A integração com o banco parceiro ainda não foi publicada nesta versão do app.";
+
+/**
+ * Sandbox do banco parceiro: simula aprovação da conta, saldo fictício e Pix
+ * liquidado na hora, para exercitar o motor de compras em parceiros antes do
+ * BaaS. Só vale para contas em memória (desenvolvimento, ou PRX_BAAS_MODE=sandbox
+ * em um ambiente de homologação sem Supabase). Contas reais nunca entram aqui.
+ */
+export function sandboxEnabled(userId: string): boolean {
+  if (usesSupabaseBank(userId)) return false;
+  return DEMO_ACCOUNTS_ENABLED || process.env.PRX_BAAS_MODE === "sandbox";
+}
 
 export async function accountView(userId: string): Promise<BankAccountView> {
   const repo = getBankRepository(userId);
@@ -35,7 +48,46 @@ export async function accountView(userId: string): Promise<BankAccountView> {
     virtualCard: account.virtualCard,
     cardRequest,
     charges,
+    sandbox: sandboxEnabled(userId),
   };
+}
+
+export async function activateSandbox(userId: string): Promise<void> {
+  if (!sandboxEnabled(userId)) throw new PartnerError("A conta sandbox só existe no ambiente de testes.", 403);
+  sandboxActivate(userId);
+}
+
+export const sendPixSchema = z.object({
+  key: z.string().trim().min(1, "Informe a chave Pix.").max(140),
+  amount: z.coerce.number().positive("Informe o valor do Pix.").max(50_000, "Limite de R$ 50.000 por Pix."),
+  description: z.string().trim().max(60).default(""),
+  recipientName: z.string().trim().max(80).nullish(),
+});
+
+/**
+ * Pix pela conta PRX. No sandbox o Pix liquida na hora e passa pelo motor de
+ * compras em parceiros (coins, XP e nicho no PRX Map). Fora dele, a operação
+ * depende do banco parceiro.
+ */
+export async function sendPix(userId: string, input: z.output<typeof sendPixSchema>): Promise<{ partner: PartnerPixResult | null }> {
+  if (!sandboxEnabled(userId)) return assertBankOperational(userId);
+  const account = await getBankRepository(userId).getOrCreateAccount(userId);
+  if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
+  if (account.status !== "active") throw new PartnerError(ACTIVATION_REQUIRED, 409);
+  const keyType = detectPixKeyType(input.key);
+  if (!keyType) throw new PartnerError("Chave Pix inválida.", 422);
+
+  const recipient = input.recipientName?.trim() || input.key;
+  const settled = sandboxSendPix(userId, { key: input.key, amount: input.amount, recipient, description: input.description });
+  const partner = await processPartnerPixTransfer(userId, {
+    endToEndId: settled.endToEndId,
+    key: input.key,
+    recipientName: input.recipientName,
+    amount: settled.transaction.amount,
+    source: "sandbox",
+  });
+  if (partner) sandboxCategorize(userId, settled.transaction.id, partner.purchase.categoryId, partner.purchase.partnerId, partner.purchase.partnerName);
+  return { partner };
 }
 
 export const pixKeyInputSchema = z

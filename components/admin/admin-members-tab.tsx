@@ -1,6 +1,7 @@
 // Hello World
 "use client";
 
+import { calculatePrxLevel, levelGateOptions, xpForLevel } from "@/lib/pass-data";
 import { useMemo, useState, type FormEvent } from "react";
 import { Button, EmptyState, Field, Input, Notice, Select, Sheet, Tag } from "@/components/app/ui";
 import { IconSearch } from "@/components/icons/prx-icons";
@@ -49,7 +50,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
 
   function openEdit(user: AdminUser) {
     setEditing(user);
-    setForm({ level: user.prxLevel, score: user.prxScore, role: user.role });
+    setForm({ level: calculatePrxLevel(user.prxScore), score: user.prxScore, role: user.role });
     setFeedback(null);
   }
 
@@ -62,7 +63,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         // Papel "staff" é gerenciado na aba Equipe: aqui ele só é preservado.
-        body: JSON.stringify({ id: editing.id, prxLevel: form.level, prxScore: form.score, ...(form.role === "staff" ? {} : { role: form.role }) }),
+        body: JSON.stringify({ id: editing.id, prxScore: form.score, ...(form.role === "staff" ? {} : { role: form.role }) }),
       });
       const data = (await res.json()) as ApiResult;
       if (!res.ok || !data.success) {
@@ -172,10 +173,18 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
         }
       >
         <form id="member-form" onSubmit={save} className="grid gap-5 sm:grid-cols-2">
-          <Field label="Nível" hint="Muda os benefícios liberados na hora.">
+          <Field label="Nível" hint="Régua infinita: escolher o nível leva o XP ao piso dele.">
             {(id, describedBy) => (
-              <Select id={id} aria-describedby={describedBy} value={form.level} onChange={(e) => setForm({ ...form, level: Number(e.target.value) })}>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((lvl) => (
+              <Select
+                id={id}
+                aria-describedby={describedBy}
+                value={form.level}
+                onChange={(e) => {
+                  const level = Number(e.target.value);
+                  setForm({ ...form, level, score: xpForLevel(level) });
+                }}
+              >
+                {levelGateOptions(form.level).map((lvl) => (
                   <option key={lvl} value={lvl}>
                     Nível {lvl}
                   </option>
@@ -184,7 +193,19 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
             )}
           </Field>
           <Field label="XP (PRX Score)">
-            {(id) => <Input id={id} type="number" min={0} step={50} value={form.score} onChange={(e) => setForm({ ...form, score: Number(e.target.value) })} />}
+            {(id) => (
+              <Input
+                id={id}
+                type="number"
+                min={0}
+                step={50}
+                value={form.score}
+                onChange={(e) => {
+                  const score = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                  setForm({ ...form, score, level: calculatePrxLevel(score) });
+                }}
+              />
+            )}
           </Field>
           <Field label="Papel de acesso" className="sm:col-span-2" hint={form.role === "staff" ? "Contas da Equipe PRX são gerenciadas na aba Equipe." : undefined}>
             {(id, describedBy) => (

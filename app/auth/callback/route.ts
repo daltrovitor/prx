@@ -1,9 +1,11 @@
+// Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
+import { CONSENT_COOKIE, TERMS_VERSION, recordConsent } from "@/lib/legal";
 
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
@@ -55,24 +57,35 @@ export async function GET(req: NextRequest) {
         let walletBalance = 0;
 
         if (supabaseAdmin) {
-          const { data: profile } = await supabaseAdmin
-            .from("profiles")
-            .upsert(
-              {
-                id: authUser.id,
-                email,
-                full_name: fullName,
-                avatar_url: avatarUrl,
-                role: "user",
-                nxt_score: 300,
-                nxt_level: 1,
-                wallet_balance: 0.0,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: "id" }
-            )
-            .select("*")
-            .maybeSingle();
+          // Perfil existente: só atualiza e-mail e foto. XP, nível, coins e papel nunca voltam ao padrão
+          // (antes, todo login Google regravava nxt_score 300, nível 1 e role "user").
+          const { data: existing } = await supabaseAdmin.from("profiles").select("*").eq("id", authUser.id).maybeSingle();
+          const { data: profile } = existing
+            ? await supabaseAdmin
+                .from("profiles")
+                .update({
+                  email,
+                  ...(existing.avatar_url && !String(existing.avatar_url).includes("unsplash.com") ? {} : { avatar_url: avatarUrl }),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", authUser.id)
+                .select("*")
+                .maybeSingle()
+            : await supabaseAdmin
+                .from("profiles")
+                .insert({
+                  id: authUser.id,
+                  email,
+                  full_name: fullName,
+                  avatar_url: avatarUrl,
+                  role: "user",
+                  nxt_score: 300,
+                  nxt_level: 1,
+                  wallet_balance: 0.0,
+                  updated_at: new Date().toISOString(),
+                })
+                .select("*")
+                .maybeSingle();
 
           if (profile) {
             role = profile.role || "user";
@@ -80,6 +93,9 @@ export async function GET(req: NextRequest) {
             prxLevel = profile.nxt_level ?? 1;
             walletBalance = Number(profile.wallet_balance ?? 0);
           }
+
+          // Aceite dos Termos/LGPD marcado antes de sair para o Google.
+          if (cookieStore.get(CONSENT_COOKIE)?.value === TERMS_VERSION) await recordConsent(authUser.id);
         }
 
         const sessionUser: StoredUser = {
@@ -127,6 +143,8 @@ export async function GET(req: NextRequest) {
           sameSite: "lax",
           maxAge: rememberMe ? 365 * 24 * 60 * 60 : undefined,
         });
+
+        response.cookies.set({ name: CONSENT_COOKIE, value: "", path: "/", maxAge: 0, expires: new Date(0) });
 
         // Delete the temporary pending cookie
         response.cookies.set({

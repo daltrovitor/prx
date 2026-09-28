@@ -1,5 +1,6 @@
 // Hello World
 import type { PixKeyType } from "@/lib/prx/pix";
+import { verticalOf } from "@/lib/points/partner-match";
 
 /**
  * Domínio do PRX BANK (tipos e regras puras, seguros para o cliente).
@@ -31,6 +32,9 @@ export interface BankTransaction {
   counterparty: string;
   description: string;
   createdAt: string;
+  /** Nicho do gasto (vertical PRX) quando o recebedor é um parceiro reconhecido. */
+  categoryId?: string | null;
+  partnerId?: string | null;
 }
 
 export type PixKeyStatus = "pending_activation" | "active";
@@ -96,12 +100,14 @@ export interface BankAccountView {
   virtualCard: VirtualCard | null;
   cardRequest: CardRequest | null;
   charges: PixCharge[];
+  /** Ambiente de testes (sem banco parceiro): permite ativar uma conta sandbox com saldo fictício. */
+  sandbox: boolean;
 }
 
 export const MAX_PIX_KEYS = 5;
 const DAY = 86_400_000;
 
-export type StatementPeriod = 7 | 30 | 90;
+export type StatementPeriod = 7 | 30 | 90 | 365;
 export type StatementFilter = "all" | "in" | "out";
 
 export function filterTransactions(list: BankTransaction[], period: StatementPeriod, filter: StatementFilter, now = Date.now()): BankTransaction[] {
@@ -119,6 +125,60 @@ export function summarize(list: BankTransaction[]): { income: number; outcome: n
     { income: 0, outcome: 0 }
   );
   return { income: Math.round(totals.income * 100) / 100, outcome: Math.round(totals.outcome * 100) / 100 };
+}
+
+/** Períodos do PRX Map: mês, trimestre e ano. */
+export const MAP_PERIODS = [
+  { value: 30, label: "Mensal", long: "Últimos 30 dias" },
+  { value: 90, label: "90 dias", long: "Trimestre" },
+  { value: 365, label: "Ano", long: "Últimos 12 meses" },
+] as const satisfies ReadonlyArray<{ value: StatementPeriod; label: string; long: string }>;
+
+export interface SpendingSlice {
+  id: string;
+  name: string;
+  code: string;
+  amount: number;
+  /** Participação no total de saídas, 0–100 (soma 100 com arredondamento). */
+  pct: number;
+}
+
+/** Nicho de uma saída: parceiro reconhecido, ingresso (PLAY) ou "Outros". */
+function spendingCategory(tx: BankTransaction): string {
+  if (tx.categoryId) return tx.categoryId;
+  if (tx.kind === "ticket") return "entretenimento";
+  return "outros";
+}
+
+/**
+ * Distribuição das saídas por nicho para o gráfico PRX Map, da maior para a
+ * menor. Entradas e estornos não entram.
+ */
+export function spendingByCategory(list: BankTransaction[]): SpendingSlice[] {
+  const totals = new Map<string, number>();
+  for (const tx of list) {
+    if (tx.direction !== "out" || !(tx.amount > 0)) continue;
+    const id = spendingCategory(tx);
+    totals.set(id, (totals.get(id) ?? 0) + tx.amount);
+  }
+  const total = [...totals.values()].reduce((sum, n) => sum + n, 0);
+  if (total <= 0) return [];
+  const slices = [...totals.entries()]
+    .map(([id, amount]) => {
+      const vertical = verticalOf(id);
+      return { id: vertical.id, name: vertical.name, code: vertical.code, amount: Math.round(amount * 100) / 100, pct: (amount / total) * 100 };
+    })
+    .sort((a, b) => b.amount - a.amount);
+  // Maiores restos: as porcentagens inteiras sempre somam 100.
+  const floors = slices.map((s) => Math.floor(s.pct));
+  let missing = 100 - floors.reduce((sum, n) => sum + n, 0);
+  const order = slices.map((s, i) => ({ i, rest: s.pct - floors[i] })).sort((a, b) => b.rest - a.rest);
+  for (const { i } of order) {
+    if (missing <= 0) break;
+    floors[i] += 1;
+    missing -= 1;
+  }
+  return slices.map((s, i) => ({ ...s, pct: floors[i] }));
 }
 
 export const TRANSACTION_LABEL: Record<TransactionKind, string> = {

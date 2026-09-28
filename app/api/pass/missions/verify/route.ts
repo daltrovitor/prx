@@ -1,6 +1,7 @@
 // Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { calculatePrxLevel } from "@/lib/pass-data";
+import { getWalletRepository } from "@/lib/points/repository";
 import { getCurrentUser, userStore } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
@@ -55,8 +56,21 @@ export async function POST(req: NextRequest) {
 
     // If newly completed and has XP to award
     if (result.completed && result.xpEarned > 0) {
-      updatedScore += result.xpEarned;
-      updatedLevel = calculatePrxLevel(updatedScore);
+      // XP pelo extrato de pontos (atômico e idempotente por missão); sem a migração 20260927, soma direto no perfil.
+      try {
+        const applied = await getWalletRepository(user.id).apply(user.id, {
+          coinsDelta: 0,
+          xpDelta: result.xpEarned,
+          source: "mission",
+          referenceId: `mission:${missionId}`,
+          description: passStore.getMissionById(missionId)?.title ?? "Missão concluída",
+        });
+        updatedScore = applied.xp;
+        updatedLevel = applied.level;
+      } catch {
+        updatedScore += result.xpEarned;
+        updatedLevel = calculatePrxLevel(updatedScore);
+      }
 
       // Keep userStore in-memory synced
       userStore.updateUser(user.id, {

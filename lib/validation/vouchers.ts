@@ -5,6 +5,7 @@ import type { VoucherRow } from "@/lib/db-rows";
 import { getBenefit, isUuid, listBenefitsByPartner, listVouchersForBenefits, type CatalogVoucher } from "@/lib/partners/catalog";
 import { PartnerError, dbError, isMissingColumn } from "@/lib/partners/errors";
 import type { Validator } from "@/lib/validation/actor";
+import { rewardVoucherUse } from "@/lib/points/service";
 
 /**
  * Baixa de vouchers do PRX PASS no balcão. O parceiro só enxerga vouchers dos
@@ -190,6 +191,9 @@ export async function redeemVoucher(validator: Validator, rawInput: string): Pro
 
   passStore.updateVoucherStatus(found.id, "used", validator.userId);
   if (found.code) passStore.updateVoucherStatus(found.code, "used", validator.userId);
+
+  // XP de fidelidade pelo uso no balcão (idempotente pelo voucher; nunca bloqueia a baixa).
+  await rewardVoucherUse(found.userId, found.id, `${found.partnerName}: ${found.benefitTitle}`);
 
   return {
     ok: true,

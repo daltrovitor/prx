@@ -3,9 +3,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-export type AppTab = "home" | "pass" | "bank" | "live" | "profile";
+export type AppTab = "home" | "pass" | "reels" | "bank" | "live" | "profile";
 
-const TABS: ReadonlyArray<AppTab> = ["home", "pass", "bank", "live", "profile"];
+const TABS: ReadonlyArray<AppTab> = ["home", "pass", "reels", "bank", "live", "profile"];
 
 interface AppNavState {
   tab: AppTab;
