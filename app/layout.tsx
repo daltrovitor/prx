@@ -1,7 +1,7 @@
 // Hello World
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Bricolage_Grotesque, Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Barlow, Bricolage_Grotesque, Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -34,6 +34,15 @@ const bricolage = Bricolage_Grotesque({
   preload: false,
 });
 
+/* Tipografia monumental Cyber-Luxury Obsidian (manifesto, rótulos em caixa alta). */
+const barlow = Barlow({
+  subsets: ["latin"],
+  variable: "--font-obsidian",
+  weight: ["300", "400", "500", "600"],
+  display: "swap",
+  preload: false,
+});
+
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
@@ -54,7 +63,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black",
     title: "PRX",
   },
   openGraph: {
@@ -76,7 +85,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  themeColor: "#ffffff",
+  themeColor: "#050508",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
@@ -84,7 +93,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     <html
       lang="pt-BR"
       suppressHydrationWarning
-      className={cn("dark h-full antialiased", inter.variable, spaceGrotesk.variable, bricolage.variable, jetbrainsMono.variable)}
+      className={cn("dark h-full antialiased", inter.variable, spaceGrotesk.variable, bricolage.variable, barlow.variable, jetbrainsMono.variable)}
     >
       <head>
         <ThemeScript />

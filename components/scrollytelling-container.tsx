@@ -10,15 +10,9 @@ import { motion, useScroll, useTransform, useSpring, AnimatePresence } from "fra
 import Lenis from "lenis";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import dynamic from "next/dynamic";
-
-// O modelo 3D (Three.js) é o trecho mais pesado da landing: carrega depois que a
-// página fica interativa, com um espaço reservado do mesmo tamanho (sem layout shift).
-const PHONE_BOX = "w-[340px] sm:w-[380px] md:w-[400px] h-[660px] sm:h-[740px] md:h-[780px]";
-const Phone3DModel = dynamic(() => import("@/components/phone-3d-model").then((m) => m.Phone3DModel), {
-  ssr: false,
-  loading: () => <div aria-hidden className={PHONE_BOX} />,
-});
+// Celular 3D Cyber-Luxury Obsidian em CSS 3D: leve (sem WebGL) e com o app PRX vivo na tela.
+import { ObsidianPhone3D } from "@/components/obsidian/obsidian-phone";
+import { ObsidianCrystal } from "@/components/obsidian/obsidian-ui";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import {
@@ -132,18 +126,6 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
   const y = isMobile ? yMobile : yDesktop;
   const scale = isMobile ? scaleMobile : scaleDesktop;
   const opacity = isMobile ? opacityMobile : opacityDesktop;
-
-  // Track dynamic state on phone screen based on scroll range
-  const [currentSection, setCurrentSection] = useState(0);
-
-  useEffect(() => {
-    return smoothProgress.on("change", (latest) => {
-      if (latest < 0.22) setCurrentSection(0);
-      else if (latest < 0.50) setCurrentSection(1);
-      else if (latest < 0.78) setCurrentSection(2);
-      else setCurrentSection(3);
-    });
-  }, [smoothProgress]);
 
   // Smooth scroll via Lenis + GSAP ScrollTrigger synchronization
   useEffect(() => {
@@ -300,18 +282,6 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
   const [authPass, setAuthPass] = useState("");
   const [authName, setAuthName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [phoneReady, setPhoneReady] = useState(false);
-
-  // Monta o 3D quando o navegador estiver ocioso (ou após 2,5s no máximo).
-  useEffect(() => {
-    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
-    if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(() => setPhoneReady(true), { timeout: 2500 });
-      return () => w.cancelIdleCallback?.(id);
-    }
-    const t = window.setTimeout(() => setPhoneReady(true), 1200);
-    return () => window.clearTimeout(t);
-  }, []);
   const [rememberMe, setRememberMe] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -403,8 +373,8 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
             - On Mobile: Stationary at top (relative, below header), scrolls away naturally
         ========================================================================= */}
         <div className="relative md:sticky md:top-0 w-full flex items-center justify-center pointer-events-none z-20 overflow-hidden mt-[52px] md:mt-0 h-[calc(100vh-52px-45px)] min-h-[500px] md:h-screen bg-background border-b border-border md:bg-transparent md:border-b-0 transition-colors">
-          {/* Subtle Mobile Ambient Glow */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.22),transparent_70%)] pointer-events-none md:hidden" />
+          {/* Haze Obsidian no celular (violeta ao centro, cobalto embaixo) */}
+          <div className="absolute inset-0 bg-[radial-gradient(60%_48%_at_50%_45%,rgba(124,58,237,0.24),transparent_70%),radial-gradient(46%_40%_at_28%_72%,rgba(0,102,255,0.12),transparent_70%)] pointer-events-none md:hidden" />
 
           <motion.div
             style={{
@@ -413,21 +383,19 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
               scale,
               opacity,
             }}
-            className="transition-shadow pointer-events-none md:pointer-events-auto"
+            className="relative pointer-events-none md:pointer-events-auto"
           >
-            {phoneReady ? (
-            <Phone3DModel
-              highlightBenefits={currentSection === 1}
-              animateXp={currentSection >= 2}
-              glowIntensity={currentSection === 1 ? 1.4 : currentSection === 2 ? 1.6 : 1}
-              rotationX={rotateX}
-              rotationY={rotateY}
-              rotationZ={rotateZ}
-              className="pointer-events-none md:pointer-events-auto"
-            />
-            ) : (
-              <div aria-hidden className={PHONE_BOX} />
-            )}
+            {/* Backdrop 3D: escultura de cristal PRX atrás do celular, com luz volumétrica
+                e poeira de luz estática em violeta e azul elétrico (nada pisca). */}
+            <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 -z-10 hidden h-[980px] w-[780px] -translate-x-1/2 -translate-y-1/2 dark:block">
+              <div className="absolute inset-0 bg-[radial-gradient(closest-side,rgba(124,58,237,0.34),transparent_72%)]" />
+              <div className="absolute inset-[16%] translate-x-[22%] bg-[radial-gradient(closest-side,rgba(0,102,255,0.22),transparent_70%)]" />
+              <ObsidianCrystal sizes="780px" className="absolute inset-0 translate-x-[14%]" />
+              <div className="absolute inset-0 opacity-70 [background-image:radial-gradient(1.5px_1.5px_at_12%_24%,rgba(196,181,253,0.9),transparent),radial-gradient(1px_1px_at_24%_62%,rgba(147,197,253,0.8),transparent),radial-gradient(1.5px_1.5px_at_36%_14%,rgba(196,181,253,0.7),transparent),radial-gradient(1px_1px_at_70%_20%,rgba(147,197,253,0.9),transparent),radial-gradient(1.5px_1.5px_at_82%_46%,rgba(196,181,253,0.8),transparent),radial-gradient(1px_1px_at_88%_74%,rgba(147,197,253,0.7),transparent),radial-gradient(1.5px_1.5px_at_18%_84%,rgba(196,181,253,0.6),transparent),radial-gradient(1px_1px_at_62%_88%,rgba(147,197,253,0.8),transparent),radial-gradient(1px_1px_at_48%_6%,rgba(255,255,255,0.8),transparent),radial-gradient(1.5px_1.5px_at_94%_12%,rgba(255,255,255,0.6),transparent)]" />
+            </div>
+            <div className="origin-center [@media(max-height:760px)]:scale-[0.86] [@media(max-height:640px)]:scale-[0.74]">
+              <ObsidianPhone3D rotationX={rotateX} rotationY={rotateY} rotationZ={rotateZ} pointerTilt={!isMobile} />
+            </div>
           </motion.div>
 
           {/* Simple static "Role para explorar" under the phone - ONLY on mobile */}
@@ -442,7 +410,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
       {/* =========================================================================
           SCROLLYTELLING SECTIONS - DESKTOP 2-COLUMN VIEW (md:block)
       ========================================================================= */}
-      <div className="hidden md:block relative z-30 -mt-[100vh]">
+      <div className="hidden md:block relative z-30 -mt-[100vh] pointer-events-none">
 
         {/* -----------------------------------------------------------------------
             SECTION 1: HERO (Scroll 0% - 25%)

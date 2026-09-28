@@ -31,7 +31,7 @@ export function LiveScreen({ member }: { member: User }) {
   return (
     <div className="space-y-8">
       <header className="space-y-1.5">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">PRX LIVE</h1>
+        <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX LIVE</h1>
         <p className="max-w-md text-sm text-muted-foreground sm:text-[15px]">Eventos, corridas e o palco das startups. Ingresso na carteira, QR na portaria.</p>
       </header>
 

@@ -97,7 +97,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
     <div className="space-y-8">
       <header className="grid gap-5 lg:grid-cols-12 lg:items-end">
         <div className="lg:col-span-7">
-          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">PRX PASS</h1>
+          <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX PASS</h1>
           <p className="mt-1.5 max-w-md text-sm text-muted-foreground sm:text-[15px]">Descontos reais em marcas parceiras. Resgate, mostre o QR no balcão e pronto.</p>
         </div>
         <div className="rounded-3xl glass p-5 lg:col-span-5">

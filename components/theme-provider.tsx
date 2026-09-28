@@ -8,14 +8,16 @@ type Theme = "dark" | "light";
 /**
  * Dois escopos de tema com preferências independentes:
  *   landing → apresentação pública, abre no escuro;
- *   app     → dashboards (membro, admin, parceiro), abrem no claro.
+ *   app     → dashboards (membro, admin, parceiro, equipe e Conta Pai), abrem no
+ *             escuro Cyber-Luxury Obsidian. A chave mudou no redesign Obsidian
+ *             (28/09/2026) para todos abrirem uma vez no tema novo.
  * O botão de tema altera só o escopo ativo. Os dashboards ativam o escopo "app"
  * ao montar (useThemeScope) e devolvem para "landing" ao desmontar.
  */
 export type ThemeScope = "landing" | "app";
 
-const KEYS: Record<ThemeScope, string> = { landing: "prx-theme", app: "prx-app-theme" };
-const DEFAULTS: Record<ThemeScope, Theme> = { landing: "dark", app: "light" };
+const KEYS: Record<ThemeScope, string> = { landing: "prx-theme", app: "prx-app-theme-obsidian" };
+const DEFAULTS: Record<ThemeScope, Theme> = { landing: "dark", app: "dark" };
 
 interface ThemeContextType {
   theme: Theme;
@@ -58,9 +60,11 @@ export function ThemeScript() {
       var root = document.documentElement;
       try {
         var host = location.hostname, path = location.pathname;
-        var app = /^(adminprx|partnerprx|staffprx|adminng|partnerng)\\./.test(host) || /^\\/(admin|partner|staff|termos|privacidade|em-breve|sou-pai|nova-landing)(\\/|$)/.test(path)
+        var app = /^(adminprx|partnerprx|staffprx|adminng|partnerng)\\./.test(host) || /^\\/(admin|partner|staff|termos|privacidade|em-breve|sou-pai|nova-landing|teste|showcase)(\\/|$)/.test(path)
           || /^(www\\.)?prx\\.app\\.br$/.test(host)
           || localStorage.getItem('prx_remember_me') === 'true' || sessionStorage.getItem('prx_tab_active') === 'true';
+        // ?tema=obsidian (atalhos do /teste): liga o tema Obsidian dos dashboards nesta origem.
+        if (/[?&]tema=obsidian(&|$)/.test(location.search)) localStorage.setItem('${KEYS.app}', 'dark');
         var stored = localStorage.getItem(app ? '${KEYS.app}' : '${KEYS.landing}');
         var theme = stored === 'dark' || stored === 'light' ? stored : (app ? '${DEFAULTS.app}' : '${DEFAULTS.landing}');
         root.classList.remove('dark', 'light');
@@ -135,6 +139,13 @@ export function useTheme() {
     };
   }
   return context;
+}
+
+/** Grava o tema dos dashboards antes de navegar até eles (ex.: botões do /teste). */
+export function rememberAppTheme(theme: Theme) {
+  try {
+    localStorage.setItem(KEYS.app, theme);
+  } catch {}
 }
 
 /** Dashboards chamam no topo: ativa o tema do app enquanto estiverem montados. */

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
  * continuam aceitos enquanto o DNS é migrado.
  *
  * prx.app.br (e www.) → /em-breve (teaser de lançamento com a Lista VIP).
+ * /teste (e o atalho /showcase) é a vitrine aberta da identidade Obsidian.
  * /nova-landing é a prévia da nova página inicial: abre no domínio principal e no
  * subdomínio do admin, mas a própria página exige sessão de administrador.
  * Outros hosts de teaser podem ser adicionados em PRX_TEASER_HOSTS (vírgula).
@@ -21,7 +22,7 @@ const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/adm
 ];
 
 /** Páginas públicas com rota própria no domínio principal (o app continua sendo só "/"). */
-const PUBLIC_PAGES = new Set(["/termos", "/privacidade", "/em-breve", "/sou-pai", "/nova-landing"]);
+const PUBLIC_PAGES = new Set(["/termos", "/privacidade", "/em-breve", "/sou-pai", "/nova-landing", "/teste", "/showcase"]);
 /** Prévia da nova landing, aberta dentro do painel admin (mesma origem do iframe). */
 const ADMIN_PAGES = new Set(["/nova-landing"]);
 /** No domínio de teaser, só o teaser e os documentos legais. */

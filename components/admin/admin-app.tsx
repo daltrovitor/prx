@@ -20,7 +20,7 @@ import type { PartnerOverview } from "@/lib/partners/service";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { CircleLoader } from "@/components/ui/circle-loader";
 import { Button, IconButton, Segmented } from "@/components/app/ui";
-import { DashboardHeader, roundLinkClass } from "@/components/app/dashboard-header";
+import { DashboardBackdrop, DashboardHeader, roundLinkClass } from "@/components/app/dashboard-header";
 import { IconExternal, IconLogout, IconRefresh } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
@@ -169,8 +169,9 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   ];
 
   return (
-    <div className="prx-app isolate min-h-dvh bg-background text-foreground">
+    <div className="prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground">
       <div aria-hidden className="prx-ambient" />
+      <DashboardBackdrop />
       <DashboardHeader
         name={admin?.name || "Administrador"}
         subtitle={admin?.email}
@@ -188,9 +189,9 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
         }
       />
 
-      <main className="mx-auto max-w-7xl space-y-8 px-4 pb-20 pt-4 sm:px-6 lg:pt-8">
+      <main className="relative z-10 mx-auto max-w-7xl space-y-8 px-4 pb-20 pt-6 sm:px-6 lg:pt-10">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">Painel PRX</h1>
+          <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">Painel PRX</h1>
           <Button variant="secondary" size="sm" onClick={() => void loadData()} disabled={loading}>
             <IconRefresh size={16} />
             {loading ? "Atualizando…" : "Atualizar dados"}

@@ -47,7 +47,7 @@ export function BankKycPanel({ member, kyc, onDone }: { member: User; kyc: BankK
 function KycPending({ kyc }: { kyc: BankKycState }) {
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">PRX BANK</h1>
+      <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
       <section className="glass space-y-4 rounded-[28px] p-6">
         <Tag>Em análise</Tag>
         <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Recebemos sua abertura de conta</h2>
@@ -149,7 +149,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
   if (!started) {
     return (
       <div className="mx-auto max-w-xl space-y-6">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">PRX BANK</h1>
+        <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
         {rejectedNote && <Notice tone="warning">Sua abertura anterior não foi aprovada: {rejectedNote}</Notice>}
         <section className="prx-holo space-y-4 rounded-[28px] p-6 sm:p-8">
           <h2 className="text-[26px] font-semibold leading-tight tracking-[-0.03em] text-white">Abra sua conta digital</h2>

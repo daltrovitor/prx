@@ -44,7 +44,7 @@ export function PartnerContracts({
   return (
     <section aria-labelledby="contracts-title" className="space-y-8">
       <div>
-        <h2 id="contracts-title" className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">
+        <h2 id="contracts-title" className="ob-display text-[28px] text-ink sm:text-[40px]">
           Contratos
         </h2>
         <p className="mt-3 max-w-xl text-[15px] text-muted-foreground">

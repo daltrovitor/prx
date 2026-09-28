@@ -55,7 +55,7 @@ export function DoorEvents({ endpoint, refreshKey, onValidate, emptyBody }: { en
   return (
     <section aria-labelledby="door-events-title" className="space-y-6">
       <div className="flex items-end justify-between gap-4">
-        <h2 id="door-events-title" className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">
+        <h2 id="door-events-title" className="ob-display text-[28px] text-ink sm:text-[40px]">
           Eventos
         </h2>
         <Button variant="ghost" size="sm" onClick={() => setReload((r) => r + 1)} aria-label="Atualizar eventos">

@@ -109,3 +109,23 @@ export const IconPlay = createIcon("IconPlay", [], ["M7 4l13 8-13 8z"]);
 export const IconCoin = createIcon("IconCoin", ["M8.5 3h7L21 8.5v7L15.5 21h-7L3 15.5v-7z"], ["M12 8.5l3.5 3.5-3.5 3.5L8.5 12z"]);
 export const IconGlobe = createIcon("IconGlobe", ["M3 3h18v18H3z", "M3 12h18", "M12 3c-3 3-3 15 0 18", "M12 3c3 3 3 15 0 18"]);
 export const IconImage = createIcon("IconImage", ["M3 4h18v16H3z", "M3 17l6-6 5 5 3-3 4 4"], ["M15 7h2.5v2.5H15z"]);
+
+/* Cyber-Luxury Obsidian: dock de 5 destinos e atalhos do saldo. */
+/* Pix: quatro losangos em diamante, como a marca do Pix. */
+export const IconPixDiamonds = createIcon(
+  "IconPixDiamonds",
+  [],
+  ["M12 3.2l3.3 3.3L12 9.8 8.7 6.5z", "M17.5 8.7l3.3 3.3-3.3 3.3-3.3-3.3z", "M12 14.2l3.3 3.3-3.3 3.3-3.3-3.3z", "M6.5 8.7 9.8 12l-3.3 3.3L3.2 12z"]
+);
+/* Pagar: código de barras de boleto e QR. */
+export const IconBarcode = createIcon("IconBarcode", ["M4.5 5.5v13", "M8 5.5v13", "M14.5 5.5v13", "M19.5 5.5v13"], ["M10.5 5.5h1.8v13h-1.8z", "M16.4 5.5h1.2v13h-1.2z"]);
+/* Transferir: avião de papel. */
+export const IconPaperPlane = createIcon("IconPaperPlane", ["M21 3 3 10.2l7.2 3.3L13.8 21z", "M10.2 13.5 21 3"]);
+/* Experiências (PASS & LIVE). */
+export const IconStar = createIcon("IconStar", ["M12 3.2l2.7 5.8 6.3.7-4.7 4.3 1.3 6.3L12 17.1l-5.6 3.2 1.3-6.3L3 9.7l6.3-.7z"]);
+/* Comunidade: três pessoas, a do meio à frente. */
+export const IconCommunity = createIcon("IconCommunity", ["M9.5 4.5h5v5h-5z", "M6.5 20.5l1.8-6h7.4l1.8 6", "M3 8h3.5v3.5H3z", "M17.5 8H21v3.5h-3.5z", "M1.5 18l1.2-3.5h3.4", "M22.5 18l-1.2-3.5h-3.4"]);
+/* Conta: carteira com o cartão encaixado. */
+export const IconWallet = createIcon("IconWallet", ["M3 5.5h16v3", "M3 5.5v13h18v-10H3", "M15 12.5h6v3h-6z"]);
+/* Mais: três pontos. */
+export const IconMore = createIcon("IconMore", [], ["M4 10.8h2.6v2.6H4z", "M10.7 10.8h2.6v2.6h-2.6z", "M17.4 10.8H20v2.6h-2.6z"]);

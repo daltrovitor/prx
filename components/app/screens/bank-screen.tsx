@@ -68,7 +68,9 @@ function parseMoney(text: string): number {
 
 export function BankScreen({ member }: { member: User }) {
   const { sub, go } = useAppNav();
-  const section: BankSection = SECTIONS.includes(sub as BankSection) ? (sub as BankSection) : "extrato";
+  // #bank/pagar (atalho "Pagar" da Início) abre o Pix já no Copia e Cola.
+  const paying = sub === "pagar";
+  const section: BankSection = paying ? "pix" : SECTIONS.includes(sub as BankSection) ? (sub as BankSection) : "extrato";
   const { account, loading, error, reload, run } = useBankAccount(member.id);
   const { wallet } = usePointsWallet(member.id);
   const [hidden, toggleHidden] = useHiddenBalance();
@@ -77,7 +79,7 @@ export function BankScreen({ member }: { member: User }) {
   if (!account) {
     return (
       <div className="space-y-8">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">PRX BANK</h1>
+        <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
         {loading ? (
           <div role="status" aria-label="Carregando conta" className="h-40 rounded-3xl bg-surface" />
         ) : (
@@ -96,7 +98,7 @@ export function BankScreen({ member }: { member: User }) {
     <div className="space-y-8">
       <header className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">PRX BANK</h1>
+          <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
           <Tag tone={active ? "success" : account.status === "blocked" ? "warning" : "neutral"}>Conta {ACCOUNT_STATUS_LABEL[account.status].toLowerCase()}</Tag>
         </div>
         {account.status === "pending_activation" && (
@@ -171,7 +173,7 @@ export function BankScreen({ member }: { member: User }) {
       />
 
       {section === "extrato" && <StatementPanel account={account} hidden={hidden} />}
-      {section === "pix" && (active ? <PixPanel account={account} run={run} /> : <ActivationPanel title="Pix disponível na ativação" onKeys={() => go("bank", "chaves")} />)}
+      {section === "pix" && (active ? <PixPanel key={paying ? "pagar" : "pix"} account={account} run={run} initialMethod={paying ? "copia" : "chave"} /> : <ActivationPanel title="Pix disponível na ativação" onKeys={() => go("bank", "chaves")} />)}
       {section === "cobrar" && (active ? <ChargePanel account={account} run={run} /> : <ActivationPanel title="Cobranças com QR Code na ativação" onKeys={() => go("bank", "chaves")} />)}
       {section === "mapa" && <PrxMap transactions={account.transactions} hidden={hidden} />}
       {section === "cartoes" && <CardsPanel account={account} run={run} holder={member.name || "Membro PRX"} />}
@@ -275,8 +277,8 @@ interface PixDraft {
 }
 
 /** Envio de Pix (conta ativa). A operação é sempre decidida no servidor, junto ao banco parceiro. */
-function PixPanel({ account, run }: { account: BankAccountView; run: Run }) {
-  const [method, setMethod] = useState<PixMethod>("chave");
+function PixPanel({ account, run, initialMethod = "chave" }: { account: BankAccountView; run: Run; initialMethod?: PixMethod }) {
+  const [method, setMethod] = useState<PixMethod>(initialMethod);
   const [key, setKey] = useState("");
   const [amountText, setAmountText] = useState("");
   const [description, setDescription] = useState("");

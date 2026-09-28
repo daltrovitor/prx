@@ -3,7 +3,7 @@
 
 import { useCallback, useState } from "react";
 import { PanelLogin } from "@/components/admin/admin-login";
-import { DashboardHeader } from "@/components/app/dashboard-header";
+import { DashboardBackdrop, DashboardHeader } from "@/components/app/dashboard-header";
 import { Button, IconButton, Notice, Segmented } from "@/components/app/ui";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { CircleLoader } from "@/components/ui/circle-loader";
@@ -90,8 +90,9 @@ function StaffDashboard({ actor, onLogout }: { actor: StaffActor; onLogout: () =
   };
 
   return (
-    <div className="prx-app isolate min-h-dvh bg-background text-foreground">
+    <div className="prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground">
       <div aria-hidden className="prx-ambient" />
+      <DashboardBackdrop />
       <DashboardHeader
         name={actor.name}
         subtitle={actor.isAdmin ? "Administrador" : actor.email}
@@ -106,7 +107,7 @@ function StaffDashboard({ actor, onLogout }: { actor: StaffActor; onLogout: () =
         }
       />
 
-      <main className="mx-auto max-w-6xl space-y-8 px-4 pb-20 pt-4 sm:px-6 lg:pt-8">
+      <main className="relative z-10 mx-auto max-w-6xl space-y-8 px-4 pb-20 pt-6 sm:px-6 lg:pt-10">
         <h1 className="sr-only">Portal da Equipe PRX</h1>
 
         {!actor.canValidateTickets && !actor.canValidateBenefits ? (

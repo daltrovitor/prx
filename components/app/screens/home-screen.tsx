@@ -4,43 +4,52 @@
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import type { PassData } from "@/components/app/use-pass-data";
-import { useAppNav, type AppTab } from "@/components/app/app-nav";
+import { firstName } from "@/components/app/use-pass-data";
+import { useAppNav } from "@/components/app/app-nav";
 import { useBankAccount, useHiddenBalance, useLiveData, usePointsWallet } from "@/components/app/use-prx-stores";
-import { EventDate, TextLink, TransactionRow } from "@/components/app/shared";
+import { TextLink, TransactionRow } from "@/components/app/shared";
 import { PaymentCard } from "@/components/app/bank/card-visual";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { PointsSheet } from "@/components/app/points/points-sheet";
 import { PwaInstallCard } from "@/components/app/pwa-install-card";
-import { ActionTile, EmptyState, ProgressBar, SectionHeader, Sheet } from "@/components/app/ui";
+import { EmptyState, ProgressBar } from "@/components/app/ui";
+import { IconBarcode, IconPaperPlane, IconPixDiamonds } from "@/components/icons/prx-icons";
 import {
-  IconBank,
-  IconCalendar,
-  IconCard,
-  IconChevronDown,
-  IconCoin,
-  IconGift,
-  IconLevel,
-  IconPix,
-  IconQr,
-  IconReceive,
-  IconSend,
-  IconTicket,
-  IconUsers,
-} from "@/components/icons/prx-icons";
+  OBSIDIAN_PILLARS,
+  ObsidianBalanceCard,
+  ObsidianEventCard,
+  ObsidianGreeting,
+  ObsidianPillarCard,
+  ObsidianSectionHeader,
+  type ObsidianAction,
+  type PillarId,
+} from "@/components/obsidian/obsidian-ui";
+import { useConfirmToast } from "@/components/ui/confirm-toast";
+import { formatEventDate } from "@/lib/live/format";
 
 const reveal = {
   hidden: { opacity: 0, y: 14 },
-  show: (i: number) => ({ opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 30, delay: i * 0.05 } }),
+  show: (i: number) => ({ opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 30, delay: i * 0.06 } }),
 };
 
+const SOON: Record<Extract<PillarId, "invest" | "me">, string> = {
+  invest: "Caixinhas e metas para os seus planos chegam em breve ao PRX.",
+  me: "Saúde mental pra ir mais longe: o PRX ME chega em breve.",
+};
+
+/**
+ * Início (Cyber-Luxury Obsidian): saudação e manifesto, saldo PRX Bank com
+ * Pix · Pagar · Transferir, os 4 pilares do ecossistema e os próximos eventos.
+ * Abaixo, o dia a dia: instalar o app, Coins e nível, atividade, benefícios e missões.
+ */
 export function HomeScreen({ pass }: { pass: PassData }) {
   const { go, sub } = useAppNav();
+  const { showToast } = useConfirmToast();
   const { member, vouchers, missions, benefits } = pass;
   const { account } = useBankAccount(member.id);
   const { data: live } = useLiveData(member.id);
   const { wallet, error: pointsError, checkin } = usePointsWallet(member.id);
   const [hidden, toggleHidden] = useHiddenBalance();
-  const [moreOpen, setMoreOpen] = useState(false);
   // #home/pontos (ex.: aviso de compra em parceiro) abre o extrato de pontos.
   const pointsOpen = sub === "pontos";
 
@@ -49,199 +58,216 @@ export function HomeScreen({ pass }: { pass: PassData }) {
   const suggestedMissions = inProgress.length > 0 ? inProgress : missions.filter((m) => !m.isCompleted).slice(0, 3);
 
   const [now] = useState(() => Date.now());
-  const nextEvent = useMemo(
+  const upcoming = useMemo(
     () =>
       (live?.events ?? [])
         .filter((e) => e.status === "published" && new Date(e.startsAt).getTime() > now)
-        .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0],
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+        .slice(0, 2),
     [live?.events, now]
   );
-  const openTickets = (live?.wallet.tickets ?? []).filter((t) => t.status === "valid" || t.status === "pending_payment");
+  const ticketEvents = new Set((live?.wallet.tickets ?? []).filter((t) => t.status === "valid" || t.status === "pending_payment").map((t) => t.eventId));
   const transactions = account?.transactions ?? [];
 
-  const more: ReadonlyArray<{ label: string; Icon: typeof IconCard; tab: AppTab; sub: string | null }> = [
-    { label: "Cartões", Icon: IconCard, tab: "bank", sub: "cartoes" },
-    { label: "Vouchers", Icon: IconQr, tab: "pass", sub: "vouchers" },
-    { label: "Benefícios", Icon: IconGift, tab: "pass", sub: null },
-    { label: "Missões", Icon: IconLevel, tab: "pass", sub: "missions" },
-    { label: "Eventos", Icon: IconCalendar, tab: "live", sub: null },
-    { label: "Ingressos", Icon: IconTicket, tab: "live", sub: "ingressos" },
-    { label: "Convidar", Icon: IconUsers, tab: "pass", sub: "convidar" },
-    { label: "Chaves Pix", Icon: IconPix, tab: "bank", sub: "chaves" },
-    { label: "PRX Coins", Icon: IconCoin, tab: "home", sub: "pontos" },
-    { label: "PRX Map", Icon: IconBank, tab: "bank", sub: "mapa" },
+  const balanceActions: ReadonlyArray<ObsidianAction> = [
+    { key: "pix", label: "Pix", Icon: IconPixDiamonds, onClick: () => go("bank", "chaves") },
+    { key: "pagar", label: "Pagar", Icon: IconBarcode, onClick: () => go("bank", "pagar") },
+    { key: "transferir", label: "Transferir", Icon: IconPaperPlane, onClick: () => go("bank", "pix") },
   ];
 
-  const paymentCard = <PaymentCard card={account?.virtualCard ?? null} holder={member.name || "Membro PRX"} onClick={() => go("bank", "cartoes")} />;
+  const openPillar = (id: PillarId) => {
+    if (id === "pass" || id === "live") return go(id);
+    showToast("info", SOON[id], `PRX ${id.toUpperCase()}`);
+  };
 
   return (
-    <div className="grid gap-9 lg:grid-cols-12 lg:gap-12">
-      <div className="min-w-0 space-y-9 lg:col-span-7">
-        {/* Topo: Carteira Central — saldo, PRX Coins e nível */}
-        <motion.section aria-label="Carteira Central" initial="hidden" animate="show" custom={0} variants={reveal}>
-          <WalletTriad
-            balance={account?.balance ?? 0}
-            balanceLabel={account && account.status !== "active" ? "Saldo PRX Bank · em ativação" : "Saldo PRX Bank"}
-            coins={wallet?.coins ?? null}
-            xp={wallet?.xp ?? member.prxScore ?? 0}
+    <div className="space-y-12 lg:space-y-16">
+      {/* Topo da pirâmide: manifesto, saldo, pilares e eventos. No celular os pilares vêm antes
+          dos eventos (como na referência); no desktop saldo e eventos dividem a mesma linha. */}
+      <div className="grid gap-7 lg:grid-cols-12 lg:gap-x-8 lg:gap-y-10">
+        <motion.header initial="hidden" animate="show" custom={0} variants={reveal} className="order-1 pb-2 pt-3 sm:pt-8 lg:col-span-12 lg:pb-4 lg:pt-12">
+          <ObsidianGreeting name={firstName(member)} />
+        </motion.header>
+
+        <motion.div initial="hidden" animate="show" custom={1} variants={reveal} className="order-2 min-w-0 lg:col-span-7">
+          <ObsidianBalanceCard
+            value={account?.balance ?? 0}
             hidden={hidden}
             onToggleHidden={toggleHidden}
-            onOpenPoints={() => go("home", "pontos")}
-            onOpenLevel={() => go("pass", "missions")}
+            onOpen={() => go("bank")}
+            actions={balanceActions}
+            note={account && account.status !== "active" ? "Conta em ativação" : undefined}
           />
-        </motion.section>
+        </motion.div>
 
-        {/* Convite para instalar o app (Android e Windows), logo abaixo da Carteira Central */}
-        <PwaInstallCard />
-
-        {/* Cartão (no desktop fica na coluna lateral) */}
-        <motion.section aria-label="Cartão" initial="hidden" animate="show" custom={1} variants={reveal} className="lg:hidden">
-          <div className="max-w-[340px]">{paymentCard}</div>
-        </motion.section>
-
-        {/* Ações rápidas */}
-        <motion.nav aria-label="Ações rápidas" initial="hidden" animate="show" custom={2} variants={reveal} className="grid grid-cols-4 gap-3 sm:gap-4">
-          <ActionTile label="Enviar" icon={<IconSend size={20} />} onClick={() => go("bank", "pix")} />
-          <ActionTile label="Receber" icon={<IconReceive size={20} />} onClick={() => go("bank", "cobrar")} />
-          <ActionTile label="Área Pix" icon={<IconPix size={20} />} onClick={() => go("bank", "chaves")} />
-          <ActionTile label="Mais" icon={<IconChevronDown size={20} />} onClick={() => setMoreOpen(true)} />
-        </motion.nav>
-
-        {/* Base da pirâmide: atividade */}
-        <motion.section aria-labelledby="home-activity" initial="hidden" animate="show" custom={3} variants={reveal}>
-          <SectionHeader id="home-activity" title="Atividade geral" action={<TextLink onClick={() => go("bank", "extrato")}>Ver todas</TextLink>} />
-          {transactions.length === 0 ? (
-            <div className="mt-3">
-              <EmptyState
-                title="Nenhuma movimentação ainda"
-                body={account?.status === "active" ? "Pix, compras e cashbacks aparecem aqui." : "Sua conta PRX BANK está em ativação. Pix, compras e cashbacks aparecem aqui depois."}
-              />
+        <motion.section
+          aria-labelledby="home-events"
+          initial="hidden"
+          animate="show"
+          custom={3}
+          variants={reveal}
+          className="order-4 min-w-0 space-y-3 lg:order-3 lg:col-span-5 lg:flex lg:flex-col"
+        >
+          <ObsidianSectionHeader id="home-events" title="Próximos eventos" actionLabel="Ver todos" onAction={() => go("live")} />
+          {upcoming.length === 0 ? (
+            <div className="glass flex min-h-[112px] flex-1 items-center rounded-[24px] p-5 text-[14px] leading-relaxed text-muted-foreground">
+              Novos eventos PRX LIVE aparecem aqui assim que forem anunciados.
             </div>
           ) : (
-            <ul className="mt-2">
-              {transactions.slice(0, 5).map((tx) => (
-                <TransactionRow key={tx.id} tx={tx} hidden={hidden} />
-              ))}
+            <ul className="space-y-3 lg:flex-1">
+              {upcoming.map((event, i) => {
+                const date = formatEventDate(event.startsAt);
+                const hasTicket = ticketEvents.has(event.id);
+                return (
+                  <li key={event.id} className={i > 0 ? "hidden lg:block" : undefined}>
+                    <ObsidianEventCard
+                      title={event.title}
+                      meta={`${date.day} ${date.month} · ${event.city}`}
+                      image={/^https:\/\//.test(event.coverUrl) ? event.coverUrl : null}
+                      onOpen={() => go("live", hasTicket ? "ingressos" : null)}
+                      trailing={
+                        hasTicket || event.soldOut ? (
+                          <span className="ob-label hidden rounded-full border border-white/[0.24] bg-black/[0.35] px-3 py-1.5 text-[9.5px] tracking-[0.14em] backdrop-blur-md min-[380px]:inline">
+                            {hasTicket ? "Seu ingresso" : "Esgotado"}
+                          </span>
+                        ) : undefined
+                      }
+                    />
+                  </li>
+                );
+              })}
             </ul>
           )}
         </motion.section>
 
-        {benefits.length > 0 && (
-          <motion.section aria-labelledby="home-pass" initial="hidden" animate="show" custom={4} variants={reveal}>
-            <SectionHeader id="home-pass" title="No PASS agora" action={<TextLink onClick={() => go("pass")}>Ver todos</TextLink>} />
-            <ul className="-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
-              {benefits.slice(0, 8).map((benefit) => (
-                <li key={benefit.id} className="w-[64%] min-[420px]:w-[220px] shrink-0 snap-start">
-                  <button
-                    type="button"
-                    onClick={() => go("pass", `beneficio:${benefit.id}`)}
-                    className="flex h-full w-full cursor-pointer flex-col justify-between gap-6 rounded-3xl glass p-5 text-left glass-lift"
-                  >
-                    <span className="text-2xl font-semibold leading-none tracking-[-0.03em] text-primary">{benefit.discountLabel}</span>
-                    <span>
-                      <span className="block truncate text-[15px] font-medium text-ink">{benefit.partnerName}</span>
-                      <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{benefit.title}</span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </motion.section>
-        )}
+        <motion.section aria-label="Ecossistema PRX" initial="hidden" animate="show" custom={2} variants={reveal} className="order-3 min-w-0 lg:order-4 lg:col-span-12">
+          <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-4 lg:gap-5 lg:overflow-visible lg:px-0">
+            {OBSIDIAN_PILLARS.map((pillar) => (
+              <li key={pillar.id} className="w-[40%] min-w-[140px] max-w-[220px] shrink-0 snap-start lg:w-auto lg:max-w-none">
+                <ObsidianPillarCard pillar={pillar} onSelect={openPillar} />
+              </li>
+            ))}
+          </ul>
+        </motion.section>
       </div>
 
-      <aside className="min-w-0 space-y-9 lg:col-span-5" aria-label="Resumo">
-        <div className="hidden lg:block">{paymentCard}</div>
+      {/* Base da pirâmide: o dia a dia do membro */}
+      <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
+        <div className="min-w-0 space-y-10 lg:col-span-7">
+          {/* Convite para instalar o app (Android e Windows) */}
+          <PwaInstallCard />
 
-        <section aria-labelledby="home-vouchers" className="flex items-center justify-between gap-4 rounded-3xl glass p-5">
-          <div>
-            <h2 id="home-vouchers" className="text-[13px] font-medium text-muted-foreground">
-              Vouchers ativos
-            </h2>
-            <p className="mt-1 text-[30px] font-semibold leading-none tracking-[-0.035em] text-ink">{activeVouchers.length}</p>
-          </div>
-          <TextLink onClick={() => go("pass", activeVouchers.length > 0 ? "vouchers" : null)}>
-            {activeVouchers.length > 0 ? "Mostrar QR" : "Explorar"}
-          </TextLink>
-        </section>
+          <section aria-label="PRX Coins e nível">
+            <WalletTriad
+              compact
+              balance={account?.balance ?? 0}
+              balanceLabel="Saldo PRX Bank"
+              coins={wallet?.coins ?? null}
+              xp={wallet?.xp ?? member.prxScore ?? 0}
+              hidden={hidden}
+              onToggleHidden={toggleHidden}
+              onOpenPoints={() => go("home", "pontos")}
+              onOpenLevel={() => go("pass", "missions")}
+            />
+          </section>
 
-        <section aria-labelledby="home-missions">
-          <SectionHeader id="home-missions" title="Missões" action={<TextLink onClick={() => go("pass", "missions")}>Ver todas</TextLink>} />
-          {suggestedMissions.length === 0 ? (
-            <p className="mt-3 rounded-3xl glass p-5 text-sm text-muted-foreground">Nenhuma missão aberta agora. Novas missões aparecem aqui.</p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {suggestedMissions.map((mission) => (
-                <li key={mission.id}>
-                  <button
-                    type="button"
-                    onClick={() => go("pass", "missions")}
-                    className="flex w-full cursor-pointer items-center gap-4 rounded-3xl glass p-4 text-left glass-lift"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-medium text-ink">{mission.title}</p>
-                      <div className="mt-2.5 flex items-center gap-3">
-                        <div className="flex-1">
-                          <ProgressBar value={mission.progress} max={mission.total || 1} label={`Progresso de ${mission.title}`} />
-                        </div>
-                        <span className="text-[12px] font-medium text-muted-foreground">
-                          {mission.progress}/{mission.total}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-primary/[0.09] px-2.5 py-1 text-[12px] font-semibold text-primary">+{mission.xpReward} XP</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {nextEvent && (
-          <section aria-labelledby="home-next-event">
-            <SectionHeader id="home-next-event" title="Próximo evento" action={<TextLink onClick={() => go("live")}>Agenda</TextLink>} />
-            <button
-              type="button"
-              onClick={() => go("live")}
-              className="mt-3 flex w-full cursor-pointer items-end justify-between gap-5 rounded-3xl glass p-5 text-left glass-lift"
-            >
-              <div className="min-w-0 space-y-3">
-                <span className="inline-flex rounded-full bg-primary/[0.09] px-2.5 py-0.5 text-[12px] font-semibold text-primary">{nextEvent.seriesLabel}</span>
-                <div>
-                  <p className="text-lg font-semibold leading-snug tracking-[-0.02em] text-ink">{nextEvent.title}</p>
-                  <p className="mt-0.5 text-[13px] text-muted-foreground">
-                    {nextEvent.venue} · {nextEvent.city}
-                  </p>
-                </div>
+          <section aria-labelledby="home-activity">
+            <ObsidianSectionHeader id="home-activity" title="Atividade" actionLabel="Ver todas" onAction={() => go("bank", "extrato")} />
+            {transactions.length === 0 ? (
+              <div className="mt-3">
+                <EmptyState
+                  title="Nenhuma movimentação ainda"
+                  body={account?.status === "active" ? "Pix, compras e cashbacks aparecem aqui." : "Sua conta PRX BANK está em ativação. Pix, compras e cashbacks aparecem aqui depois."}
+                />
               </div>
-              <EventDate iso={nextEvent.startsAt} />
-            </button>
-            {openTickets.length > 0 && (
-              <TextLink onClick={() => go("live", "ingressos")} className="mt-3">
-                Meus ingressos
-              </TextLink>
+            ) : (
+              <ul className="mt-1">
+                {transactions.slice(0, 5).map((tx) => (
+                  <TransactionRow key={tx.id} tx={tx} hidden={hidden} />
+                ))}
+              </ul>
             )}
           </section>
-        )}
-      </aside>
+
+          {benefits.length > 0 && (
+            <section aria-labelledby="home-pass">
+              <ObsidianSectionHeader id="home-pass" title="No PASS agora" actionLabel="Ver todos" onAction={() => go("pass")} />
+              <ul className="-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+                {benefits.slice(0, 8).map((benefit) => (
+                  <li key={benefit.id} className="w-[64%] min-[420px]:w-[220px] shrink-0 snap-start">
+                    <button
+                      type="button"
+                      onClick={() => go("pass", `beneficio:${benefit.id}`)}
+                      className="flex h-full w-full cursor-pointer flex-col justify-between gap-6 rounded-3xl glass p-5 text-left glass-lift"
+                    >
+                      <span className="text-2xl font-light leading-none tracking-[-0.02em] text-primary">{benefit.discountLabel}</span>
+                      <span>
+                        <span className="block truncate text-[15px] font-medium text-ink">{benefit.partnerName}</span>
+                        <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{benefit.title}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+
+        <aside className="min-w-0 space-y-10 lg:col-span-5" aria-label="Resumo">
+          <section aria-labelledby="home-vouchers" className="flex items-center justify-between gap-4 rounded-3xl glass p-5">
+            <div>
+              <h2 id="home-vouchers" className="ob-label text-[11px] text-muted-foreground">
+                Vouchers ativos
+              </h2>
+              <p className="mt-2 text-[32px] font-light leading-none tracking-[-0.02em] text-ink">{activeVouchers.length}</p>
+            </div>
+            <TextLink onClick={() => go("pass", activeVouchers.length > 0 ? "vouchers" : null)}>
+              {activeVouchers.length > 0 ? "Mostrar QR" : "Explorar"}
+            </TextLink>
+          </section>
+
+          <section aria-labelledby="home-missions">
+            <ObsidianSectionHeader id="home-missions" title="Missões" actionLabel="Ver todas" onAction={() => go("pass", "missions")} />
+            {suggestedMissions.length === 0 ? (
+              <p className="mt-3 rounded-3xl glass p-5 text-sm text-muted-foreground">Nenhuma missão aberta agora. Novas missões aparecem aqui.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {suggestedMissions.map((mission) => (
+                  <li key={mission.id}>
+                    <button
+                      type="button"
+                      onClick={() => go("pass", "missions")}
+                      className="flex w-full cursor-pointer items-center gap-4 rounded-3xl glass p-4 text-left glass-lift"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[15px] font-medium text-ink">{mission.title}</p>
+                        <div className="mt-2.5 flex items-center gap-3">
+                          <div className="flex-1">
+                            <ProgressBar value={mission.progress} max={mission.total || 1} label={`Progresso de ${mission.title}`} />
+                          </div>
+                          <span className="text-[12px] font-medium text-muted-foreground">
+                            {mission.progress}/{mission.total}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-primary/[0.12] px-2.5 py-1 text-[12px] font-semibold text-primary">+{mission.xpReward} XP</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section aria-labelledby="home-card" className="space-y-3">
+            <ObsidianSectionHeader id="home-card" title="Seu cartão" actionLabel="Cartões" onAction={() => go("bank", "cartoes")} />
+            <div className="max-w-[360px]">
+              <PaymentCard card={account?.virtualCard ?? null} holder={member.name || "Membro PRX"} onClick={() => go("bank", "cartoes")} />
+            </div>
+          </section>
+        </aside>
+      </div>
 
       <PointsSheet open={pointsOpen} onClose={() => go("home")} wallet={wallet} error={pointsError} onCheckin={checkin} />
-
-      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Mais ações">
-        <div className="grid grid-cols-4 gap-x-3 gap-y-5 pb-2">
-          {more.map(({ label, Icon, tab, sub }) => (
-            <ActionTile
-              key={label}
-              label={label}
-              icon={<Icon size={20} />}
-              onClick={() => {
-                setMoreOpen(false);
-                go(tab, sub);
-              }}
-            />
-          ))}
-        </div>
-      </Sheet>
     </div>
   );
 }

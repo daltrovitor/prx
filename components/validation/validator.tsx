@@ -144,7 +144,7 @@ export function ValidatorPanel({ validation, hint }: { validation: Validation; h
     <div className="grid gap-12 lg:grid-cols-12">
       <section aria-labelledby="validate-title" className="space-y-6 lg:col-span-7">
         <div>
-          <h2 id="validate-title" className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">
+          <h2 id="validate-title" className="ob-display text-[28px] text-ink sm:text-[40px]">
             Validar
           </h2>
           <p className="mt-3 text-[15px] text-muted-foreground">{hint}</p>

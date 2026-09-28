@@ -61,7 +61,7 @@ export function PartnerCompany({ profile, missing, onSaved }: { profile: Partner
   return (
     <section aria-labelledby="company-title" className="grid gap-10 lg:grid-cols-12">
       <div className="space-y-4 lg:col-span-5">
-        <h2 id="company-title" className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">
+        <h2 id="company-title" className="ob-display text-[28px] text-ink sm:text-[40px]">
           Empresa
         </h2>
         <dl className="divide-y divide-line rounded-3xl glass px-5 text-[15px]">

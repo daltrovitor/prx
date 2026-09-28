@@ -14,6 +14,7 @@
 
 @theme inline {
   --font-display: var(--font-display);
+  --font-obsidian: var(--font-obsidian);
   --color-ink: var(--ink);
   --color-surface: var(--surface);
   --color-line: var(--line);
@@ -165,54 +166,128 @@ html:not(.dark):has(.prx-app) {
   background-color: #ffffff;
 }
 
-html.dark:has(.prx-app) {
-  --background: #09090c;
-  --foreground: #f4f4f7;
-  --ink: #f4f4f7;
-  --surface: rgba(255, 255, 255, 0.06);
-  --line: rgba(255, 255, 255, 0.1);
-  --card: #111117;
-  --card-foreground: #f4f4f7;
-  --popover: #111117;
-  --popover-foreground: #f4f4f7;
-  --primary: #8b5cf6;
+/* =========================================================================
+   CYBER-LUXURY OBSIDIAN — tema escuro dos dashboards (padrão do app)
+   Preto obsidiana, vidro fumê translúcido e luz volumétrica em azul-cobalto
+   e violeta. Texto branco puro; metadados em ardósia fria (#94a3b8).
+   O violeta de texto (#9468fa) passa 4.8:1 sobre o vidro; preenchimentos com
+   texto branco usam o violeta profundo #7c3aed (5.7:1) — ver .bg-primary abaixo.
+   .prx-obsidian força o tema em qualquer página (celular 3D, /teste).
+   ========================================================================= */
+html.dark:has(.prx-app),
+.prx-obsidian {
+  --background: #050508;
+  --foreground: #ffffff;
+  --ink: #ffffff;
+  --surface: rgba(255, 255, 255, 0.05);
+  --line: rgba(255, 255, 255, 0.09);
+  --card: #0c0d13;
+  --card-foreground: #ffffff;
+  --popover: #0c0d13;
+  --popover-foreground: #ffffff;
+  --primary: #9468fa;
   --primary-foreground: #ffffff;
-  --secondary: #17171f;
-  --secondary-foreground: #f4f4f7;
-  --muted: #17171f;
-  --muted-foreground: #9ca3af;
-  --accent: #8b5cf6;
+  --secondary: #11121a;
+  --secondary-foreground: #ffffff;
+  --muted: #11121a;
+  --muted-foreground: #94a3b8;
+  --accent: #9468fa;
   --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --border: #24242f;
-  --input: #2c2c3a;
-  --ring: #8b5cf6;
+  --destructive: #f87171;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: #9468fa;
   --radius: 0.625rem;
-  /* PRX Map no escuro: maior fatia = mais clara (mais contraste), validada contra #111117. */
+  /* PRX Map no escuro: maior fatia = mais clara (mais contraste), validada contra o vidro. */
   --map-1: #e0cffc;
   --map-2: #c2a1f9;
   --map-3: #a274f6;
   --map-4: #8a4ff4;
   --map-5: #7234e0;
-  /* Liquid Glass (tema escuro) */
-  --glass-fill: rgba(30, 30, 42, 0.5);
-  --glass-fill-top: rgba(58, 56, 78, 0.62);
-  --glass-fill-strong: rgba(24, 24, 34, 0.84);
-  --glass-stroke: rgba(255, 255, 255, 0.085);
-  --glass-rim: rgba(255, 255, 255, 0.18);
-  --glass-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 18px 44px -20px rgba(0, 0, 0, 0.85);
-  --glass-shadow-lift: 0 1px 0 rgba(0, 0, 0, 0.4), 0 24px 56px -22px rgba(0, 0, 0, 0.95);
-  --ambient-violet: rgba(139, 92, 246, 0.16);
-  --ambient-sky: rgba(64, 150, 255, 0.07);
+  /* Vidro fumê (Dark Smoked Glassmorphism) */
+  --glass-fill: rgba(255, 255, 255, 0.035);
+  --glass-fill-top: rgba(255, 255, 255, 0.075);
+  --glass-fill-strong: rgba(12, 13, 19, 0.9);
+  --glass-stroke: rgba(255, 255, 255, 0.09);
+  --glass-rim: rgba(255, 255, 255, 0.16);
+  --glass-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 24px 56px -28px rgba(0, 0, 0, 0.95), 0 40px 80px -56px rgba(124, 58, 237, 0.35);
+  --glass-shadow-lift: 0 1px 0 rgba(0, 0, 0, 0.5), 0 30px 64px -28px rgba(0, 0, 0, 1), 0 48px 90px -52px rgba(124, 58, 237, 0.5);
+  --ambient-violet: rgba(124, 58, 237, 0.2);
+  --ambient-sky: rgba(0, 102, 255, 0.14);
   color-scheme: dark;
-  background-color: #09090c;
+  background-color: #050508;
 }
 
 html.dark:has(.prx-app) body {
-  background-color: #09090c;
-  color: #f4f4f7;
+  background-color: #050508;
+  color: #ffffff;
+}
+
+/* Páginas inteiramente Obsidian (/teste): o fundo do documento acompanha, em qualquer tema salvo. */
+html:has(.prx-obsidian-page),
+html:has(.prx-obsidian-page) body {
+  background-color: #050508 !important;
+  color-scheme: dark;
+}
+
+.prx-obsidian {
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01", "tnum";
+}
+
+.prx-obsidian :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Preenchimentos sólidos com texto branco: violeta profundo para manter 5.7:1. */
+html.dark .prx-app .bg-primary,
+.prx-obsidian .bg-primary {
+  background-color: #7c3aed;
+}
+
+@media (hover: hover) {
+  html.dark .prx-app button.bg-primary:hover:not(:disabled),
+  .prx-obsidian button.bg-primary:hover:not(:disabled) {
+    background-color: #6d28d9;
+  }
+}
+
+/* No vidro fumê o hover clareia (no claro ele fica mais opaco). */
+html.dark .prx-app :is(.glass-chip, .glass-soft:where(button, a), .glass:where(button, a)):hover,
+.prx-obsidian :is(.glass-chip, .glass-soft:where(button, a), .glass:where(button, a)):hover {
+  --glass-fill: rgba(255, 255, 255, 0.07);
+}
+
+/* Luz volumétrica: violeta atrás do cristal (canto superior direito), cobalto à esquerda. */
+html.dark .prx-app .prx-ambient,
+.prx-obsidian .prx-ambient {
+  background:
+    radial-gradient(52rem 36rem at 100% -8%, rgba(124, 58, 237, 0.22), transparent 68%),
+    radial-gradient(44rem 34rem at -14% 16%, rgba(0, 102, 255, 0.14), transparent 70%),
+    radial-gradient(64rem 40rem at 50% 120%, rgba(76, 29, 149, 0.24), transparent 72%);
+}
+
+/* Tipografia monumental Obsidian: caixa alta, peso leve e tracking largo.
+   Em @layer components para que tracking-*, leading-* e font-* do Tailwind possam ajustar. */
+@layer components {
+  .ob-display {
+    font-family: var(--font-obsidian), var(--font-sans), system-ui, sans-serif;
+    font-weight: 300;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    line-height: 1.16;
+  }
+
+  .ob-label {
+    font-family: var(--font-obsidian), var(--font-sans), system-ui, sans-serif;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+  }
 }
 
 html.light:has(.prx-app) body,
@@ -234,7 +309,7 @@ html:not(.dark):has(.prx-app) body {
 }
 
 ::selection {
-  background: #6c0cf0;
+  background: #7c3aed;
   color: #ffffff;
 }
 

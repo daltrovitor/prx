@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import type { User } from "@/hooks/use-auth";
-import { PrxLogo } from "@/components/brand/prx-logo";
+import { DashboardBackdrop, DashboardHeader } from "@/components/app/dashboard-header";
 import { CircleLoader } from "@/components/ui/circle-loader";
 import { Avatar, BalanceFigure, Button, EmptyState, Field, IconButton, Input, Notice, Segmented, Select, Sheet, Tag, formatBRL } from "@/components/app/ui";
 import { StatCell, TransactionRow } from "@/components/app/shared";
@@ -111,30 +111,31 @@ export function ParentShell({ user, onLogout }: { user: User; onLogout: () => vo
 
   return (
     <SmoothScroll>
-      <div className="prx-app isolate min-h-dvh bg-background text-foreground">
+      <div className="prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground">
         <div aria-hidden className="prx-ambient" />
-        <header className="sticky top-0 z-30 px-2 py-2 sm:px-4 lg:py-3">
-          <div className="glass-bar mx-auto flex h-14 w-full max-w-[1096px] items-center justify-between gap-2 rounded-[22px] pl-4 pr-1.5 lg:h-16 lg:pl-6 lg:pr-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <PrxLogo variant="compact" title="PRX" className="h-6 w-auto shrink-0 text-ink" />
-              <span className="hidden rounded-full bg-primary/[0.1] px-2.5 py-1 text-[12px] font-semibold text-primary min-[380px]:inline">Conta Pai</span>
-            </div>
-            <div className="flex items-center gap-2">
+        <DashboardBackdrop />
+        <DashboardHeader
+          name={user.name || "Responsável"}
+          subtitle="Controle, segurança e mesada"
+          area="Conta Pai"
+          actions={
+            <>
               <ThemeToggle variant="app" />
               <IconButton label="Sair da Conta Pai" onClick={onLogout}>
                 <IconLogout size={18} />
               </IconButton>
-            </div>
-          </div>
-        </header>
+            </>
+          }
+        />
 
-        <main id="conteudo" className="mx-auto w-full max-w-[1096px] space-y-8 px-4 pb-16 pt-4 sm:px-6">
-          <section className="flex flex-wrap items-end justify-between gap-4">
+        <main id="conteudo" className="relative z-10 mx-auto w-full max-w-[1096px] space-y-8 px-4 pb-16 pt-6 sm:px-6 lg:pt-10">
+          <section className="flex flex-wrap items-end justify-between gap-5">
             <div className="flex items-center gap-4">
-              <Avatar name={user.name || "Responsável"} src={user.avatarUrl} size={56} />
+              <Avatar name={user.name || "Responsável"} src={user.avatarUrl} size={56} className="hidden ring-1 ring-black/10 dark:ring-white/[0.18] sm:inline-flex" />
               <div>
-                <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-[34px]">Olá, {first}</h1>
-                <p className="text-[14px] text-muted-foreground">Controle, segurança e mesada dos seus filhos.</p>
+                <p className="ob-label text-[12px] text-muted-foreground">Oi, {first}</p>
+                <h1 className="ob-display mt-2.5 text-[28px] text-ink sm:text-[40px]">Conta Pai</h1>
+                <p className="mt-2 text-[14px] text-muted-foreground">Controle, segurança e mesada dos seus filhos.</p>
               </div>
             </div>
             <Button onClick={() => setSheet("novo")} disabled={!approved}>
@@ -297,7 +298,7 @@ function ChildPanel({ child, tab, onTab, approved, onAction }: { child: ChildDet
     <section aria-labelledby="child-title" className="space-y-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 id="child-title" className="text-[24px] font-semibold tracking-[-0.03em] text-ink">
+          <h2 id="child-title" className="ob-display text-[22px] text-ink sm:text-[26px]">
             {child.name}
           </h2>
           <p className="text-[14px] text-muted-foreground">{child.bankStatus === "active" ? "Conta PRX Bank ativa" : "Conta PRX Bank em ativação"}</p>

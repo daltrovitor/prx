@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { DashboardHeader } from "@/components/app/dashboard-header";
+import { DashboardBackdrop, DashboardHeader } from "@/components/app/dashboard-header";
 import { CircleLoader } from "@/components/ui/circle-loader";
 import { EmptyState, IconButton, Notice, Segmented } from "@/components/app/ui";
 import { IconLogout } from "@/components/icons/prx-icons";
@@ -86,8 +86,9 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
   const partner = profile?.partner ?? null;
 
   return (
-    <div className="prx-app isolate min-h-dvh bg-background text-foreground">
+    <div className="prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground">
       <div aria-hidden className="prx-ambient" />
+      <DashboardBackdrop />
       <DashboardHeader
         name={user.name}
         subtitle={partner?.tradeName ?? user.email}
@@ -102,7 +103,7 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
         }
       />
 
-      <main className="mx-auto max-w-6xl space-y-8 px-4 pb-20 pt-4 sm:px-6 lg:pt-8">
+      <main className="relative z-10 mx-auto max-w-6xl space-y-8 px-4 pb-20 pt-6 sm:px-6 lg:pt-10">
         <h1 className="sr-only">Área do Parceiro PRX</h1>
 
         {profile?.error && !partner ? (

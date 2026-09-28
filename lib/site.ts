@@ -30,19 +30,31 @@ export function useMainSiteUrl(): string {
   return useSyncExternalStore(noopSubscribe, getMainSiteUrl, () => "/");
 }
 
+export type PanelPrefix = "adminprx" | "partnerprx" | "staffprx";
+
 /**
- * Endereço do portal da Equipe PRX a partir do domínio atual:
- * adminprx.x.com → staffprx.x.com · prx.x.com → staffprx.x.com · localhost:3000 → staffprx.localhost:3000.
+ * Endereço de um painel (subdomínio) a partir do domínio atual. Só chamar no cliente.
+ * adminprx.x.com → staffprx.x.com · prx.x.com → partnerprx.x.com · localhost:3000 → adminprx.localhost:3000.
  */
-export function getStaffPortalUrl(): string {
+export function getPanelUrl(prefix: PanelPrefix): string {
   if (typeof window === "undefined") return "";
   const { protocol, host } = window.location;
   const panel = host.match(/^(adminprx|partnerprx|staffprx|adminng|partnerng)\.(.+)$/);
   const root = panel ? panel[2] : host.replace(/^(prx|nxtgen|www)\./, "");
-  return `${protocol}//staffprx.${root}`;
+  return `${protocol}//${prefix}.${root}`;
+}
+
+/** Versão reativa e segura para SSR de getPanelUrl (servidor devolve ""). */
+export function usePanelUrl(prefix: PanelPrefix): string {
+  return useSyncExternalStore(noopSubscribe, () => getPanelUrl(prefix), () => "");
+}
+
+/** Endereço do portal da Equipe PRX a partir do domínio atual. */
+export function getStaffPortalUrl(): string {
+  return getPanelUrl("staffprx");
 }
 
 /** Versão reativa e segura para SSR de getStaffPortalUrl. */
 export function useStaffPortalUrl(): string {
-  return useSyncExternalStore(noopSubscribe, getStaffPortalUrl, () => "");
+  return usePanelUrl("staffprx");
 }
