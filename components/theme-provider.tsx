@@ -58,7 +58,7 @@ export function ThemeScript() {
       var root = document.documentElement;
       try {
         var host = location.hostname, path = location.pathname;
-        var app = /^(adminprx|partnerprx|staffprx|adminng|partnerng)\\./.test(host) || /^\\/(admin|partner|staff|institucional|termos|privacidade|em-breve)(\\/|$)/.test(path)
+        var app = /^(adminprx|partnerprx|staffprx|adminng|partnerng)\\./.test(host) || /^\\/(admin|partner|staff|termos|privacidade|em-breve|sou-pai|nova-landing)(\\/|$)/.test(path)
           || /^(www\\.)?prx\\.app\\.br$/.test(host)
           || localStorage.getItem('prx_remember_me') === 'true' || sessionStorage.getItem('prx_tab_active') === 'true';
         var stored = localStorage.getItem(app ? '${KEYS.app}' : '${KEYS.landing}');

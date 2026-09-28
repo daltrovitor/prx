@@ -1,183 +1,64 @@
 // Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { sanitizeInput } from "@/lib/security";
-import { supabaseAdmin } from "@/lib/supabase/client";
-import { isReservedAdminEmail } from "@/lib/admin-allowlist";
 import { errorMessage } from "@/lib/errors";
-import { CONSENT_REQUIRED_MESSAGE, TERMS_VERSION } from "@/lib/legal";
+import { CONSENT_REQUIRED_MESSAGE } from "@/lib/legal";
+import { attachSession, createAccount, discardAccount, publicUser } from "@/lib/accounts";
+import { PartnerError } from "@/lib/partners/errors";
+import { identityInputSchema } from "@/lib/family/types";
+import { assertCpfAvailable, assertEligibleAge, FamilyError, registerIdentity } from "@/lib/family/service";
 
 const SignupSchema = z.object({
   fullName: z.string().min(2, "Nome completo é obrigatório"),
   email: z.string().email("E-mail corporativo ou pessoal válido"),
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
+  /** Verificação de idade e CPF único, antes de a conta existir. */
+  cpf: z.string().optional(),
   birthDate: z.string().optional(),
+  teenPath: z.enum(["linked", "emancipated"]).optional(),
+  parentEmail: z.string().optional(),
   // LGPD: sem o aceite dos Termos e da Política de Privacidade não existe conta.
   termsAccepted: z.literal(true, { error: CONSENT_REQUIRED_MESSAGE }),
 });
 
+/**
+ * Cadastro do membro. Com CPF e nascimento (tela atual), a idade é conferida
+ * antes de criar a conta: menores de 16 vão para a Conta Pai; 16–17 escolhem
+ * Conta Filho ou emancipação; CPF repetido é recusado. Sem esses dados
+ * (clientes antigos), o app pede CPF e nascimento no primeiro acesso.
+ */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const parseResult = SignupSchema.safeParse(body);
+    const parseResult = SignupSchema.safeParse(await req.json().catch(() => null));
     if (!parseResult.success) {
-      return NextResponse.json(
-        { error: parseResult.error.issues[0]?.message || "Dados inválidos." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: parseResult.error.issues[0]?.message || "Dados inválidos." }, { status: 400 });
+    }
+    const data = parseResult.data;
+
+    let identity: z.output<typeof identityInputSchema> | null = null;
+    if (data.cpf || data.birthDate) {
+      const parsed = identityInputSchema.safeParse({ cpf: data.cpf ?? "", birthDate: data.birthDate ?? "", teenPath: data.teenPath, parentEmail: data.parentEmail ?? "" });
+      if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Dados inválidos." }, { status: 422 });
+      identity = parsed.data;
+      assertEligibleAge(identity);
+      await assertCpfAvailable(identity.cpf);
     }
 
-    // Regra Fundamental PRX: Máximo 29 anos (Gerações Alpha e Z)
-    if (body.birthDate) {
-      const birth = new Date(body.birthDate);
-      const today = new Date();
-      let age = today.getFullYear() - birth.getFullYear();
-      const m = today.getMonth() - birth.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-        age--;
-      }
-      if (age > 29) {
-        return NextResponse.json(
-          { error: "O ecossistema PRX é exclusivo para jovens até 29 anos (Gerações Alpha e Z)." },
-          { status: 403 }
-        );
+    const user = await createAccount({ email: sanitizeInput(data.email), fullName: sanitizeInput(data.fullName), password: data.password });
+    if (identity) {
+      try {
+        await registerIdentity(user, identity);
+      } catch (err) {
+        await discardAccount(user.id);
+        throw err;
       }
     }
 
-    const fullName = sanitizeInput(parseResult.data.fullName);
-    const email = sanitizeInput(parseResult.data.email.toLowerCase().trim());
-    const password = parseResult.data.password;
-
-    // E-mails da lista de administradores não podem ser criados pelo cadastro público:
-    // como não há confirmação de e-mail, isso daria privilégio de admin a qualquer um.
-    if (isReservedAdminEmail(email)) {
-      return NextResponse.json(
-        { error: "Este e-mail já está cadastrado no sistema." },
-        { status: 400 }
-      );
-    }
-
-    let userId = "";
-    const prxScore = 250;
-    const prxLevel = 1;
-    const walletBalance = 0;
-    const avatarUrl = "";
-
-    if (supabaseAdmin) {
-      // 1. Create user directly in Supabase Auth with email pre-confirmed
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: fullName,
-          role: "user",
-          nxt_score: prxScore,
-          nxt_level: prxLevel,
-          wallet_balance: walletBalance,
-        },
-      });
-
-      if (authError) {
-        const msg = authError.message.toLowerCase();
-        if (msg.includes("already registered") || msg.includes("unique") || msg.includes("exists")) {
-          return NextResponse.json(
-            { error: "Este e-mail já está cadastrado no sistema." },
-            { status: 400 }
-          );
-        }
-        return NextResponse.json(
-          { error: authError.message || "Erro ao criar usuário no Supabase." },
-          { status: 400 }
-        );
-      }
-
-      if (!authData?.user) {
-        return NextResponse.json(
-          { error: "Falha ao registrar usuário." },
-          { status: 500 }
-        );
-      }
-
-      userId = authData.user.id;
-
-      // 2. Guarantee profile row is saved in public.profiles
-      const { error: profileError } = await supabaseAdmin
-        .from("profiles")
-        .upsert(
-          {
-            id: userId,
-            email,
-            full_name: fullName,
-            role: "user",
-            nxt_score: prxScore,
-            nxt_level: prxLevel,
-            wallet_balance: walletBalance,
-            avatar_url: avatarUrl,
-            terms_accepted_at: new Date().toISOString(),
-            terms_version: TERMS_VERSION,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "id" }
-        );
-
-      if (profileError) {
-        console.warn("Notice: public.profiles upsert warning:", profileError.message);
-      }
-    } else {
-      // In-memory fallback if Supabase keys are not present
-      const newUser = userStore.createUser(email, fullName, password);
-      userId = newUser.id;
-    }
-
-    const sessionUser: StoredUser = {
-      id: userId,
-      email,
-      fullName,
-      passwordHash: "",
-      salt: "",
-      role: "user",
-      prxScore,
-      prxLevel,
-      avatarUrl,
-      walletBalance,
-      emailConfirmed: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    const oneYearSeconds = 365 * 24 * 60 * 60;
-    const token = createSessionToken(sessionUser, oneYearSeconds);
-
-    const response = NextResponse.json({
-      success: true,
-      message: "Conta criada e ativada imediatamente com sucesso!",
-      user: {
-        id: userId,
-        email,
-        name: fullName,
-        role: "user",
-        prxScore,
-        prxLevel,
-        walletBalance,
-        avatarUrl,
-      },
-    });
-
-    response.cookies.set({
-      name: AUTH_COOKIE_NAME,
-      value: token,
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-      maxAge: oneYearSeconds,
-    });
-
-    return response;
+    return attachSession(NextResponse.json({ success: true, message: "Conta criada e ativada imediatamente com sucesso!", user: publicUser(user) }), user);
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao registrar conta." },
-      { status: 400 }
-    );
+    if (error instanceof FamilyError) return NextResponse.json({ error: error.message, code: error.code ?? null }, { status: error.status });
+    if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status === 409 ? 400 : error.status });
+    return NextResponse.json({ error: errorMessage(error) || "Erro ao registrar conta." }, { status: 400 });
   }
 }

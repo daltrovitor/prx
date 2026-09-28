@@ -108,7 +108,7 @@ function StatTiles({ metrics }: { metrics: PartnerMetrics }) {
   return (
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {tiles.map((tile) => (
-        <div key={tile.label} className="rounded-3xl bg-surface p-4">
+        <div key={tile.label} className="rounded-3xl glass p-4">
           <dt className="text-[13px] text-muted-foreground">{tile.label}</dt>
           <dd className="mt-1.5 text-[26px] font-light leading-none tracking-[-0.03em] text-ink [font-feature-settings:'pnum']">{tile.value}</dd>
           <dd className="mt-1.5 text-[12px] leading-snug text-muted-foreground">{tile.hint}</dd>
@@ -124,7 +124,7 @@ function CampaignQuota({ campaigns }: { campaigns: CampaignProgress[] }) {
       <h3 className="text-[13px] font-semibold text-ink">Quantidade garantida por campanha</h3>
       <ul className="mt-3 space-y-2">
         {campaigns.map((c) => (
-          <li key={c.campaignId} className="space-y-2 rounded-3xl bg-surface p-5">
+          <li key={c.campaignId} className="space-y-2 rounded-3xl glass-soft p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="font-medium text-ink">{c.title}</p>
               <p className="text-[13px] text-muted-foreground">

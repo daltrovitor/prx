@@ -23,7 +23,7 @@ export function DashboardHeader({
 }) {
   const first = (name || "").trim().split(/\s+/)[0] || "equipe";
   return (
-    <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-md">
+    <header className="glass-bar sticky top-0 z-30 border-x-0 border-t-0">
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar name={name} size={44} />
@@ -31,7 +31,7 @@ export function DashboardHeader({
             <p className="truncate text-[17px] font-semibold leading-tight tracking-[-0.01em] text-ink">Olá, {first}</p>
             <p className="truncate text-[13px] text-muted-foreground">{subtitle}</p>
           </div>
-          <span className="ml-3 hidden items-center gap-2 rounded-full bg-surface py-1.5 pl-2.5 pr-3.5 text-[13px] font-medium text-ink lg:inline-flex">
+          <span className="glass-chip ml-3 hidden items-center gap-2 rounded-full py-1.5 pl-2.5 pr-3.5 text-[13px] font-medium text-ink lg:inline-flex">
             <PrxLogo variant="symbol" title="" className="h-4 w-auto" />
             {area}
           </span>
@@ -44,4 +44,4 @@ export function DashboardHeader({
 
 /** Link com aparência de botão redondo (ex.: abrir o app em outra aba). */
 export const roundLinkClass =
-  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface text-ink transition-colors hover:bg-line cursor-pointer";
+  "glass-chip inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink cursor-pointer";

@@ -8,13 +8,13 @@ import { getReelsRepository } from "@/lib/reels/repository";
 import { createReel, deleteReel, updateReel } from "@/lib/reels/service";
 import { reelInputSchema } from "@/lib/reels/types";
 
-/** Reels de parceiros: listagem com métricas, publicação, edição e exclusão (admin). */
+/** Destaques (vídeos de parceiros): listagem com métricas, publicação, edição e exclusão (admin). */
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req);
     return NextResponse.json({ success: true, reels: await getReelsRepository().list() });
   } catch (error) {
-    return errorResponse(error, "Erro ao carregar os Reels.");
+    return errorResponse(error, "Erro ao carregar os Destaques.");
   }
 }
 

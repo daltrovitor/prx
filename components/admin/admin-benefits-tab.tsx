@@ -1,7 +1,7 @@
 // Hello World
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { PRX_CATEGORIES, type Benefit, levelGateOptions } from "@/lib/pass-data";
 import { VISIBILITY_PLANS } from "@/lib/partners/plans";
@@ -23,6 +23,9 @@ interface AdminBenefitsTabProps {
   partners: PartnerOverview[];
   economy: AdminEconomy;
   onRefresh: () => Promise<void>;
+  /** Valores vindos da calculadora do Financeiro: abre o cadastro já preenchido. */
+  draftEconomics?: ViabilityValues | null;
+  onDraftConsumed?: () => void;
 }
 
 interface BenefitForm {
@@ -73,7 +76,7 @@ interface ApiResult {
 
 type Filter = "all" | "unassigned";
 
-export function AdminBenefitsTab({ benefits, partners, economy, onRefresh }: AdminBenefitsTabProps) {
+export function AdminBenefitsTab({ benefits, partners, economy, onRefresh, draftEconomics, onDraftConsumed }: AdminBenefitsTabProps) {
   const { confirmDelete, showToast } = useConfirmToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Benefit | null>(null);
@@ -89,12 +92,25 @@ export function AdminBenefitsTab({ benefits, partners, economy, onRefresh }: Adm
   const visible = filter === "unassigned" ? unassigned : benefits;
   const selectablePartners = partners.filter((p) => p.status !== "BLOQUEADO");
 
-  function openCreate() {
+  function openCreate(economics: ViabilityValues = EMPTY_ECONOMICS) {
     setEditing(null);
-    setForm({ ...EMPTY_FORM, partnerId: selectablePartners[0]?.id ?? "", categoryId: selectablePartners[0]?.categoryId || EMPTY_FORM.categoryId });
+    setForm({ ...EMPTY_FORM, economics, partnerId: selectablePartners[0]?.id ?? "", categoryId: selectablePartners[0]?.categoryId || EMPTY_FORM.categoryId });
     setError(null);
     setOpen(true);
   }
+
+  // Calculadora do Financeiro → cadastro de benefício com o preço e os números já preenchidos.
+  const [pendingDraft, setPendingDraft] = useState<ViabilityValues | null>(null);
+  if (draftEconomics && draftEconomics !== pendingDraft) {
+    setPendingDraft(draftEconomics);
+    setEditing(null);
+    setForm({ ...EMPTY_FORM, economics: draftEconomics, partnerId: selectablePartners[0]?.id ?? "", categoryId: selectablePartners[0]?.categoryId || EMPTY_FORM.categoryId });
+    setError(null);
+    setOpen(true);
+  }
+  useEffect(() => {
+    if (draftEconomics) onDraftConsumed?.();
+  }, [draftEconomics, onDraftConsumed]);
 
   function openEdit(benefit: Benefit) {
     setEditing(benefit);
@@ -205,7 +221,7 @@ export function AdminBenefitsTab({ benefits, partners, economy, onRefresh }: Adm
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">Cada benefício pertence a um parceiro: só o login dele valida o QR Code.</p>
         </div>
-        <Button onClick={openCreate} disabled={selectablePartners.length === 0} title={selectablePartners.length === 0 ? "Cadastre um parceiro primeiro" : undefined}>
+        <Button onClick={() => openCreate()} disabled={selectablePartners.length === 0} title={selectablePartners.length === 0 ? "Cadastre um parceiro primeiro" : undefined}>
           <IconPlus size={18} />
           Novo benefício avulso
         </Button>
@@ -234,10 +250,10 @@ export function AdminBenefitsTab({ benefits, partners, economy, onRefresh }: Adm
         <EmptyState
           title="Catálogo vazio"
           body="Benefícios de contrato entram sozinhos quando o parceiro aceita. Para ofertas pontuais, use o benefício avulso."
-          action={selectablePartners.length > 0 ? <Button onClick={openCreate}>Cadastrar benefício</Button> : undefined}
+          action={selectablePartners.length > 0 ? <Button onClick={() => openCreate()}>Cadastrar benefício</Button> : undefined}
         />
       ) : (
-        <div className="overflow-x-auto rounded-3xl border border-line">
+        <div className="glass overflow-x-auto rounded-3xl">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">

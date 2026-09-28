@@ -5,12 +5,14 @@ import { userStore } from "@/lib/auth";
 import { calculatePrxLevel } from "@/lib/pass-data";
 import { PartnerError, dbError } from "@/lib/partners/errors";
 import { isUuid } from "@/lib/partners/catalog";
-import { DEFAULT_POINT_RULES } from "@/lib/points/rules";
+import { DEFAULT_POINT_RULES, type LastClaim } from "@/lib/points/rules";
 import {
   POINT_RULE_CATEGORIES,
   POINT_RULE_PERIODS,
   POINT_RULE_TRIGGERS,
   POINT_SOURCES,
+  type BehaviorClaim,
+  type ClaimStatus,
   type PartnerPurchase,
   type PointMovement,
   type PointRule,
@@ -26,8 +28,11 @@ import {
  * (origem, referência): o mesmo resgate ou o mesmo Pix nunca pontua duas vezes.
  */
 
-/** Saldo inicial de boas-vindas (mesmo default da coluna profiles.prx_coins). */
-export const WELCOME_COINS = 100;
+/**
+ * Saldo inicial: zero. Nenhum coin nasce sem comportamento validado ou compra
+ * em parceiro (mesmo default da coluna profiles.prx_coins, migração 20260928).
+ */
+export const WELCOME_COINS = 0;
 
 export interface ApplyResult {
   transaction: PointTransaction;
@@ -49,8 +54,10 @@ export interface RulesRepository {
 export interface WalletRepository {
   getBalance(userId: string): Promise<{ coins: number; xp: number }>;
   listTransactions(userId: string, limit: number): Promise<PointTransaction[]>;
-  /** Último check-in de cada regra (ISO), para a janela de periodicidade. */
-  lastClaims(userId: string): Promise<Record<string, string>>;
+  /** Último envio de bom comportamento de cada regra, para a janela de periodicidade. */
+  lastClaims(userId: string): Promise<Record<string, LastClaim>>;
+  listClaims(userId: string, limit: number): Promise<BehaviorClaim[]>;
+  insertClaim(claim: Omit<BehaviorClaim, "id" | "createdAt" | "status" | "reviewNote" | "reviewedBy" | "reviewedAt">): Promise<BehaviorClaim>;
   apply(userId: string, movement: PointMovement): Promise<ApplyResult>;
   listPurchases(userId: string, limit: number): Promise<PartnerPurchase[]>;
   insertPurchase(purchase: Omit<PartnerPurchase, "id" | "createdAt">): Promise<{ purchase: PartnerPurchase; duplicate: boolean }>;
@@ -59,6 +66,11 @@ export interface WalletRepository {
 export interface LedgerReader {
   listAllPurchases(sinceIso: string): Promise<PartnerPurchase[]>;
   coinsOutstanding(): Promise<number>;
+  /** Fila de análise do admin. */
+  listClaimsByStatus(status: ClaimStatus | "all", limit: number): Promise<BehaviorClaim[]>;
+  getClaim(id: string): Promise<BehaviorClaim | null>;
+  /** Decide um envio ainda pendente. Devolve null se já tinha sido decidido. */
+  decideClaim(id: string, decision: { status: "approved" | "rejected"; note: string; reviewer: string }): Promise<BehaviorClaim | null>;
 }
 
 export const INSUFFICIENT_COINS = "PRX Coins insuficientes para este resgate.";
@@ -185,6 +197,42 @@ function mapPurchase(r: PurchaseRow): PartnerPurchase {
   };
 }
 
+interface ClaimRow {
+  id: string;
+  user_id: string;
+  user_name: string | null;
+  user_email: string | null;
+  rule_id: string | null;
+  rule_title: string;
+  coins: number;
+  xp: number;
+  evidence: string;
+  status: string;
+  review_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+function mapClaim(r: ClaimRow): BehaviorClaim {
+  return {
+    id: r.id,
+    userId: r.user_id,
+    userName: r.user_name ?? "",
+    userEmail: r.user_email ?? "",
+    ruleId: r.rule_id ?? "",
+    ruleTitle: r.rule_title,
+    coins: int(r.coins),
+    xp: int(r.xp),
+    evidence: r.evidence,
+    status: r.status === "approved" || r.status === "rejected" ? r.status : "pending",
+    reviewNote: r.review_note ?? "",
+    reviewedBy: r.reviewed_by,
+    reviewedAt: r.reviewed_at,
+    createdAt: r.created_at,
+  };
+}
+
 class SupabaseRulesRepository implements RulesRepository {
   constructor(private readonly db: SupabaseClient) {}
 
@@ -252,18 +300,66 @@ class SupabaseWalletRepository implements WalletRepository, LedgerReader {
   }
 
   async lastClaims(userId: string) {
-    const { data, error } = await this.db
-      .from("point_transactions")
-      .select("rule_id, created_at")
-      .eq("user_id", userId)
-      .eq("source", "behavior")
-      .not("rule_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(300);
-    if (error) throw dbError(error, "Não foi possível consultar os check-ins");
-    const out: Record<string, string> = {};
-    for (const row of data as Array<{ rule_id: string; created_at: string }>) if (!out[row.rule_id]) out[row.rule_id] = row.created_at;
+    const { data, error } = await this.db.from("behavior_claims").select("rule_id, status, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(300);
+    if (error) throw dbError(error, "Não foi possível consultar os envios de bom comportamento");
+    const out: Record<string, LastClaim> = {};
+    for (const row of data as Array<{ rule_id: string | null; status: string; created_at: string }>) {
+      if (row.rule_id && !out[row.rule_id]) out[row.rule_id] = { at: row.created_at, status: row.status === "approved" || row.status === "rejected" ? row.status : "pending" };
+    }
     return out;
+  }
+
+  async listClaims(userId: string, limit: number) {
+    const { data, error } = await this.db.from("behavior_claims").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit);
+    if (error) throw dbError(error, "Não foi possível carregar seus envios");
+    return (data as ClaimRow[]).map(mapClaim);
+  }
+
+  async insertClaim(c: Omit<BehaviorClaim, "id" | "createdAt" | "status" | "reviewNote" | "reviewedBy" | "reviewedAt">) {
+    const { data, error } = await this.db
+      .from("behavior_claims")
+      .insert({
+        user_id: c.userId,
+        user_name: c.userName,
+        user_email: c.userEmail,
+        rule_id: isUuid(c.ruleId) ? c.ruleId : null,
+        rule_title: c.ruleTitle,
+        coins: c.coins,
+        xp: c.xp,
+        evidence: c.evidence,
+      })
+      .select("*")
+      .single();
+    if (error) throw dbError(error, "Não foi possível enviar para análise");
+    return mapClaim(data as ClaimRow);
+  }
+
+  async listClaimsByStatus(status: ClaimStatus | "all", limit: number) {
+    let query = this.db.from("behavior_claims").select("*").order("created_at", { ascending: status === "pending" }).limit(limit);
+    if (status !== "all") query = query.eq("status", status);
+    const { data, error } = await query;
+    if (error) throw dbError(error, "Não foi possível carregar a fila de análise");
+    return (data as ClaimRow[]).map(mapClaim);
+  }
+
+  async getClaim(id: string) {
+    if (!isUuid(id)) return null;
+    const { data, error } = await this.db.from("behavior_claims").select("*").eq("id", id).maybeSingle();
+    if (error) throw dbError(error, "Não foi possível carregar o envio");
+    return data ? mapClaim(data as ClaimRow) : null;
+  }
+
+  async decideClaim(id: string, decision: { status: "approved" | "rejected"; note: string; reviewer: string }) {
+    if (!isUuid(id)) return null;
+    const { data, error } = await this.db
+      .from("behavior_claims")
+      .update({ status: decision.status, review_note: decision.note, reviewed_by: decision.reviewer, reviewed_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("status", "pending")
+      .select("*")
+      .maybeSingle();
+    if (error) throw dbError(error, "Não foi possível registrar a decisão");
+    return data ? mapClaim(data as ClaimRow) : null;
   }
 
   async apply(userId: string, movement: PointMovement): Promise<ApplyResult> {
@@ -352,6 +448,7 @@ interface MemoryPoints {
   rules: PointRule[];
   wallets: Map<string, MemoryWallet>;
   purchases: PartnerPurchase[];
+  claims: BehaviorClaim[];
 }
 
 const globalState = globalThis as unknown as { __prxPoints?: MemoryPoints };
@@ -363,8 +460,11 @@ function memory(): MemoryPoints {
       rules: DEFAULT_POINT_RULES.map(({ slug, ...rule }) => ({ ...rule, id: `rule-${slug}`, createdAt: now, updatedAt: now })),
       wallets: new Map(),
       purchases: [],
+      claims: [],
     };
   }
+  // Estado criado por uma versão anterior (recarga a quente no dev) ainda sem a fila de análise.
+  globalState.__prxPoints.claims ??= [];
   return globalState.__prxPoints;
 }
 
@@ -373,18 +473,20 @@ function memoryWallet(userId: string): MemoryWallet {
   let wallet = state.wallets.get(userId);
   if (!wallet) {
     wallet = { coins: WELCOME_COINS, xp: userStore.findById(userId)?.prxScore ?? 0, transactions: [] };
-    wallet.transactions.push({
-      id: crypto.randomUUID(),
-      userId,
-      coinsDelta: WELCOME_COINS,
-      xpDelta: 0,
-      balanceAfter: WELCOME_COINS,
-      source: "welcome",
-      ruleId: null,
-      referenceId: "welcome",
-      description: "Boas-vindas ao PRX",
-      createdAt: userStore.findById(userId)?.createdAt ?? new Date().toISOString(),
-    });
+    if (WELCOME_COINS > 0) {
+      wallet.transactions.push({
+        id: crypto.randomUUID(),
+        userId,
+        coinsDelta: WELCOME_COINS,
+        xpDelta: 0,
+        balanceAfter: WELCOME_COINS,
+        source: "welcome",
+        ruleId: null,
+        referenceId: "welcome",
+        description: "Boas-vindas ao PRX",
+        createdAt: userStore.findById(userId)?.createdAt ?? new Date().toISOString(),
+      });
+    }
     state.wallets.set(userId, wallet);
   }
   return wallet;
@@ -438,9 +540,36 @@ class MemoryWalletRepository implements WalletRepository, LedgerReader {
   }
 
   async lastClaims(userId: string) {
-    const out: Record<string, string> = {};
-    for (const tx of memoryWallet(userId).transactions) if (tx.source === "behavior" && tx.ruleId && !out[tx.ruleId]) out[tx.ruleId] = tx.createdAt;
+    const out: Record<string, LastClaim> = {};
+    for (const claim of memory().claims) if (claim.userId === userId && !out[claim.ruleId]) out[claim.ruleId] = { at: claim.createdAt, status: claim.status };
     return out;
+  }
+
+  async listClaims(userId: string, limit: number) {
+    return structuredClone(memory().claims.filter((c) => c.userId === userId).slice(0, limit));
+  }
+
+  async insertClaim(c: Omit<BehaviorClaim, "id" | "createdAt" | "status" | "reviewNote" | "reviewedBy" | "reviewedAt">) {
+    const claim: BehaviorClaim = { ...c, id: `claim-${crypto.randomUUID()}`, status: "pending", reviewNote: "", reviewedBy: null, reviewedAt: null, createdAt: new Date().toISOString() };
+    memory().claims.unshift(claim);
+    return structuredClone(claim);
+  }
+
+  async listClaimsByStatus(status: ClaimStatus | "all", limit: number) {
+    const list = memory().claims.filter((c) => status === "all" || c.status === status);
+    return structuredClone((status === "pending" ? [...list].reverse() : list).slice(0, limit));
+  }
+
+  async getClaim(id: string) {
+    const claim = memory().claims.find((c) => c.id === id);
+    return claim ? structuredClone(claim) : null;
+  }
+
+  async decideClaim(id: string, decision: { status: "approved" | "rejected"; note: string; reviewer: string }) {
+    const claim = memory().claims.find((c) => c.id === id && c.status === "pending");
+    if (!claim) return null;
+    Object.assign(claim, { status: decision.status, reviewNote: decision.note, reviewedBy: decision.reviewer, reviewedAt: new Date().toISOString() });
+    return structuredClone(claim);
   }
 
   async apply(userId: string, movement: PointMovement): Promise<ApplyResult> {
@@ -506,9 +635,14 @@ export function getWalletRepository(userId: string): WalletRepository {
   return supabaseAdmin && isUuid(userId) ? new SupabaseWalletRepository(supabaseAdmin) : new MemoryWalletRepository();
 }
 
-/** Leituras agregadas do painel financeiro (somam Supabase e memória quando os dois existem). */
+/** Leituras agregadas do admin (financeiro e fila de análise): Supabase e memória quando os dois existem. */
 export function getLedgerReaders(): LedgerReader[] {
   return supabaseAdmin ? [new SupabaseWalletRepository(supabaseAdmin), new MemoryWalletRepository()] : [new MemoryWalletRepository()];
+}
+
+/** Onde está guardado o envio de bom comportamento (id uuid → Supabase). */
+export function claimsReaderFor(claimId: string): LedgerReader {
+  return supabaseAdmin && isUuid(claimId) ? new SupabaseWalletRepository(supabaseAdmin) : new MemoryWalletRepository();
 }
 
 /** Só para testes: limpa o estado em memória. */

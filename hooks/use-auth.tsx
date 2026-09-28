@@ -3,6 +3,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { CONSENT_COOKIE, TERMS_VERSION } from "@/lib/legal-version";
+import { forgetKnownAccount, readKnownAccount, saveKnownAccount, unlock, updateKnownAccount } from "@/lib/known-account";
+import { authenticatePasskey } from "@/lib/passkeys/client";
 
 export interface User {
   id: string;
@@ -15,13 +17,35 @@ export interface User {
   avatarUrl: string;
 }
 
-type AuthResult = { success: boolean; error?: string };
+type AuthResult = { success: boolean; error?: string; code?: string | null };
+
+/** CPF, nascimento e caminho de 16–17 anos informados no cadastro (verificação de idade). */
+export interface SignupIdentityInput {
+  cpf: string;
+  birthDate: string;
+  teenPath?: "linked" | "emancipated" | "";
+  parentEmail?: string;
+}
+
+interface LoginOptions {
+  /** false: autentica mas mantém a tela de login aberta (ex.: oferecer a biometria antes de entrar). */
+  unlock?: boolean;
+}
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, pass: string, rememberMe?: boolean, termsAccepted?: boolean) => Promise<AuthResult>;
-  signup: (fullName: string, email: string, pass: string, termsAccepted?: boolean) => Promise<AuthResult>;
+  /**
+   * Aba desbloqueada. Com uma conta lembrada neste aparelho, cada nova visita
+   * abre a tela de login dedicada até a senha ou a biometria serem confirmadas.
+   */
+  unlocked: boolean;
+  markUnlocked: () => void;
+  login: (email: string, pass: string, rememberMe?: boolean, termsAccepted?: boolean, options?: LoginOptions) => Promise<AuthResult>;
+  loginWithPasskey: (userId: string) => Promise<AuthResult & { missing?: boolean }>;
+  /** "Entrar com outra conta": encerra a sessão e esquece a conta lembrada neste aparelho. */
+  forgetAccount: () => Promise<void>;
+  signup: (fullName: string, email: string, pass: string, termsAccepted?: boolean, identity?: SignupIdentityInput) => Promise<AuthResult>;
   loginWithGoogle: (rememberMe?: boolean, termsAccepted?: boolean) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -86,18 +110,41 @@ async function resolveSession(): Promise<User | null> {
     }
 
     storage.mark(remembered);
+
+    // Volta da entrada com o Google: a aba fica desbloqueada e, com "lembrar de mim", a conta é lembrada.
+    if (unlock.takePending()) {
+      unlock.mark();
+      if (remembered) saveKnownAccount({ id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, provider: "google" });
+    }
+    // Mantém nome e foto da conta lembrada em dia.
+    const known = readKnownAccount();
+    if (known && known.id === user.id && (known.name !== user.name || known.avatarUrl !== user.avatarUrl)) {
+      updateKnownAccount({ name: user.name, avatarUrl: user.avatarUrl });
+    }
     return user;
   } catch {
     return null;
   }
 }
 
+function rememberAccount(user: User, rememberMe: boolean, provider: "password" | "google") {
+  if (rememberMe) saveKnownAccount({ id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, provider });
+  else forgetKnownAccount();
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unlocked, setUnlocked] = useState(false);
+
+  const markUnlocked = useCallback(() => {
+    unlock.mark();
+    setUnlocked(true);
+  }, []);
 
   const refreshUser = useCallback(async () => {
     setUser(await resolveSession());
+    setUnlocked(unlock.isUnlocked());
     setLoading(false);
   }, []);
 
@@ -106,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resolveSession().then((sessionUser) => {
       if (!active) return;
       setUser(sessionUser);
+      setUnlocked(unlock.isUnlocked());
       setLoading(false);
     });
     return () => {
@@ -113,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (email: string, pass: string, rememberMe = true, termsAccepted = false): Promise<AuthResult> => {
+  const login = useCallback(async (email: string, pass: string, rememberMe = true, termsAccepted = false, options: LoginOptions = {}): Promise<AuthResult> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -123,33 +171,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = (await res.json()) as { user?: User; error?: string };
       if (!res.ok || !data.user) return { success: false, error: data.error || "Falha no login" };
       storage.mark(rememberMe);
+      rememberAccount(data.user, rememberMe, "password");
       setUser(data.user);
+      if (options.unlock !== false) markUnlocked();
       return { success: true };
     } catch (err) {
       return { success: false, error: errorMessage(err, "Erro de conexão") };
     }
-  }, []);
+  }, [markUnlocked]);
 
-  const signup = useCallback(async (fullName: string, email: string, pass: string, termsAccepted = false): Promise<AuthResult> => {
+  const loginWithPasskey = useCallback(
+    async (userId: string): Promise<AuthResult & { missing?: boolean }> => {
+      const result = await authenticatePasskey<User>(userId);
+      if (!result.ok) {
+        // Biometria removida no servidor (ou em outro aparelho): a tela volta a pedir só a senha.
+        if (result.missing) updateKnownAccount({ passkey: false });
+        return { success: false, error: result.error, missing: result.missing };
+      }
+      storage.mark(true);
+      updateKnownAccount({ name: result.user.name, avatarUrl: result.user.avatarUrl, passkey: true });
+      setUser(result.user);
+      markUnlocked();
+      return { success: true };
+    },
+    [markUnlocked]
+  );
+
+  const signup = useCallback(async (fullName: string, email: string, pass: string, termsAccepted = false, identity?: SignupIdentityInput): Promise<AuthResult> => {
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, email, password: pass, termsAccepted }),
+        body: JSON.stringify({
+          fullName,
+          email,
+          password: pass,
+          termsAccepted,
+          ...(identity ? { cpf: identity.cpf, birthDate: identity.birthDate, teenPath: identity.teenPath || undefined, parentEmail: identity.parentEmail || undefined } : {}),
+        }),
       });
-      const data = (await res.json()) as { user?: User; error?: string };
-      if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta" };
+      const data = (await res.json()) as { user?: User; error?: string; code?: string | null };
+      if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta", code: data.code ?? null };
       storage.mark(true);
+      rememberAccount(data.user, true, "password");
       setUser(data.user);
+      markUnlocked();
       return { success: true };
     } catch (err) {
       return { success: false, error: errorMessage(err, "Erro de conexão") };
     }
-  }, []);
+  }, [markUnlocked]);
 
   const loginWithGoogle = useCallback(async (rememberMe = true, termsAccepted = false): Promise<AuthResult> => {
     try {
       storage.mark(rememberMe);
+      if (!rememberMe) forgetKnownAccount();
+      unlock.setPending();
       document.cookie = `prx_remember_pending=${rememberMe ? 1 : 0}; path=/; max-age=1800; SameSite=Lax`;
       // O aceite dos Termos/LGPD atravessa o redirecionamento do Google e é gravado no callback.
       if (termsAccepted) document.cookie = `${CONSENT_COOKIE}=${TERMS_VERSION}; path=/; max-age=1800; SameSite=Lax`;
@@ -176,25 +253,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       const data = (await res.json()) as { user?: User; error?: string };
       if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao autenticar com o Google" };
+      unlock.takePending();
+      rememberAccount(data.user, rememberMe, "google");
       setUser(data.user);
+      markUnlocked();
       return { success: true };
     } catch (err) {
       return { success: false, error: errorMessage(err, "Erro ao conectar com o Google") };
     }
-  }, []);
+  }, [markUnlocked]);
 
+  /** Sair mantém a conta lembrada: a próxima entrada é pela tela dedicada (senha ou biometria). */
   const logout = useCallback(async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
       storage.clear();
+      unlock.clear();
+      setUnlocked(false);
+      setUser(null);
+    }
+  }, []);
+
+  const forgetAccount = useCallback(async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      storage.clear();
+      unlock.clear();
+      forgetKnownAccount();
+      setUnlocked(false);
       setUser(null);
     }
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, login, signup, loginWithGoogle, logout, refreshUser }),
-    [user, loading, login, signup, loginWithGoogle, logout, refreshUser]
+    () => ({ user, loading, unlocked, markUnlocked, login, loginWithPasskey, forgetAccount, signup, loginWithGoogle, logout, refreshUser }),
+    [user, loading, unlocked, markUnlocked, login, loginWithPasskey, forgetAccount, signup, loginWithGoogle, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

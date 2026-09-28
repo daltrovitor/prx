@@ -117,20 +117,28 @@ export function nextPeriodStart(period: Exclude<PointRulePeriod, "once" | "per_e
   return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 1) + BRT_OFFSET_MS);
 }
 
+/** Último envio do membro para uma regra (o que decide a janela de periodicidade). */
+export interface LastClaim {
+  at: string;
+  status: "pending" | "approved" | "rejected";
+}
+
 /**
- * Situação de um check-in dado o último resgate do membro.
- * Regras automáticas nunca são reivindicadas à mão.
+ * Situação de um bom comportamento dado o último envio do membro.
+ * Envio em análise bloqueia novos; envio recusado libera de novo; aprovado
+ * segue a periodicidade. Regras automáticas nunca são enviadas à mão.
  */
-export function claimStatus(rule: Pick<PointRule, "trigger" | "periodicity">, lastClaimAt: string | null, now = new Date()): Pick<MemberPointRule, "status" | "availableAt"> {
+export function claimStatus(rule: Pick<PointRule, "trigger" | "periodicity">, last: LastClaim | string | null, now = new Date()): Pick<MemberPointRule, "status" | "availableAt"> {
   if (rule.trigger !== "checkin" || rule.periodicity === "per_event") return { status: "auto", availableAt: null };
-  if (!lastClaimAt) return { status: "available", availableAt: null };
+  const claim: LastClaim | null = typeof last === "string" ? { at: last, status: "approved" } : last;
+  if (!claim || claim.status === "rejected") return { status: "available", availableAt: null };
+  if (claim.status === "pending") return { status: "pending", availableAt: null };
   if (rule.periodicity === "once") return { status: "done", availableAt: null };
-  const last = new Date(lastClaimAt);
-  if (last < periodStart(rule.periodicity, now)) return { status: "available", availableAt: null };
+  if (new Date(claim.at) < periodStart(rule.periodicity, now)) return { status: "available", availableAt: null };
   return { status: "cooldown", availableAt: nextPeriodStart(rule.periodicity, now).toISOString() };
 }
 
-export function toMemberRule(rule: PointRule, lastClaimAt: string | null, now = new Date()): MemberPointRule {
+export function toMemberRule(rule: PointRule, lastClaim: LastClaim | null, now = new Date()): MemberPointRule {
   return {
     id: rule.id,
     title: rule.title,
@@ -140,6 +148,6 @@ export function toMemberRule(rule: PointRule, lastClaimAt: string | null, now = 
     xp: rule.xp,
     periodicity: rule.periodicity,
     category: rule.category,
-    ...claimStatus(rule, lastClaimAt, now),
+    ...claimStatus(rule, lastClaim, now),
   };
 }

@@ -5,7 +5,7 @@ import { claimStatus, nextPeriodStart, periodStart } from "@/lib/points/rules";
 import { pointRuleInputSchema } from "@/lib/points/types";
 import { getPartnerRepository } from "@/lib/partners/repository";
 import { getWalletRepository, resetPointsMemory } from "@/lib/points/repository";
-import { assertCanAfford, chargeRedemption, claimCheckin, getWallet, previewPartnerPix, processPartnerPixTransfer } from "@/lib/points/service";
+import { assertCanAfford, chargeRedemption, getWallet, listClaimsForReview, previewPartnerPix, processPartnerPixTransfer, reviewClaim, submitClaim } from "@/lib/points/service";
 import { partnerSnapshot } from "@/lib/partners/__tests__/fixtures";
 
 const burger: MatchablePartner = {
@@ -56,6 +56,8 @@ describe("janelas de check-in (horário de Brasília)", () => {
   it("libera, segura e encerra conforme a periodicidade", () => {
     const weekly = { trigger: "checkin" as const, periodicity: "weekly" as const };
     expect(claimStatus(weekly, null, now).status).toBe("available");
+    expect(claimStatus(weekly, { at: "2026-09-22T12:00:00Z", status: "pending" }, now).status).toBe("pending");
+    expect(claimStatus(weekly, { at: "2026-09-22T12:00:00Z", status: "rejected" }, now).status).toBe("available");
     expect(claimStatus(weekly, "2026-09-22T12:00:00Z", now)).toEqual({ status: "cooldown", availableAt: "2026-09-28T03:00:00.000Z" });
     expect(claimStatus(weekly, "2026-09-20T12:00:00Z", now).status).toBe("available");
     expect(claimStatus({ trigger: "checkin", periodicity: "once" }, "2026-01-01T00:00:00Z", now).status).toBe("done");
@@ -76,23 +78,46 @@ describe("economia PRX (memória)", () => {
 
   beforeEach(() => resetPointsMemory());
 
-  it("abre a carteira com 100 coins de boas-vindas e regras ativas", async () => {
+  const member = { id: userId, name: "Membro Teste", email: "teste@prx.dev" };
+
+  it("abre a carteira zerada: nenhum coin de graça", async () => {
     const wallet = await getWallet(userId);
-    expect(wallet.coins).toBe(100);
-    expect(wallet.transactions[0]).toMatchObject({ source: "welcome", coinsDelta: 100 });
+    expect(wallet.coins).toBe(0);
+    expect(wallet.transactions).toHaveLength(0);
     expect(wallet.rules.some((r) => r.trigger === "checkin" && r.status === "available")).toBe(true);
   });
 
-  it("credita o check-in uma vez por período", async () => {
+  it("bom comportamento só credita depois da aprovação da equipe", async () => {
     const wallet = await getWallet(userId);
     const weekly = wallet.rules.find((r) => r.periodicity === "weekly")!;
-    const first = await claimCheckin(userId, weekly.id);
-    expect(first.coins).toBe(100 + weekly.coins);
-    await expect(claimCheckin(userId, weekly.id)).rejects.toThrow(/período/);
+    const claim = await submitClaim(member, weekly.id, "Mais uma semana sem apostar, foco no curso.");
+    expect(claim.status).toBe("pending");
+    expect((await getWallet(userId)).coins).toBe(0);
+    expect((await getWallet(userId)).rules.find((r) => r.id === weekly.id)?.status).toBe("pending");
+    await expect(submitClaim(member, weekly.id, "Enviando de novo antes da análise.")).rejects.toThrow(/análise/);
+
+    expect((await listClaimsForReview("pending")).some((c) => c.id === claim.id)).toBe(true);
+    const approved = await reviewClaim(claim.id, "approve", "", "admin@prx.dev");
+    expect(approved.status).toBe("approved");
+    const after = await getWallet(userId);
+    expect(after.coins).toBe(weekly.coins);
+    expect(after.transactions[0]).toMatchObject({ source: "behavior", coinsDelta: weekly.coins, xpDelta: weekly.xp });
+    await expect(reviewClaim(claim.id, "approve", "", "admin@prx.dev")).rejects.toThrow(/já foi aprovado/);
+    await expect(submitClaim(member, weekly.id, "Outra semana no mesmo período.")).rejects.toThrow(/período/);
+  });
+
+  it("envio recusado não credita e libera novo envio", async () => {
+    const wallet = await getWallet(userId);
+    const daily = wallet.rules.find((r) => r.periodicity === "daily")!;
+    const claim = await submitClaim(member, daily.id, "Treino de 40 minutos na praça.");
+    await reviewClaim(claim.id, "reject", "Sem comprovação.", "admin@prx.dev");
+    expect((await getWallet(userId)).coins).toBe(0);
+    expect((await getWallet(userId)).rules.find((r) => r.id === daily.id)?.status).toBe("available");
   });
 
   it("debita o resgate uma única vez e bloqueia saldo insuficiente", async () => {
     await getWallet(userId);
+    await getWalletRepository(userId).apply(userId, { coinsDelta: 100, xpDelta: 0, source: "admin_adjustment", referenceId: "seed", description: "Saldo de teste" });
     await expect(assertCanAfford(userId, 500)).rejects.toThrow(/insuficientes/);
     const benefit = { id: "b1", title: "Café", partnerName: "Café Aurora", pointsCost: 60 };
     const first = await chargeRedemption(userId, benefit, "voucher-1");
@@ -122,12 +147,12 @@ describe("economia PRX (memória)", () => {
 
     const transfer = { endToEndId: `E2E${Date.now()}`, key: partnerSnapshot.document, amount: 50, source: "sandbox" as const };
     const result = await processPartnerPixTransfer(userId, transfer);
-    expect(result).toMatchObject({ coins: 150, categoryName: "Gastronomia", duplicate: false });
+    expect(result).toMatchObject({ coins: 50, categoryName: "Gastronomia", duplicate: false });
     expect(result?.purchase).toMatchObject({ partnerName: "Café Aurora", commission: 4, coins: 50, xp: 100, matchMethod: "document" });
 
     const replay = await processPartnerPixTransfer(userId, transfer);
     expect(replay?.duplicate).toBe(true);
-    expect(replay?.coins).toBe(150);
+    expect(replay?.coins).toBe(50);
 
     const wallet = await getWallet(userId);
     expect(wallet.purchases).toHaveLength(1);

@@ -59,7 +59,7 @@ export function PartnerContracts({
           <h3 className="text-[13px] font-semibold text-ink">Aguardando o seu aceite</h3>
           <ul className="space-y-2">
             {pending.map((c) => (
-              <li key={c.id} className="flex flex-col gap-3 rounded-3xl bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+              <li key={c.id} className="flex flex-col gap-3 rounded-3xl glass-soft p-5 sm:flex-row sm:items-center sm:justify-between">
                 <CampaignLine campaign={c} />
                 <Button onClick={() => setReviewingId(c.id)}>Revisar e aceitar</Button>
               </li>
@@ -73,7 +73,7 @@ export function PartnerContracts({
           <h3 className="text-[13px] font-semibold text-ink">Histórico</h3>
           <ul className="space-y-2">
             {others.map((c) => (
-              <li key={c.id} className="space-y-3 rounded-3xl bg-surface p-5">
+              <li key={c.id} className="space-y-3 rounded-3xl glass-soft p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <CampaignLine campaign={c} />
                   <Tag tone={TONE[c.status]}>{CAMPAIGN_STATUS_LABEL[c.status]}</Tag>
@@ -191,7 +191,7 @@ function AcceptForm({
     return (
       <div className="space-y-6">
         <Notice tone="success">Parceria aceita em {formatDateTimeBR(done.acceptedAt)}. O benefício já está no app.</Notice>
-        <div className="rounded-3xl bg-surface p-5">
+        <div className="rounded-3xl glass p-5">
           <p className="text-[13px] text-muted-foreground">Certificado da Campanha PRX</p>
           <p className="mt-1 font-mono text-xl tracking-[0.04em] text-ink">{done.certificateId}</p>
         </div>

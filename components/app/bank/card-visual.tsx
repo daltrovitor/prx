@@ -1,6 +1,7 @@
 // Hello World
 "use client";
 
+import type { PointerEvent } from "react";
 import { motion } from "motion/react";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import type { VirtualCard } from "@/lib/prx/bank";
@@ -17,8 +18,23 @@ function Contactless({ className }: { className?: string }) {
   );
 }
 
-const cardShell =
-  "relative flex aspect-[1.586/1] w-full select-none flex-col justify-between overflow-hidden rounded-[20px] p-5 text-left text-white shadow-[0_12px_32px_-16px_rgba(11,11,16,0.45)]";
+const cardShell = "prx-holo flex aspect-[1.586/1] w-full select-none flex-col justify-between rounded-[22px] p-5 text-left";
+
+/**
+ * A película holográfica acompanha o ponteiro (variáveis CSS, sem re-render).
+ * Sem ponteiro, volta ao repouso: nada se move sozinho.
+ */
+function trackHolo(event: PointerEvent<HTMLElement>) {
+  const el = event.currentTarget;
+  const rect = el.getBoundingClientRect();
+  el.style.setProperty("--holo-x", `${(((event.clientX - rect.left) / rect.width) * 100).toFixed(1)}%`);
+  el.style.setProperty("--holo-y", `${(((event.clientY - rect.top) / rect.height) * 100).toFixed(1)}%`);
+}
+
+function resetHolo(event: PointerEvent<HTMLElement>) {
+  event.currentTarget.style.removeProperty("--holo-x");
+  event.currentTarget.style.removeProperty("--holo-y");
+}
 
 /**
  * Cartão virtual PRX em destaque (carrossel da Home e aba Cartões).
@@ -32,12 +48,18 @@ export function PaymentCard({ card, holder, onClick }: { card: VirtualCard | nul
       onClick={onClick}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 24 }}
-      className={cn(cardShell, "cursor-pointer bg-primary", card?.locked && "grayscale")}
+      onPointerMove={trackHolo}
+      onPointerLeave={resetHolo}
+      className={cn(cardShell, "cursor-pointer", card?.locked && "grayscale")}
       aria-label={label}
     >
       <span className="flex items-start justify-between">
         <span className="text-[12px] font-semibold uppercase tracking-[0.06em]">PRX Bank</span>
-        {card ? <Contactless className="h-6 w-6 text-white/90" /> : <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold">Em ativação</span>}
+        {card ? (
+          <Contactless className="h-6 w-6 text-white/90" />
+        ) : (
+          <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-white/20 backdrop-blur-sm">Em ativação</span>
+        )}
       </span>
       <span className="flex items-end justify-between gap-3">
         <span className="min-w-0">
@@ -63,15 +85,17 @@ export function CardVisual({ card, holder }: { card: VirtualCard | null; holder:
       whileHover={{ rotateX: 4, rotateY: -6, y: -2 }}
       transition={{ type: "spring", stiffness: 300, damping: 24 }}
       style={{ transformPerspective: 900 }}
-      className={cn(cardShell, "mx-auto max-w-[380px] sm:mx-0", card ? "bg-primary" : "bg-primary/70", card?.locked && "grayscale")}
+      onPointerMove={trackHolo}
+      onPointerLeave={resetHolo}
+      className={cn(cardShell, "mx-auto max-w-[380px] sm:mx-0", !card && "opacity-80", card?.locked && "grayscale")}
       aria-label={card ? `Cartão virtual final ${card.last4}${card.locked ? ", bloqueado" : ""}` : "Cartão virtual ainda não emitido"}
       role="img"
     >
       <div className="flex items-start justify-between">
         <span className="text-[12px] font-semibold uppercase tracking-[0.06em]">PRX Bank</span>
-        <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold">{!card ? "Em ativação" : card.locked ? "Bloqueado" : "Virtual"}</span>
+        <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-white/20 backdrop-blur-sm">{!card ? "Em ativação" : card.locked ? "Bloqueado" : "Virtual"}</span>
       </div>
-      <p className="font-mono text-base tracking-[0.12em] min-[360px]:text-lg sm:text-xl">{card ? `•••• •••• •••• ${card.last4}` : "•••• •••• •••• ••••"}</p>
+      <p className="font-mono text-base font-medium tracking-[0.12em] text-white min-[360px]:text-lg sm:text-xl">{card ? `•••• •••• •••• ${card.last4}` : "•••• •••• •••• ••••"}</p>
       <div className="flex items-end justify-between gap-3 text-[11px] sm:text-[12px]">
         <div className="min-w-0">
           <span className="block font-medium text-white/70">Titular</span>

@@ -7,6 +7,7 @@ import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type CardReque
 import { detectPixKeyType, isValidCpf } from "@/lib/prx/pix";
 import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { processPartnerPixTransfer, type PartnerPixResult } from "@/lib/points/service";
+import { assertCanHoldMoney, assertMinorSpend } from "@/lib/family/guards";
 
 /**
  * Regras do PRX BANK antes da ativação do banco parceiro: a conta existe,
@@ -54,6 +55,7 @@ export async function accountView(userId: string): Promise<BankAccountView> {
 
 export async function activateSandbox(userId: string): Promise<void> {
   if (!sandboxEnabled(userId)) throw new PartnerError("A conta sandbox só existe no ambiente de testes.", 403);
+  await assertCanHoldMoney(userId);
   sandboxActivate(userId);
 }
 
@@ -76,6 +78,8 @@ export async function sendPix(userId: string, input: z.output<typeof sendPixSche
   if (account.status !== "active") throw new PartnerError(ACTIVATION_REQUIRED, 409);
   const keyType = detectPixKeyType(input.key);
   if (!keyType) throw new PartnerError("Chave Pix inválida.", 422);
+  // Menor de idade: conta liberada pelo responsável e dentro dos limites que ele definiu.
+  await assertMinorSpend(userId, input.amount, await getBankRepository(userId).listTransactions(userId, 500));
 
   const recipient = input.recipientName?.trim() || input.key;
   const settled = sandboxSendPix(userId, { key: input.key, amount: input.amount, recipient, description: input.description });
@@ -126,6 +130,7 @@ export const pixKeyInputSchema = z
   });
 
 export async function addPixKey(userId: string, input: z.output<typeof pixKeyInputSchema>): Promise<PixKey> {
+  await assertCanHoldMoney(userId);
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
   if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);

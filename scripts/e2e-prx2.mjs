@@ -1,6 +1,7 @@
 // Hello World
-// Teste ponta a ponta da PRX 2.0 (pontos, níveis, Pix em parceiro, Reels, financeiro,
-// LGPD e lista VIP). Requer `npm run dev` sem Supabase (contas de demonstração e sandbox).
+// Teste ponta a ponta da PRX 2.0 (pontos, níveis, Pix em parceiro, Destaques, financeiro,
+// LGPD, lista VIP, verificação de idade, Conta Pai e biometria). Requer `npm run dev`
+// sem Supabase (contas de demonstração e sandbox).
 // Uso: BASE=http://localhost:3000 node scripts/e2e-prx2.mjs
 const BASE = process.env.BASE || "http://localhost:3000";
 const results = [];
@@ -29,6 +30,19 @@ function client() {
 }
 
 const stamp = Date.now().toString(36);
+/** CPF válido a partir de 9 dígitos aleatórios. */
+const cpf = () => {
+  const d = String(Math.floor(100000000 + Math.random() * 899999999)).split("").map(Number);
+  const calc = (len) => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += d[i] * (len + 1 - i);
+    const r = (sum * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  d.push(calc(9));
+  d.push(calc(10));
+  return d.join("");
+};
 const admin = client();
 const member = client();
 const anon = client();
@@ -36,21 +50,32 @@ const anon = client();
 // ---------- LGPD: cadastro exige aceite ----------
 const noConsent = await anon("/api/auth/signup", { method: "POST", body: { fullName: "Sem Aceite", email: `sem-${stamp}@prx.dev`, password: "Prx2026!x" } });
 check("cadastro sem aceite dos termos é recusado", noConsent.status === 400 && /Termos/.test(noConsent.data.error || ""), noConsent.data.error);
-const signup = await member("/api/auth/signup", { method: "POST", body: { fullName: "Nova Geração", email: `ng-${stamp}@prx.dev`, password: "Prx2026!x", termsAccepted: true } });
-check("cadastro com aceite cria a conta", signup.status === 200, signup.data.error);
+const under16 = await anon("/api/auth/signup", { method: "POST", body: { fullName: "Criança", email: `cr-${stamp}@prx.dev`, password: "Prx2026!x", cpf: cpf(), birthDate: "2013-03-03", termsAccepted: true } });
+check("menor de 16 vai para a Conta Pai (sem criar conta)", under16.status === 403 && under16.data.code === "PARENT_REQUIRED", under16.data.error);
+const memberCpf = cpf();
+const signup = await member("/api/auth/signup", { method: "POST", body: { fullName: "Nova Geração", email: `ng-${stamp}@prx.dev`, password: "Prx2026!x", cpf: memberCpf, birthDate: "2004-08-20", termsAccepted: true } });
+check("cadastro com aceite, CPF e idade cria a conta", signup.status === 200, signup.data.error);
+const sameCpf = await anon("/api/auth/signup", { method: "POST", body: { fullName: "Outra Pessoa", email: `dup-${stamp}@prx.dev`, password: "Prx2026!x", cpf: memberCpf, birthDate: "2003-01-01", termsAccepted: true } });
+check("CPF já cadastrado é recusado", sameCpf.status === 409 && sameCpf.data.code === "CPF_TAKEN", sameCpf.data.error);
+const familyMe = (await member("/api/family/me")).data.state;
+check("conta adulta registrada como membro ativo", familyMe?.identity?.accountType === "member" && familyMe?.identity?.status === "active");
 
 // ---------- Carteira de pontos ----------
 let wallet = (await member("/api/points")).data.wallet;
-check("carteira nasce com 100 PRX Coins", wallet?.coins === 100, JSON.stringify(wallet?.coins));
+check("carteira nasce com 0 PRX Coins", wallet?.coins === 0, JSON.stringify(wallet?.coins));
 check("nível derivado do XP (régua infinita)", wallet?.level >= 1);
 const weekly = wallet.rules.find((r) => r.trigger === "checkin" && r.periodicity === "weekly");
-const claim = await member("/api/points", { method: "POST", body: { action: "checkin", ruleId: weekly.id } });
-check("check-in semanal credita coins e XP", claim.status === 200 && claim.data.wallet.coins === 100 + weekly.coins, JSON.stringify(claim.data.earned));
-const again = await member("/api/points", { method: "POST", body: { action: "checkin", ruleId: weekly.id } });
-check("check-in repetido no período é recusado", again.status === 409, again.data.error);
+const claim = await member("/api/points", { method: "POST", body: { action: "checkin", ruleId: weekly.id, evidence: "Semana inteira sem apostas, foco no curso técnico." } });
+check("bom comportamento vai para análise sem creditar", claim.status === 200 && claim.data.claim?.status === "pending" && claim.data.wallet.coins === 0, JSON.stringify(claim.data.claim ?? claim.data.error));
+const again = await member("/api/points", { method: "POST", body: { action: "checkin", ruleId: weekly.id, evidence: "Enviando de novo antes da análise." } });
+check("novo envio com um em análise é recusado", again.status === 409, again.data.error);
 
-// ---------- Admin: parceiro, benefício e viabilidade ----------
+// ---------- Admin: análise, parceiro, benefício e viabilidade ----------
 check("admin login", (await admin("/api/admin/login", { method: "POST", body: { email: "admin@prx.dev", password: "AdminPrx2026!" } })).status === 200);
+const approved = await admin("/api/admin/points/claims", { method: "POST", body: { id: claim.data.claim?.id, decision: "approve", note: "" } });
+check("admin aprova o envio", approved.status === 200, approved.data.error);
+wallet = (await member("/api/points")).data.wallet;
+check("coins e XP entram só após a aprovação", wallet.coins === weekly.coins && wallet.claims?.[0]?.status === "approved", JSON.stringify(wallet.coins));
 const partnerInput = {
   tradeName: `Burger Lab ${stamp}`,
   legalName: "Burger Lab Alimentos LTDA",
@@ -86,8 +111,8 @@ const lookup = await member("/api/bank", { method: "POST", body: { action: "look
 check("chave CNPJ reconhecida como parceiro", lookup.data.partner?.partnerId === partnerId && lookup.data.partner?.verticalCode === "BITE", JSON.stringify(lookup.data));
 const sandbox = await member("/api/bank", { method: "POST", body: { action: "sandbox_activate" } });
 check("conta sandbox ativada com saldo fictício", sandbox.status === 200 && sandbox.data.account.status === "active" && sandbox.data.account.balance === 1000);
-const pix = await member("/api/bank", { method: "POST", body: { action: "send_pix", key: "04252011000110", amount: 250, description: "Almoço" } });
-check("Pix para parceiro credita coins e XP", pix.status === 200 && pix.data.reward?.coins === 250 && pix.data.reward?.xp === 500, JSON.stringify(pix.data.reward ?? pix.data.error));
+const pix = await member("/api/bank", { method: "POST", body: { action: "send_pix", key: "04252011000110", amount: 300, description: "Almoço" } });
+check("Pix para parceiro credita coins e XP", pix.status === 200 && pix.data.reward?.coins === 300 && pix.data.reward?.xp === 600, JSON.stringify(pix.data.reward ?? pix.data.error));
 const categorized = pix.data.account?.transactions?.find((t) => t.kind === "pix_out");
 check("gasto categorizado no nicho do parceiro (PRX Map)", categorized?.categoryId === "gastronomia" && categorized?.counterparty?.startsWith("Burger Lab"));
 const other = await member("/api/bank", { method: "POST", body: { action: "send_pix", key: `ninguem-${stamp}@exemplo.dev`, amount: 10 } });
@@ -99,7 +124,7 @@ check("extrato registra a compra em parceiro", wallet.purchases.length === 1 && 
 const redeem = await member("/api/pass/redeem", { method: "POST", body: { benefitId } });
 check("resgate debita os coins do preço", redeem.status === 200 && redeem.data.points?.coins === wallet.coins - 300, JSON.stringify(redeem.data.points ?? redeem.data.error));
 
-// ---------- Reels ----------
+// ---------- Destaques (vídeos de parceiros) ----------
 const reel = await admin("/api/admin/reels", {
   method: "POST",
   body: { partnerId, title: "Drop do combo", videoUrl: "https://cdn.prx.app.br/reels/combo.mp4", collection: "drops", ctaKind: "benefit", ctaTarget: benefitId },
@@ -109,6 +134,8 @@ const feed = (await member("/api/reels")).data.reels ?? [];
 const mine = feed.find((r) => r.id === reel.data.reel?.id);
 check("Reel aparece no feed com o botão padrão", mine?.ctaLabel === "Aproveitar Benefício");
 check("feed não expõe métricas de negócio", mine && !("views" in mine) && !("ctaClicks" in mine));
+const brandOnly = await admin("/api/admin/reels", { method: "POST", body: { brandName: "Marca Convidada", title: "Novidade", videoUrl: "https://cdn.prx.app.br/reels/marca.mp4", collection: "drops", ctaKind: "catalog", ctaTarget: "" } });
+check("vídeo só com o nome da marca (sem parceiro cadastrado)", brandOnly.status === 200 && brandOnly.data.reel?.partnerName === "Marca Convidada", brandOnly.data.error);
 const like = await member("/api/reels", { method: "POST", body: { action: "like", reelId: mine?.id } });
 check("curtida conta uma vez", like.data.state?.likes === 1 && like.data.state?.liked === true);
 await member("/api/reels", { method: "POST", body: { action: "like", reelId: mine?.id } });
@@ -126,10 +153,30 @@ check("lista VIP valida o e-mail", vipBad.status === 422);
 const vip = await anon("/api/waitlist", { method: "POST", body: { email: `vip-${stamp}@prx.dev`, consent: true } });
 check("lista VIP aceita o cadastro", vip.status === 200, vip.data.error);
 
+// ---------- Conta Pai ----------
+const parent = client();
+const parentSignup = await parent("/api/family/parent/signup", {
+  method: "POST",
+  body: { fullName: "Maria Responsável", email: `pai-${stamp}@prx.dev`, password: "SenhaForte123", cpf: cpf(), birthDate: "1984-04-12", phone: "11988887777", termsAccepted: true },
+});
+check("Conta Pai criada em análise", parentSignup.status === 200 && (await parent("/api/family/me")).data.state?.identity?.status === "parent_review", parentSignup.data.error);
+const parentSandbox = await parent("/api/bank", { method: "POST", body: { action: "sandbox_activate" } });
+check("Conta Pai não guarda dinheiro", parentSandbox.status === 403, parentSandbox.data.error);
+const earlyChild = await parent("/api/family/children", { method: "POST", body: { fullName: "Filho", email: `f-${stamp}@prx.dev`, password: "SenhaFilho123", cpf: cpf(), birthDate: "2013-01-01" } });
+check("filho só depois da aprovação", earlyChild.status === 403, earlyChild.data.error);
+
+// ---------- Biometria ----------
+const noPasskey = await anon(`/api/auth/passkeys/login?userId=usr_sem_biometria_${stamp}`);
+check("biometria não cadastrada responde 404", noPasskey.status === 404);
+check("cadastro de biometria exige sessão", (await anon("/api/auth/passkeys/register")).status === 401);
+
 // ---------- Rotas públicas ----------
-for (const path of ["/institucional", "/termos", "/privacidade", "/em-breve"]) {
+for (const path of ["/termos", "/privacidade", "/em-breve", "/sou-pai"]) {
   check(`rota ${path} abre`, (await anon(path)).status === 200);
 }
+check("página institucional antiga removida", (await anon("/institucional")).status === 307);
+check("prévia da nova landing não existe para visitantes", (await anon("/nova-landing")).status === 404);
+check("prévia da nova landing abre para o admin", (await admin("/nova-landing")).status === 200);
 check("rota desconhecida volta para /", (await anon("/qualquer-coisa")).status === 307);
 
 console.log(results.join("\n"));

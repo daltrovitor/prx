@@ -100,7 +100,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
           <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">PRX PASS</h1>
           <p className="mt-1.5 max-w-md text-sm text-muted-foreground sm:text-[15px]">Descontos reais em marcas parceiras. Resgate, mostre o QR no balcão e pronto.</p>
         </div>
-        <div className="rounded-3xl bg-surface p-5 lg:col-span-5">
+        <div className="rounded-3xl glass p-5 lg:col-span-5">
           <div className="flex items-baseline justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink">Seu nível</p>
             <p className="text-[13px] font-medium text-muted-foreground">
@@ -343,7 +343,7 @@ function VoucherList({
     <div>
       <h2 className="text-lg font-semibold tracking-[-0.02em] text-ink">{title}</h2>
       {vouchers.length === 0 ? (
-        <p className="mt-3 rounded-3xl bg-surface p-5 text-sm text-muted-foreground">{empty}</p>
+        <p className="mt-3 rounded-3xl glass p-5 text-sm text-muted-foreground">{empty}</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {vouchers.map((voucher) => (
@@ -351,7 +351,7 @@ function VoucherList({
               <button
                 type="button"
                 onClick={() => onOpen(voucher)}
-                className="flex w-full cursor-pointer items-center gap-3.5 rounded-3xl bg-surface p-4 text-left transition-colors hover:bg-line"
+                className="flex w-full cursor-pointer items-center gap-3.5 rounded-3xl glass p-4 text-left glass-lift"
               >
                 <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-card text-ink">
                   <IconQr size={18} />

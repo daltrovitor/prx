@@ -69,7 +69,7 @@ export function ReferralPanel({ referralInfo, onReferralSuccess }: ReferralPanel
 
   return (
     <div className="grid gap-3 lg:grid-cols-2">
-      <section aria-labelledby="ref-share" className="space-y-6 rounded-3xl bg-surface p-5 sm:p-7">
+      <section aria-labelledby="ref-share" className="space-y-6 rounded-3xl glass p-5 sm:p-7">
         <div>
           <h2 id="ref-share" className="text-xl font-semibold tracking-[-0.02em] text-ink sm:text-2xl">
             Convide e suba de nível
@@ -97,7 +97,7 @@ export function ReferralPanel({ referralInfo, onReferralSuccess }: ReferralPanel
         </div>
       </section>
 
-      <section aria-labelledby="ref-redeem" className="space-y-5 rounded-3xl bg-surface p-5 sm:p-7">
+      <section aria-labelledby="ref-redeem" className="space-y-5 rounded-3xl glass p-5 sm:p-7">
         <h2 id="ref-redeem" className="text-xl font-semibold tracking-[-0.02em] text-ink sm:text-2xl">
           Recebeu um convite?
         </h2>

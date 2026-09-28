@@ -51,7 +51,7 @@ export function EventDate({ iso, tone = "light", size = "md" }: { iso: string; t
 /** Cartão de métrica: rótulo, número e complemento opcional. */
 export function StatCell({ label, value, children, className }: { label: string; value: ReactNode; children?: ReactNode; className?: string }) {
   return (
-    <div className={cn("flex flex-col justify-between gap-4 rounded-3xl bg-surface p-5 sm:p-6", className)}>
+    <div className={cn("glass flex flex-col justify-between gap-4 rounded-3xl p-5 sm:p-6", className)}>
       <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
       <div>
         <p className="text-[30px] font-semibold leading-none tracking-[-0.035em] text-ink tabular-nums">{value}</p>
@@ -68,7 +68,7 @@ export function TextLink({ children, onClick, className }: { children: ReactNode
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-10 shrink-0 cursor-pointer items-center rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line active:scale-[0.98] in-[.bg-surface]:bg-card",
+        "glass-chip inline-flex min-h-10 shrink-0 cursor-pointer items-center rounded-full px-4 text-sm font-medium text-ink transition-transform active:scale-[0.98]",
         className
       )}
     >

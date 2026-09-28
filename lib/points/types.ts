@@ -14,7 +14,7 @@ import { z } from "zod";
 
 /**
  * O que dispara a regra.
- *   checkin          o membro declara no app (semana sem apostas, treino…), limitado pela periodicidade
+ *   checkin          o membro envia o bom comportamento com um relato; só credita depois da análise da equipe
  *   partner_purchase compra validada em parceiro (Pix/BACEN); coins e XP são "a cada R$ 10"
  *   benefit_redeem   resgate de benefício no PASS
  *   voucher_use      voucher validado no balcão do parceiro
@@ -23,7 +23,7 @@ export const POINT_RULE_TRIGGERS = ["checkin", "partner_purchase", "benefit_rede
 export type PointRuleTrigger = (typeof POINT_RULE_TRIGGERS)[number];
 
 export const POINT_RULE_TRIGGER_LABEL: Record<PointRuleTrigger, string> = {
-  checkin: "Check-in do membro",
+  checkin: "Bom comportamento (com análise)",
   partner_purchase: "Compra em parceiro (a cada R$ 10)",
   benefit_redeem: "Resgate de benefício",
   voucher_use: "Voucher usado no parceiro",
@@ -87,7 +87,7 @@ export const pointRuleInputSchema = z
     path: ["periodicity"],
   })
   .refine((rule) => rule.trigger !== "checkin" || rule.periodicity !== "per_event", {
-    message: "Check-in precisa de periodicidade (uma vez, diária, semanal ou mensal).",
+    message: "Bom comportamento precisa de periodicidade (uma vez, diária, semanal ou mensal).",
     path: ["periodicity"],
   });
 
@@ -168,7 +168,56 @@ export interface PointsWallet {
   transactions: PointTransaction[];
   rules: MemberPointRule[];
   purchases: PartnerPurchase[];
+  /** Envios de bom comportamento do membro (em análise, aprovados e recusados). */
+  claims: BehaviorClaim[];
 }
+
+/* -------------------------------------------------------------------------- */
+/* Bom comportamento com análise                                               */
+/* -------------------------------------------------------------------------- */
+
+export const CLAIM_STATUSES = ["pending", "approved", "rejected"] as const;
+export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
+
+export const CLAIM_STATUS_LABEL: Record<ClaimStatus, string> = {
+  pending: "Em análise",
+  approved: "Aprovado",
+  rejected: "Recusado",
+};
+
+/**
+ * Pedido de pontos por bom comportamento. Coins e XP ficam congelados no
+ * envio e só entram no extrato quando a equipe aprova.
+ */
+export interface BehaviorClaim {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  ruleId: string;
+  ruleTitle: string;
+  coins: number;
+  xp: number;
+  /** Relato do membro (o que fez, onde, link de comprovação). */
+  evidence: string;
+  status: ClaimStatus;
+  reviewNote: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export const claimInputSchema = z.object({
+  action: z.literal("checkin"),
+  ruleId: z.string().trim().min(1).max(100),
+  evidence: z.string().trim().min(10, "Conte em poucas palavras o que você fez (mín. 10 caracteres).").max(500),
+});
+
+export const claimReviewSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  decision: z.enum(["approve", "reject"]),
+  note: z.string().trim().max(280).default(""),
+});
 
 /** Regra como o membro vê: com o próximo momento em que pode ser reivindicada. */
 export interface MemberPointRule {
@@ -180,8 +229,8 @@ export interface MemberPointRule {
   xp: number;
   periodicity: PointRulePeriod;
   category: PointRuleCategory;
-  /** available: pode reivindicar agora · cooldown: volta em availableAt · done: regra única já usada · auto: crédito automático. */
-  status: "available" | "cooldown" | "done" | "auto";
+  /** available: pode enviar · pending: envio em análise · cooldown: volta em availableAt · done: regra única já usada · auto: crédito automático. */
+  status: "available" | "pending" | "cooldown" | "done" | "auto";
   /** ISO de quando o check-in volta a ficar disponível (status cooldown). */
   availableAt: string | null;
 }

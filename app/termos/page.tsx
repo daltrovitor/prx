@@ -5,7 +5,7 @@ import { COMPANY } from "@/lib/company";
 
 export const metadata: Metadata = {
   title: "Termos de Uso",
-  description: "Regras de uso do ecossistema PRX: PRX PASS, PRX Coins, níveis, PRX BANK, PRX LIVE e Reels.",
+  description: "Regras de uso do ecossistema PRX: PRX PASS, PRX Coins, níveis, PRX BANK, PRX LIVE e Destaques.",
   alternates: { canonical: "/termos" },
   openGraph: { title: "Termos de Uso · PRX", description: "Regras de uso do ecossistema PRX.", locale: "pt_BR", type: "article" },
 };
@@ -18,7 +18,7 @@ const sections: ReadonlyArray<LegalSection> = [
       <>
         <p>
           Estes Termos de Uso regulam o acesso ao aplicativo e aos sites da PRX (o <strong>ecossistema PRX</strong>): PRX PASS, PRX Coins e níveis, PRX BANK, PRX LIVE e
-          Reels. Ao marcar a caixa de aceite e criar sua conta, entrar com e-mail ou continuar com o Google, você declara que leu e concorda com estes Termos e com a{" "}
+          Destaques. Ao marcar a caixa de aceite e criar sua conta, entrar com e-mail ou continuar com o Google, você declara que leu e concorda com estes Termos e com a{" "}
           <a href="/privacidade">Política de Privacidade</a>.
         </p>
         <p>Se não concordar, não use o ecossistema PRX. O aceite fica registrado com data e versão do documento.</p>
@@ -123,10 +123,10 @@ const sections: ReadonlyArray<LegalSection> = [
   },
   {
     id: "reels",
-    title: "Reels e conteúdo de parceiros",
+    title: "Destaques e conteúdo de parceiros",
     body: (
       <p>
-        A aba Reels exibe vídeos de marcas parceiras credenciadas, curados pela PRX, sempre com o nome do parceiro e um botão para o benefício, o catálogo ou a loja. As
+        A aba Destaques exibe vídeos de marcas parceiras credenciadas, curados pela PRX, sempre com o nome do parceiro e um botão para o benefício, o catálogo ou a loja. As
         condições de qualquer oferta são as do benefício ou da loja do parceiro. Curtidas e vídeos salvos ficam na sua conta e podem ser desfeitos a qualquer momento.
       </p>
     ),

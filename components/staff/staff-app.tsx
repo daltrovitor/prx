@@ -6,6 +6,7 @@ import { PanelLogin } from "@/components/admin/admin-login";
 import { DashboardHeader } from "@/components/app/dashboard-header";
 import { Button, IconButton, Notice, Segmented } from "@/components/app/ui";
 import { PrxLogo } from "@/components/brand/prx-logo";
+import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { IconLogout } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
@@ -58,13 +59,15 @@ export function StaffApp({ initial }: { initial: StaffAuthResult }) {
 
   if (auth.status === "denied") {
     return (
-      <main className="prx-app flex min-h-dvh items-center justify-center bg-background px-5">
-        <div className="w-full max-w-md space-y-6">
+      <main className="prx-app isolate flex min-h-dvh flex-col items-center justify-center gap-10 bg-background px-5 py-12">
+        <div aria-hidden className="prx-ambient" />
+        <div className="glass w-full max-w-md space-y-6 rounded-[28px] p-6 sm:p-8">
           <PrxLogo variant="compact" title="PRX" className="h-7 w-auto text-ink" />
           <h1 className="text-3xl font-semibold leading-tight tracking-[-0.03em] text-ink">Acesso só para a Equipe PRX</h1>
           <p className="text-[15px] leading-relaxed text-muted-foreground">{auth.message}</p>
           <Button onClick={() => void logout()}>Trocar de conta</Button>
         </div>
+        <ViraWebCredit />
       </main>
     );
   }
@@ -80,7 +83,8 @@ function StaffDashboard({ actor, onLogout }: { actor: StaffActor; onLogout: () =
   const scope = [actor.canValidateTickets ? "ingressos de eventos" : null, actor.canValidateBenefits ? "vouchers de benefícios" : null].filter(Boolean).join(" e ");
 
   return (
-    <div className="prx-app min-h-dvh bg-background text-foreground">
+    <div className="prx-app isolate min-h-dvh bg-background text-foreground">
+      <div aria-hidden className="prx-ambient" />
       <DashboardHeader
         name={actor.name}
         subtitle={actor.isAdmin ? "Administrador" : actor.email}
@@ -126,6 +130,7 @@ function StaffDashboard({ actor, onLogout }: { actor: StaffActor; onLogout: () =
             <ValidationSheet validation={validation} />
           </>
         )}
+        <ViraWebCredit className="pt-6" />
       </main>
     </div>
   );

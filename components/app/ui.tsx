@@ -18,9 +18,10 @@ import { cn } from "@/lib/utils";
 import { IconClose } from "@/components/icons/prx-icons";
 
 /*
- * Kit de interface dos dashboards PRX (membro, admin e parceiro).
- * Linguagem da referência fintech: fundo branco, superfícies em cinza neutro,
- * botões em pílula, blocos com cantos de 16–28px e uma única cor de destaque.
+ * Kit de interface dos dashboards PRX (membro, admin, parceiro e equipe).
+ * Liquid Glass sobre fundo branco puro: cartões, menus e barras em vidro fosco
+ * translúcido (classes .glass* em app/globals.css), reflexo de luz na borda de
+ * cima, sombra macia de levitação, botões em pílula e uma única cor de destaque.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -36,10 +37,11 @@ const buttonBase =
   "disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100";
 
 const buttonVariants: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-white hover:bg-[#5708c9] dark:hover:bg-[#7c4df0]",
-  ink: "bg-ink text-background hover:opacity-90",
-  // Dentro de um bloco cinza, a pílula secundária fica branca para continuar visível.
-  secondary: "bg-surface text-ink hover:bg-line in-[.bg-surface]:bg-card in-[.bg-surface]:hover:bg-background",
+  // Reflexo no topo e sombra na cor da marca: o botão parece levitar sobre o vidro.
+  primary:
+    "bg-primary text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_8px_20px_-10px_rgba(108,12,240,0.65)] hover:bg-[#5708c9] dark:hover:bg-[#7c4df0]",
+  ink: "bg-ink text-background shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_20px_-12px_rgba(11,11,16,0.55)] hover:opacity-90",
+  secondary: "glass-chip text-ink",
   ghost: "text-ink hover:bg-surface",
   danger: "bg-destructive/[0.08] text-destructive hover:bg-destructive/[0.14]",
 };
@@ -86,7 +88,7 @@ export function IconButton({
       title={label}
       className={cn(
         "relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink cursor-pointer transition-colors",
-        tone === "surface" ? "bg-surface hover:bg-line in-[.bg-surface]:bg-card" : "hover:bg-surface",
+        tone === "surface" ? "glass-chip" : "hover:bg-surface",
         className
       )}
       {...rest}
@@ -131,28 +133,26 @@ export function Avatar({ name, src, size = 44, className }: { name: string; src?
 /* Blocos                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** Bloco de conteúdo: cinza (surface) ou branco com contorno (outline). */
+/** Bloco de conteúdo: vidro fosco (glass) ou leve tom translúcido para blocos aninhados (tint). */
 export function Panel({
   children,
-  tone = "surface",
+  tone = "glass",
   className,
   as: Tag = "div",
 }: {
   children: ReactNode;
-  tone?: "surface" | "outline";
+  tone?: "glass" | "tint";
   className?: string;
   as?: "div" | "section" | "article" | "li";
 }) {
-  return (
-    <Tag className={cn("rounded-3xl p-5 sm:p-6", tone === "surface" ? "bg-surface" : "border border-line bg-card", className)}>{children}</Tag>
-  );
+  return <Tag className={cn("rounded-3xl p-5 sm:p-6", tone === "glass" ? "glass" : "bg-surface", className)}>{children}</Tag>;
 }
 
 /** Ação rápida: bloco cinza arredondado com ícone e rótulo embaixo (Enviar, Receber, Área Pix…). */
 export function ActionTile({ label, icon, onClick, badge }: { label: string; icon: ReactNode; onClick: () => void; badge?: string }) {
   return (
     <button type="button" onClick={onClick} className="group flex min-w-0 cursor-pointer flex-col items-center gap-2 text-center">
-      <span className="relative flex h-14 w-full items-center justify-center rounded-2xl bg-surface text-ink transition-[background-color,transform] duration-150 group-hover:bg-line group-active:scale-95">
+      <span className="glass-chip glass-lift relative flex h-14 w-full items-center justify-center rounded-[20px] text-ink group-active:scale-95">
         {icon}
         {badge && (
           <span className="absolute right-2 top-2 rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-4 text-white">{badge}</span>
@@ -313,7 +313,7 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
           <motion.button
             type="button"
             aria-label="Fechar"
-            className="absolute inset-0 cursor-pointer bg-black/40"
+            className="absolute inset-0 cursor-pointer bg-[rgba(12,8,28,0.32)] backdrop-blur-[3px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -327,8 +327,8 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
             aria-labelledby={titleId}
             tabIndex={-1}
             className={cn(
-              "relative flex max-h-[92dvh] w-full flex-col bg-card text-card-foreground outline-none",
-              "rounded-t-[28px] shadow-2xl sm:rounded-[28px] dark:border dark:border-line",
+              "glass-strong flex max-h-[92dvh] w-full flex-col text-card-foreground outline-none",
+              "rounded-t-[28px] border-b-0 sm:rounded-[28px] sm:border-b",
               size === "lg" ? "sm:max-w-2xl" : "sm:max-w-lg"
             )}
             initial={{ y: "100%" }}
@@ -369,15 +369,21 @@ interface SegmentedProps<T extends string> {
   options: ReadonlyArray<{ value: T; label: string; count?: number }>;
   label: string;
   className?: string;
+  /** Poucas opções ocupando toda a largura, sem rolagem (ex.: períodos). */
+  equal?: boolean;
 }
 
-export function Segmented<T extends string>({ value, onChange, options, label, className }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ value, onChange, options, label, className, equal = false }: SegmentedProps<T>) {
   const groupId = useId();
   return (
     <div
       role="tablist"
       aria-label={label}
-      className={cn("flex w-full max-w-full gap-1 overflow-x-auto rounded-full bg-surface p-1 scrollbar-none overscroll-x-contain touch-pan-x sm:w-fit", className)}
+      className={cn(
+        "glass-chip w-full max-w-full gap-1 rounded-full p-1",
+        equal ? "flex" : "flex overflow-x-auto scrollbar-none overscroll-x-contain touch-pan-x sm:w-fit",
+        className
+      )}
     >
       {options.map((option) => {
         const active = option.value === value;
@@ -389,17 +395,18 @@ export function Segmented<T extends string>({ value, onChange, options, label, c
             aria-selected={active}
             onClick={(e) => {
               onChange(option.value);
-              (e.currentTarget as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+              if (!equal) (e.currentTarget as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
             }}
             className={cn(
-              "relative min-h-10 shrink-0 cursor-pointer select-none whitespace-nowrap rounded-full px-4 text-[13px] font-medium transition-colors sm:text-sm",
+              "relative min-h-10 cursor-pointer select-none whitespace-nowrap rounded-full text-[13px] font-medium transition-colors sm:text-sm",
+              equal ? "flex-auto px-2.5" : "shrink-0 px-4",
               active ? "font-semibold text-ink" : "text-muted-foreground hover:text-ink"
             )}
           >
             {active && (
               <motion.span
                 layoutId={`seg-${groupId}`}
-                className="absolute inset-0 rounded-full bg-card shadow-[0_1px_3px_rgba(11,11,16,0.1)] dark:bg-[#2a2a36]"
+                className="absolute inset-0 rounded-full bg-card shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(22,12,52,0.08),0_4px_12px_-6px_rgba(22,12,52,0.2)] dark:bg-white/[0.12] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]"
                 transition={{ type: "spring", stiffness: 300, damping: 28 }}
               />
             )}
@@ -494,7 +501,7 @@ export function Notice({ tone = "neutral", children, className }: { tone?: "neut
 
 export function EmptyState({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
   return (
-    <div className="rounded-3xl bg-surface px-6 py-10 text-center">
+    <div className="glass rounded-3xl px-6 py-10 text-center">
       <p className="text-lg font-semibold tracking-[-0.02em] text-ink">{title}</p>
       {body && <p className="mx-auto mt-1.5 max-w-sm text-sm text-muted-foreground">{body}</p>}
       {action && <div className="mt-5 flex justify-center">{action}</div>}

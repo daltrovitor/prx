@@ -44,7 +44,7 @@ const sections: ReadonlyArray<LegalSection> = [
           recebedor de cada Pix para identificar compras em parceiros e montar o PRX Map.
         </li>
         <li>
-          <strong>Reels:</strong> curtidas, vídeos salvos, visualizações e cliques no botão de cada vídeo.
+          <strong>Destaques:</strong> curtidas, vídeos salvos, visualizações e cliques no botão de cada vídeo.
         </li>
         <li>
           <strong>Técnicos:</strong> endereço IP, data e hora de acesso, tipo de aparelho e navegador (registros exigidos pelo Marco Civil da Internet).

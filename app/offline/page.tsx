@@ -1,6 +1,7 @@
 // Hello World
 "use client";
 
+import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import gsap from "gsap";
@@ -310,11 +311,11 @@ export default function OfflinePage() {
           </div>
 
           <div className="mt-5 text-xs font-mono text-muted-foreground flex items-center justify-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70 animate-pulse" />
             <span>{statusText}</span>
           </div>
         </div>
       </main>
+      <ViraWebCredit className="relative z-10 pb-[max(1rem,env(safe-area-inset-bottom))]" />
     </div>
   );
 }

@@ -155,12 +155,13 @@ const pointsResource = createResource<PointsWallet>("/api/points", (json) => (js
 export function usePointsWallet(userId: string) {
   const { data, loading, error, reload } = useResource(pointsResource, userId);
 
+  /** Envia um bom comportamento para análise (nada é creditado até a aprovação). */
   const checkin = useCallback(
-    async (ruleId: string): Promise<ActionResult & { earned?: { coins: number; xp: number } }> => {
-      const { ok, json } = await postJson("/api/points", { action: "checkin", ruleId });
-      if (!ok) return failure(json, "Não foi possível registrar o check-in.");
+    async (ruleId: string, evidence: string): Promise<ActionResult> => {
+      const { ok, json } = await postJson("/api/points", { action: "checkin", ruleId, evidence });
+      if (!ok) return failure(json, "Não foi possível enviar para análise.");
       if (json.wallet) pointsResource.set(userId, json.wallet as PointsWallet);
-      return { ok: true, earned: json.earned as { coins: number; xp: number } };
+      return { ok: true };
     },
     [userId]
   );

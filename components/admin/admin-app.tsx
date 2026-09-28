@@ -14,20 +14,24 @@ import { AdminStaffTab } from "@/components/admin/admin-staff-tab";
 import { AdminFinanceTab } from "@/components/admin/admin-finance-tab";
 import { AdminPointsTab } from "@/components/admin/admin-points-tab";
 import { AdminReelsTab } from "@/components/admin/admin-reels-tab";
+import { AdminLandingTab } from "@/components/admin/admin-landing-tab";
+import { AdminFamilyTab } from "@/components/admin/admin-family-tab";
 import type { PartnerOverview } from "@/lib/partners/service";
 import { PrxLogo } from "@/components/brand/prx-logo";
+import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { Button, IconButton, Segmented } from "@/components/app/ui";
 import { DashboardHeader, roundLinkClass } from "@/components/app/dashboard-header";
-import { IconExternal, IconGlobe, IconLogout, IconRefresh } from "@/components/icons/prx-icons";
+import { IconExternal, IconLogout, IconRefresh } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
 import type { Benefit, PassMission } from "@/lib/pass-data";
 import type { SystemVoucher } from "@/lib/pass-store";
 import { useMainSiteUrl } from "@/lib/site";
 import type { PointRule } from "@/lib/points/types";
+import type { ViabilityValues } from "@/components/admin/viability-calculator";
 import { behaviorCoinsPerMonth, coinsPerRealFromRules } from "@/lib/points/economics";
 
-type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "founders" | "staff";
+type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "founders" | "staff" | "family" | "landing";
 
 export interface AdminIdentity {
   name?: string;
@@ -90,6 +94,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   const [vouchers, setVouchers] = useState<SystemVoucher[]>([]);
   const [partners, setPartners] = useState<PartnerOverview[]>([]);
   const [rules, setRules] = useState<PointRule[]>([]);
+  const [benefitDraft, setBenefitDraft] = useState<ViabilityValues | null>(null);
   const [loading, setLoading] = useState(false);
   const homeUrl = useMainSiteUrl();
 
@@ -146,7 +151,6 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
 
   const validVouchers = vouchers.filter((v) => v.status === "valid").length;
   const economy = { coinsPerReal: coinsPerRealFromRules(rules), behaviorCoinsPerMonth: behaviorCoinsPerMonth(rules) };
-  const institutionalUrl = `${homeUrl.replace(/\/$/, "")}/institucional`;
   const kpis = [
     { label: "Membros", value: users.length },
     { label: "Parceiros ativos", value: partners.filter((p) => p.status === "ATIVO").length },
@@ -156,32 +160,14 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   ];
 
   return (
-    <div className="prx-app min-h-dvh bg-background text-foreground">
+    <div className="prx-app isolate min-h-dvh bg-background text-foreground">
+      <div aria-hidden className="prx-ambient" />
       <DashboardHeader
         name={admin?.name || "Administrador"}
         subtitle={admin?.email}
         area="Admin"
         actions={
           <>
-            <a
-              href={institutionalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden min-h-11 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line md:inline-flex"
-            >
-              Ver Página Institucional (Estilo Revolut)
-              <IconExternal size={16} />
-            </a>
-            <a
-              href={institutionalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${roundLinkClass} md:hidden`}
-              aria-label="Ver Página Institucional (Estilo Revolut) em outra aba"
-              title="Página Institucional"
-            >
-              <IconGlobe size={18} />
-            </a>
             <ThemeToggle variant="app" />
             <a href={homeUrl} target="_blank" rel="noopener noreferrer" className={roundLinkClass} aria-label="Abrir o app PRX em outra aba" title="Abrir o app">
               <IconExternal size={18} />
@@ -205,7 +191,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
         {/* Topo da pirâmide: indicadores */}
         <section aria-label="Indicadores" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {kpis.map((kpi) => (
-            <div key={kpi.label} className="rounded-3xl bg-surface p-5">
+            <div key={kpi.label} className="rounded-3xl glass p-5">
               <p className="text-[13px] text-muted-foreground">{kpi.label}</p>
               <p className="mt-2 text-[34px] font-light leading-none tracking-[-0.035em] text-ink [font-feature-settings:'pnum']">{kpi.value}</p>
             </div>
@@ -222,12 +208,14 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             { value: "benefits", label: "Benefícios", count: benefits.length },
             { value: "finance", label: "Financeiro" },
             { value: "points", label: "Pontos", count: rules.length },
-            { value: "reels", label: "Reels" },
+            { value: "reels", label: "Destaques" },
             { value: "missions", label: "Missões", count: missions.length },
             { value: "vouchers", label: "Vouchers", count: vouchers.length },
             { value: "events", label: "Eventos" },
             { value: "founders", label: "Founders" },
             { value: "staff", label: "Equipe" },
+            { value: "family", label: "Famílias" },
+            { value: "landing", label: "Nova landing" },
           ]}
         />
 
@@ -235,8 +223,25 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
         {tab === "partners" && (
           <AdminPartnersTab partners={partners} benefits={benefits} users={users} onRefresh={loadData} onGoToBenefits={() => setTab("benefits")} />
         )}
-        {tab === "benefits" && <AdminBenefitsTab benefits={benefits} partners={partners} economy={economy} onRefresh={loadData} />}
-        {tab === "finance" && <AdminFinanceTab economy={economy} />}
+        {tab === "benefits" && (
+          <AdminBenefitsTab
+            benefits={benefits}
+            partners={partners}
+            economy={economy}
+            onRefresh={loadData}
+            draftEconomics={benefitDraft}
+            onDraftConsumed={() => setBenefitDraft(null)}
+          />
+        )}
+        {tab === "finance" && (
+          <AdminFinanceTab
+            economy={economy}
+            onUseInBenefit={(values) => {
+              setBenefitDraft(values);
+              setTab("benefits");
+            }}
+          />
+        )}
         {tab === "points" && <AdminPointsTab rules={rules} onRefresh={loadData} />}
         {tab === "reels" && <AdminReelsTab partners={partners} benefits={benefits} />}
         {tab === "missions" && <AdminMissionsTab missions={missions} onRefresh={loadData} />}
@@ -244,6 +249,9 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
         {tab === "events" && <AdminEventsTab />}
         {tab === "founders" && <AdminFoundersTab />}
         {tab === "staff" && <AdminStaffTab />}
+        {tab === "family" && <AdminFamilyTab />}
+        {tab === "landing" && <AdminLandingTab />}
+        <ViraWebCredit className="pt-10" />
       </main>
     </div>
   );

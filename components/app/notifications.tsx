@@ -90,8 +90,23 @@ export function useNotices(pass: PassData, wallet: MemberWallet | null, points: 
         sub: "pontos",
       }));
 
-    return [...purchases, ...vouchers, ...tickets, ...missions].slice(0, 20);
-  }, [pass.vouchers, pass.missions, wallet, points?.purchases, now]);
+    const reviewed: Notice[] = (points?.claims ?? [])
+      .filter((c) => c.status !== "pending" && c.reviewedAt && now - new Date(c.reviewedAt).getTime() <= 7 * DAY)
+      .slice(0, 5)
+      .map((c) => ({
+        id: `r-${c.id}`,
+        kind: "points" as const,
+        title:
+          c.status === "approved"
+            ? `Aprovado: ${c.ruleTitle}. +${c.coins.toLocaleString("pt-BR")} PRX Coins e +${c.xp.toLocaleString("pt-BR")} XP`
+            : `Não aprovado: ${c.ruleTitle}`,
+        body: c.reviewNote || (c.status === "approved" ? "Os pontos já estão na sua carteira." : "Você pode enviar de novo com mais detalhes."),
+        tab: "home" as const,
+        sub: "pontos",
+      }));
+
+    return [...purchases, ...reviewed, ...vouchers, ...tickets, ...missions].slice(0, 20);
+  }, [pass.vouchers, pass.missions, wallet, points?.purchases, points?.claims, now]);
 }
 
 const ICONS = { voucher: IconQr, mission: IconLevel, ticket: IconCalendar, points: IconCoin } as const;

@@ -53,7 +53,7 @@ export function PrxMap({ transactions, hidden }: { transactions: BankTransaction
   });
 
   return (
-    <section aria-labelledby="prx-map-title" className="space-y-5 rounded-2xl border border-line bg-card p-5 sm:p-6">
+    <section aria-labelledby="prx-map-title" className="glass space-y-5 rounded-3xl p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 id="prx-map-title" className="text-lg font-semibold tracking-[-0.02em] text-ink sm:text-xl">
@@ -62,6 +62,8 @@ export function PrxMap({ transactions, hidden }: { transactions: BankTransaction
           <p className="mt-0.5 text-[13px] text-muted-foreground">Seus gastos por nicho · {current.long.toLowerCase()}</p>
         </div>
         <Segmented
+          equal
+          className="sm:w-[380px]"
           label="Período do PRX Map"
           value={String(period)}
           onChange={(value) => {

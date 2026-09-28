@@ -28,7 +28,7 @@ export function ThemeToggle({ variant = "header", className, showLabel = false }
         aria-label={label}
         title={label}
         className={cn(
-          "inline-flex h-11 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-surface text-ink transition-colors hover:bg-line",
+          "glass-chip inline-flex h-11 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full text-ink",
           showLabel ? "px-4 text-sm font-medium" : "w-11",
           className
         )}

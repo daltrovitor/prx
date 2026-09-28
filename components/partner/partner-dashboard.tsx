@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DashboardHeader } from "@/components/app/dashboard-header";
+import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { EmptyState, IconButton, Notice, Segmented } from "@/components/app/ui";
 import { IconLogout } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -76,7 +77,8 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
   const partner = profile?.partner ?? null;
 
   return (
-    <div className="prx-app min-h-dvh bg-background text-foreground">
+    <div className="prx-app isolate min-h-dvh bg-background text-foreground">
+      <div aria-hidden className="prx-ambient" />
       <DashboardHeader
         name={user.name}
         subtitle={partner?.tradeName ?? user.email}
@@ -143,6 +145,7 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
               ))}
           </>
         )}
+        <ViraWebCredit className="pt-6" />
       </main>
     </div>
   );

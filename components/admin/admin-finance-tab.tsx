@@ -7,6 +7,7 @@ import { IconRefresh } from "@/components/icons/prx-icons";
 import { ViabilityCalculator, type ViabilityValues } from "@/components/admin/viability-calculator";
 import type { AdminEconomy } from "@/components/admin/admin-benefits-tab";
 import { DEFAULT_PARTNER_FEE_PCT, MIN_PROFIT_MARGIN_PCT, simulateBankYield } from "@/lib/points/economics";
+import { evaluateViability } from "@/components/admin/viability-calculator";
 import type { FinanceOverview, FinancePeriod } from "@/lib/points/finance";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +29,7 @@ const PERIODS: ReadonlyArray<{ value: `${FinancePeriod}`; label: string }> = [
  * em parceiros), custo dos subsídios, lucro operacional, passivo de coins e a
  * viabilidade de cada benefício. Inclui a calculadora e a simulação do saldo.
  */
-export function AdminFinanceTab({ economy }: { economy: AdminEconomy }) {
+export function AdminFinanceTab({ economy, onUseInBenefit }: { economy: AdminEconomy; onUseInBenefit?: (values: ViabilityValues) => void }) {
   const [period, setPeriod] = useState<`${FinancePeriod}`>("30");
   const [data, setData] = useState<FinanceOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +132,7 @@ export function AdminFinanceTab({ economy }: { economy: AdminEconomy }) {
               {data.benefits.length === 0 ? (
                 <EmptyState title="Catálogo vazio" body="Os benefícios aparecem aqui com a margem projetada de cada resgate." />
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-line">
+                <div className="glass overflow-x-auto rounded-3xl">
                   <table className="w-full min-w-[720px] text-left text-sm">
                     <thead>
                       <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">
@@ -179,9 +180,9 @@ export function AdminFinanceTab({ economy }: { economy: AdminEconomy }) {
                 Comissões por parceiro
               </h3>
               {data.topPartners.length === 0 ? (
-                <p className="rounded-2xl bg-surface p-5 text-sm text-muted-foreground">Nenhuma compra em parceiro via Pix no período.</p>
+                <p className="rounded-2xl glass p-5 text-sm text-muted-foreground">Nenhuma compra em parceiro via Pix no período.</p>
               ) : (
-                <ul className="divide-y divide-line rounded-2xl bg-surface px-4">
+                <ul className="divide-y divide-line rounded-2xl glass px-4">
                   {data.topPartners.map((p) => (
                     <li key={p.partnerName} className="flex items-center justify-between gap-3 py-3">
                       <div className="min-w-0">
@@ -201,7 +202,7 @@ export function AdminFinanceTab({ economy }: { economy: AdminEconomy }) {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section aria-labelledby="finance-calculator" className="space-y-4 rounded-2xl border border-line p-5 sm:p-6">
+        <section aria-labelledby="finance-calculator" className="glass space-y-4 rounded-3xl p-5 sm:p-6">
           <div>
             <h3 id="finance-calculator" className="text-lg font-semibold tracking-[-0.02em] text-ink">
               Calculadora de viabilidade
@@ -211,9 +212,21 @@ export function AdminFinanceTab({ economy }: { economy: AdminEconomy }) {
             </p>
           </div>
           <ViabilityCalculator values={calc} onChange={setCalc} coinsPerReal={economy.coinsPerReal} behaviorCoinsPerMonth={economy.behaviorCoinsPerMonth} />
+          {onUseInBenefit && (
+            <Button
+              block
+              disabled={evaluateViability(calc, economy.coinsPerReal, economy.behaviorCoinsPerMonth).status !== "ok"}
+              onClick={() => {
+                const result = evaluateViability(calc, economy.coinsPerReal, economy.behaviorCoinsPerMonth);
+                onUseInBenefit({ ...calc, pointsCost: String(result.evaluatedPoints) });
+              }}
+            >
+              Criar benefício com estes valores
+            </Button>
+          )}
         </section>
 
-        <section aria-labelledby="finance-bank" className="space-y-4 rounded-2xl border border-line p-5 sm:p-6">
+        <section aria-labelledby="finance-bank" className="glass space-y-4 rounded-3xl p-5 sm:p-6">
           <div>
             <h3 id="finance-bank" className="text-lg font-semibold tracking-[-0.02em] text-ink">
               Simulação: rentabilidade e retenção do PRX Bank
@@ -246,7 +259,7 @@ export function AdminFinanceTab({ economy }: { economy: AdminEconomy }) {
 
 function Kpi({ label, value, note, tone = "neutral" }: { label: string; value: string; note?: string; tone?: "neutral" | "negative" }) {
   return (
-    <div className="min-w-0 rounded-2xl bg-surface p-4 sm:p-5">
+    <div className="min-w-0 rounded-2xl glass p-4 sm:p-5">
       <dt className="text-[13px] text-muted-foreground">{label}</dt>
       <dd className={cn("mt-2 truncate text-[22px] font-light leading-tight tracking-[-0.02em] tabular-nums sm:text-[26px]", tone === "negative" ? "text-destructive" : "text-ink")}>{value}</dd>
       {note && <p className="mt-1 truncate text-[12px] text-muted-foreground">{note}</p>}

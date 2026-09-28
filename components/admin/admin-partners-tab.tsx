@@ -78,7 +78,7 @@ export function AdminPartnersTab({ partners, benefits, users, onRefresh, onGoToB
       )}
 
       {orphanLogins.length > 0 && (
-        <div className="rounded-3xl bg-surface p-5">
+        <div className="rounded-3xl glass p-5">
           <p className="text-[15px] font-medium text-ink">Logins de parceiro sem empresa cadastrada</p>
           <p className="mt-1 text-[13px] text-muted-foreground">Estas contas entram no portal, mas não validam nada até serem vinculadas a um parceiro.</p>
           <ul className="mt-3 divide-y divide-line">
@@ -99,7 +99,7 @@ export function AdminPartnersTab({ partners, benefits, users, onRefresh, onGoToB
       {partners.length === 0 ? (
         <EmptyState title="Nenhum parceiro cadastrado" body="Cadastre a empresa, o representante e o login. Depois gere o contrato da campanha." action={<Button onClick={() => setCreating({})}>Cadastrar parceiro</Button>} />
       ) : (
-        <div className="overflow-x-auto rounded-3xl border border-line">
+        <div className="glass overflow-x-auto rounded-3xl">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-[13px] text-muted-foreground">
@@ -289,7 +289,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
                 const s = c.acceptance?.summarySnapshot ?? c.summary;
                 const busy = busyId === c.id;
                 return (
-                  <li key={c.id} className="space-y-3 rounded-3xl bg-surface p-5">
+                  <li key={c.id} className="space-y-3 rounded-3xl glass-soft p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-base font-semibold text-ink">{s.benefitTitle}</p>
@@ -349,7 +349,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
         </div>
 
         <aside className="space-y-6 lg:col-span-5">
-          <div className="rounded-3xl bg-surface p-5">
+          <div className="rounded-3xl glass p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="text-[15px] font-semibold text-ink">Login do portal</h3>
@@ -362,7 +362,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
             <p className="mt-3 text-[13px] text-muted-foreground">Só este login escaneia e dá baixa nos QR Codes dos benefícios deste parceiro.</p>
           </div>
 
-          <div className="rounded-3xl bg-surface p-5">
+          <div className="rounded-3xl glass p-5">
             <h3 className="text-[15px] font-semibold text-ink">Representante e contato</h3>
             <dl className="mt-3 space-y-2 text-sm">
               <div>
@@ -385,7 +385,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
             )}
           </div>
 
-          <div className="rounded-3xl bg-surface p-5">
+          <div className="rounded-3xl glass p-5">
             <h3 className="text-[15px] font-semibold text-ink">Benefícios no catálogo</h3>
             {benefits.length === 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">Nenhum ainda. O aceite de um contrato publica o benefício automaticamente.</p>

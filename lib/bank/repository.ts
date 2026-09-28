@@ -403,6 +403,29 @@ export function sandboxSendPix(userId: string, input: { key: string; amount: num
   return { endToEndId: endToEndId(now), transaction: structuredClone(transaction) };
 }
 
+/**
+ * Crédito recebido na hora pelo sandbox (Pix e mesada do responsável). A conta
+ * precisa estar ativa: sem banco parceiro não existe onde o dinheiro cair.
+ */
+export function sandboxCredit(userId: string, input: { amount: number; counterparty: string; description: string }): BankTransaction {
+  const bank = memoryBank(userId);
+  if (bank.account.status !== "active") throw new PartnerError("A conta PRX BANK do seu filho ainda não foi ativada. Assim que ativar, o envio fica disponível.", 409);
+  const amount = Math.round(input.amount * 100) / 100;
+  if (!(amount > 0)) throw new PartnerError("Informe o valor.", 422);
+  const transaction: BankTransaction = {
+    id: newId(),
+    kind: "pix_in",
+    direction: "in",
+    amount,
+    counterparty: input.counterparty.slice(0, 80),
+    description: input.description.slice(0, 60),
+    createdAt: new Date().toISOString(),
+  };
+  bank.account.balance = Math.round((bank.account.balance + amount) * 100) / 100;
+  bank.transactions.unshift(transaction);
+  return structuredClone(transaction);
+}
+
 /** Marca o nicho e o parceiro de um lançamento (PRX Map). */
 export function sandboxCategorize(userId: string, transactionId: string, categoryId: string, partnerId: string | null, counterparty?: string): void {
   const tx = memoryBank(userId).transactions.find((t) => t.id === transactionId);
