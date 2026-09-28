@@ -1,3 +1,5 @@
+// Hello World
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
@@ -12,6 +14,7 @@ import type { SessionCookieOptions } from "@/lib/db-rows";
  * Em produção isso permitiria entrar na conta de qualquer pessoa, por isso ela
  * responde 404. O login Google real passa pelo Supabase OAuth (/auth/callback).
  */
+// nosemgrep: prx-mutation-route-without-auth — entrada com Google (fluxo simulado só no desenvolvimento): cria a sessão
 export async function POST(req: NextRequest) {
   if (!DEMO_ACCOUNTS_ENABLED) {
     return NextResponse.json(
@@ -61,7 +64,8 @@ export async function POST(req: NextRequest) {
           // Create in auth.users
           const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email,
-            password: "GoogleAuthToken_" + Math.random().toString(36).slice(2) + "!",
+            // Senha aleatória criptográfica (a conta entra só pelo Google; ninguém conhece esta senha).
+            password: `G_${crypto.randomBytes(32).toString("base64url")}!`,
             email_confirm: true,
             user_metadata: {
               full_name: name,

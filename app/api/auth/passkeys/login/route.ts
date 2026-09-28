@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// nosemgrep: prx-mutation-route-without-auth — entrada por biometria: a assinatura WebAuthn verificada é a autenticação
 export async function POST(req: NextRequest) {
   const rate = checkRateLimit(`passkey_login_${clientIp(req)}`, 10, 60);
   if (!rate.allowed) return NextResponse.json({ error: `Muitas tentativas. Bloqueio de segurança temporário. Tente em ${rate.resetInSeconds}s.` }, { status: 429 });

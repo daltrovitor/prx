@@ -8,6 +8,7 @@ import { detectPixKeyType, isValidCpf } from "@/lib/prx/pix";
 import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { processPartnerPixTransfer, type PartnerPixResult } from "@/lib/points/service";
 import { assertCanHoldMoney, assertMinorSpend } from "@/lib/family/guards";
+import { assertBankKycApproved, bankKycState } from "@/lib/kyc/guards";
 
 /**
  * Regras do PRX BANK antes da ativação do banco parceiro: a conta existe,
@@ -32,11 +33,12 @@ export function sandboxEnabled(userId: string): boolean {
 export async function accountView(userId: string): Promise<BankAccountView> {
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
-  const [transactions, pixKeys, cardRequest, charges] = await Promise.all([
+  const [transactions, pixKeys, cardRequest, charges, kyc] = await Promise.all([
     repo.listTransactions(userId, 200),
     repo.listPixKeys(userId),
     repo.getOpenCardRequest(userId),
     repo.listCharges(userId, 20),
+    bankKycState(userId),
   ]);
   return {
     status: account.status,
@@ -50,12 +52,14 @@ export async function accountView(userId: string): Promise<BankAccountView> {
     cardRequest,
     charges,
     sandbox: sandboxEnabled(userId),
+    kyc,
   };
 }
 
 export async function activateSandbox(userId: string): Promise<void> {
   if (!sandboxEnabled(userId)) throw new PartnerError("A conta sandbox só existe no ambiente de testes.", 403);
   await assertCanHoldMoney(userId);
+  await assertBankKycApproved(userId);
   sandboxActivate(userId);
 }
 
@@ -72,10 +76,10 @@ export const sendPixSchema = z.object({
  * depende do banco parceiro.
  */
 export async function sendPix(userId: string, input: z.output<typeof sendPixSchema>): Promise<{ partner: PartnerPixResult | null }> {
+  // Defesa em profundidade: movimentação só com abertura aprovada e conta ativa.
+  await assertBankKycApproved(userId);
+  await assertAccountActive(userId);
   if (!sandboxEnabled(userId)) return assertBankOperational(userId);
-  const account = await getBankRepository(userId).getOrCreateAccount(userId);
-  if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
-  if (account.status !== "active") throw new PartnerError(ACTIVATION_REQUIRED, 409);
   const keyType = detectPixKeyType(input.key);
   if (!keyType) throw new PartnerError("Chave Pix inválida.", 422);
   // Menor de idade: conta liberada pelo responsável e dentro dos limites que ele definiu.
@@ -131,6 +135,7 @@ export const pixKeyInputSchema = z
 
 export async function addPixKey(userId: string, input: z.output<typeof pixKeyInputSchema>): Promise<PixKey> {
   await assertCanHoldMoney(userId);
+  await assertBankKycApproved(userId);
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
   if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
@@ -159,6 +164,7 @@ export const cardAddressSchema = z.object({
 });
 
 export async function requestPhysicalCard(userId: string, address: z.output<typeof cardAddressSchema>): Promise<CardRequest> {
+  await assertBankKycApproved(userId);
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
   if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
@@ -170,6 +176,13 @@ export async function requestPhysicalCard(userId: string, address: z.output<type
 export async function cancelPhysicalCard(userId: string, requestId: string): Promise<void> {
   const cancelled = await getBankRepository(userId).cancelCardRequest(userId, requestId);
   if (!cancelled) throw new PartnerError("Só pedidos que ainda aguardam a ativação podem ser cancelados.", 409);
+}
+
+/** Movimentação bancária só com a conta no status "active" (nunca em ativação ou bloqueada). */
+export async function assertAccountActive(userId: string): Promise<void> {
+  const account = await getBankRepository(userId).getOrCreateAccount(userId);
+  if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
+  if (account.status !== "active") throw new PartnerError(ACTIVATION_REQUIRED, 409);
 }
 
 /** Pix, cobrança e bloqueio de cartão dependem do banco parceiro. */

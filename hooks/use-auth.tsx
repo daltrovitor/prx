@@ -19,14 +19,6 @@ export interface User {
 
 type AuthResult = { success: boolean; error?: string; code?: string | null };
 
-/** CPF, nascimento e caminho de 16–17 anos informados no cadastro (verificação de idade). */
-export interface SignupIdentityInput {
-  cpf: string;
-  birthDate: string;
-  teenPath?: "linked" | "emancipated" | "";
-  parentEmail?: string;
-}
-
 interface LoginOptions {
   /** false: autentica mas mantém a tela de login aberta (ex.: oferecer a biometria antes de entrar). */
   unlock?: boolean;
@@ -45,7 +37,8 @@ interface AuthContextType {
   loginWithPasskey: (userId: string) => Promise<AuthResult & { missing?: boolean }>;
   /** "Entrar com outra conta": encerra a sessão e esquece a conta lembrada neste aparelho. */
   forgetAccount: () => Promise<void>;
-  signup: (fullName: string, email: string, pass: string, termsAccepted?: boolean, identity?: SignupIdentityInput) => Promise<AuthResult>;
+  /** Cadastro sem fricção: nome, e-mail, senha e aceite dos Termos. */
+  signup: (fullName: string, email: string, pass: string, termsAccepted?: boolean) => Promise<AuthResult>;
   loginWithGoogle: (rememberMe?: boolean, termsAccepted?: boolean) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -197,18 +190,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [markUnlocked]
   );
 
-  const signup = useCallback(async (fullName: string, email: string, pass: string, termsAccepted = false, identity?: SignupIdentityInput): Promise<AuthResult> => {
+  const signup = useCallback(async (fullName: string, email: string, pass: string, termsAccepted = false): Promise<AuthResult> => {
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName,
-          email,
-          password: pass,
-          termsAccepted,
-          ...(identity ? { cpf: identity.cpf, birthDate: identity.birthDate, teenPath: identity.teenPath || undefined, parentEmail: identity.parentEmail || undefined } : {}),
-        }),
+        body: JSON.stringify({ fullName, email, password: pass, termsAccepted }),
       });
       const data = (await res.json()) as { user?: User; error?: string; code?: string | null };
       if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta", code: data.code ?? null };

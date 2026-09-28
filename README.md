@@ -59,15 +59,24 @@ Sem variáveis do Supabase o app roda com contas de demonstração, que só exis
 
 Aplique as migrações de `supabase/migrations` em ordem. A `20260927_prx_points_reels_finance.sql` cria PRX Coins, extrato de pontos, regras de comportamento, Reels, compras em parceiros (BACEN) e lista VIP, com crédito atômico por `prx_apply_point_transaction` (só a service role executa). A `20260928_prx_family_passkeys.sql` zera os coins iniciais, cria a fila de análise de bom comportamento, as biometrias (passkeys), as contas de família (CPF único, Conta Pai, emancipação, vínculos, mesada e limites) e o bucket privado `family-docs`.
 
-Regras de idade (horário de Brasília): menores de 16 só entram pela Conta Pai; 16–17 escolhem Conta Filho (vinculada ao responsável) ou comprovam emancipação; 18–29 abrem conta comum. A Conta Pai não guarda dinheiro nem rende: Pix e mesada saem do banco do responsável direto para a conta do filho, e os limites do menor são conferidos no servidor a cada Pix.
+A `20260929_prx_bank_kyc_consent.sql` cria a abertura do PRX BANK (`bank_kyc_applications`) e grava parentesco e consentimento parental (versão, data e IP) em cada vínculo com menor.
+
+Onboarding condicional:
+- **Cadastro do ecossistema, sem fricção:** nome, e-mail, senha e aceite dos Termos. Nada de documentos.
+- **Verificação de identidade só em dois casos:** (1) abertura do PRX BANK, na primeira visita à aba (CPF, nascimento, nome da mãe, celular, ocupação, renda, PEP, endereço do cartão e documento com foto frente e verso, analisados na aba "Verificações" do admin); (2) tutela de menores, quando o responsável cria a conta do filho ou aceita o pedido de vínculo (parentesco, declaração de tutela e consentimento parental explícito da LGPD, Art. 14).
+- Regras de idade no PRX BANK (horário de Brasília): menores de 16 só com o responsável vinculado; 16–17 com o responsável ou emancipação comprovada; 18–29 conta comum. A Conta Pai não guarda dinheiro nem rende. Movimentação só com a abertura aprovada e a conta `active`; limites do menor conferidos no servidor a cada Pix.
 
 ## Qualidade
 
 ```bash
-npx tsc --noEmit
+npm run typecheck        # tsc --noEmit (strict, sem any)
 npm run lint
+npm run security:scan    # Semgrep: .semgrep/prx-security.yml + p/security-audit + p/default
+npm run security:test    # testes das regras (ruleid/ok) em .semgrep/prx-security.tsx
 npm test
 npm run build
 BASE=http://localhost:3000 node scripts/e2e-partners.mjs   # com npm run dev, sem Supabase
-BASE=http://localhost:3000 node scripts/e2e-prx2.mjs       # pontos, Pix em parceiro, Reels, financeiro, LGPD
+BASE=http://localhost:3000 node scripts/e2e-prx2.mjs       # pontos, Pix em parceiro, Destaques, financeiro, LGPD, KYC, Conta Pai
 ```
+
+As regras de `.semgrep/prx-security.yml` cobrem o que é específico do PRX: rota que altera dados sem sessão, path traversal no Storage de documentos, falsificação de log, injeção em filtros PostgREST (use `pgQuote`), open redirect, SSRF, `Math.random` no servidor, hash fraco, comparação de segredo sem tempo constante e flags do cookie de sessão. Supressão só com `// nosemgrep: <regra> — <motivo>`.

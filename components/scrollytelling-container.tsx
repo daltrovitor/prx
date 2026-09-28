@@ -6,7 +6,6 @@ import { TermsConsent } from "@/components/auth/terms-consent";
 import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { CONSENT_REQUIRED_MESSAGE } from "@/lib/legal-version";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { useRouter } from "next/navigation";
 import { motion, useScroll, useTransform, useSpring, AnimatePresence } from "framer-motion";
 import Lenis from "lenis";
 import gsap from "gsap";
@@ -21,7 +20,6 @@ const Phone3DModel = dynamic(() => import("@/components/phone-3d-model").then((m
   loading: () => <div aria-hidden className={PHONE_BOX} />,
 });
 import { useAuth } from "@/hooks/use-auth";
-import { EMPTY_IDENTITY, SignupIdentityFields, identityProblem, type SignupIdentity } from "@/components/auth/signup-identity";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -296,13 +294,11 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
   }, []);
 
   // Auth Integration (Connected to /api/auth and useAuth)
-  const router = useRouter();
   const { login, signup, loginWithGoogle, user: currentUser, logout } = useAuth();
   const [authTab, setAuthTab] = useState<"login" | "signup">("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPass, setAuthPass] = useState("");
   const [authName, setAuthName] = useState("");
-  const [identity, setIdentity] = useState<SignupIdentity>(EMPTY_IDENTITY);
   const [showPassword, setShowPassword] = useState(false);
   const [phoneReady, setPhoneReady] = useState(false);
 
@@ -368,17 +364,8 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
           setAuthErrorMsg(res.error || "Credenciais incorretas. Verifique seu e-mail e senha.");
         }
       } else {
-        const problem = identityProblem(identity);
-        if (problem) {
-          setAuthErrorMsg(problem);
-          return;
-        }
-        const res = await signup(authName, authEmail, authPass, termsAccepted, identity);
-        if (!res.success && res.code === "PARENT_REQUIRED") {
-          setAuthErrorMsg(res.error || "Menores de 16 anos entram pela Conta Pai.");
-          window.setTimeout(() => router.push("/sou-pai"), 1800);
-          return;
-        }
+        // Cadastro sem fricção: nome, e-mail, senha e aceite dos Termos. Documentos só no PRX BANK e na Conta Pai.
+        const res = await signup(authName, authEmail, authPass, termsAccepted);
         if (res.success) {
           setAuthSuccessMsg("Conta criada com sucesso! Bem-vindo.");
           setTimeout(() => {
@@ -533,7 +520,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
             {/* Lista Editorial Limpa Sem Ícones Exagerados */}
             <div className="space-y-4 pt-2 font-sans">
               <div className="gsap-pass-item border-l-2 border-cyan-500 pl-4 py-1">
-                <h3 className="text-sm font-bold text-foreground">Salas VIP & Viagens</h3>
+                <h3 className="text-sm font-bold text-foreground">Salas VIP &amp; Viagens</h3>
                 <p className="text-xs text-muted-foreground">Acesso a lounges em aeroportos e upgrades selecionados.</p>
               </div>
 
@@ -561,7 +548,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
           <div className="max-w-md lg:max-w-lg space-y-6 pointer-events-auto text-left pl-0 md:pl-6 p-6 sm:p-0 rounded-3xl sm:rounded-none bg-card/90 sm:bg-transparent backdrop-blur-xl sm:backdrop-blur-none border border-border sm:border-none shadow-2xl sm:shadow-none transition-colors">
             
             <p className="gsap-gamify-tag text-xs font-mono uppercase tracking-[0.25em] text-purple-600 dark:text-purple-400 font-semibold">
-              PRX Score & Progressão
+              PRX Score &amp; Progressão
             </p>
 
             <h2 className="gsap-gamify-title font-heading text-3xl sm:text-5xl font-bold text-foreground tracking-tight leading-tight">
@@ -689,7 +676,6 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                       />
                     </div>
                   )}
-                  {authTab === "signup" && <SignupIdentityFields value={identity} onChange={setIdentity} inputClass="w-full py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 focus:bg-white dark:focus:bg-white/10 text-sm transition-all font-sans" />}
 
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -945,7 +931,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
               >
                 <div className="flex items-center space-x-2">
                   <span className="w-2 h-2 rounded-full bg-cyan-600 dark:bg-cyan-400" />
-                  <h3 className="text-xs font-bold text-foreground">Salas VIP & Lounges</h3>
+                  <h3 className="text-xs font-bold text-foreground">Salas VIP &amp; Lounges</h3>
                 </div>
                 <p className="text-[11px] text-muted-foreground pl-4">Acesso a lounges em aeroportos e upgrades selecionados.</p>
               </motion.div>
@@ -990,7 +976,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
               className="space-y-2"
             >
               <p className="text-[11px] font-mono uppercase tracking-[0.25em] text-purple-600 dark:text-purple-400 font-semibold">
-                PRX Score & Progressão
+                PRX Score &amp; Progressão
               </p>
               <h2 className="font-heading text-2xl font-bold text-foreground tracking-tight leading-tight">
                 As bets lucram com a perda. <br />
@@ -1135,7 +1121,6 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                         />
                       </div>
                     )}
-                    {authTab === "signup" && <SignupIdentityFields value={identity} onChange={setIdentity} inputClass="w-full py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 focus:bg-white dark:focus:bg-white/10 text-sm transition-all font-sans" />}
 
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

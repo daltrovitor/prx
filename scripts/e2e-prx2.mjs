@@ -1,7 +1,7 @@
 // Hello World
 // Teste ponta a ponta da PRX 2.0 (pontos, níveis, Pix em parceiro, Destaques, financeiro,
-// LGPD, lista VIP, verificação de idade, Conta Pai e biometria). Requer `npm run dev`
-// sem Supabase (contas de demonstração e sandbox).
+// LGPD, lista VIP, cadastro sem fricção, abertura do PRX BANK (KYC), Conta Pai e
+// biometria). Requer `npm run dev` sem Supabase (contas de demonstração e sandbox).
 // Uso: BASE=http://localhost:3000 node scripts/e2e-prx2.mjs
 const BASE = process.env.BASE || "http://localhost:3000";
 const results = [];
@@ -13,11 +13,11 @@ const check = (name, cond, extra = "") => {
 
 function client() {
   let cookie = "";
-  return async (path, { method = "GET", body, headers = {} } = {}) => {
+  return async (path, { method = "GET", body, form, headers = {} } = {}) => {
     const res = await fetch(BASE + path, {
       method,
-      headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}), ...headers },
-      body: body ? JSON.stringify(body) : undefined,
+      headers: { ...(form ? {} : { "Content-Type": "application/json" }), ...(cookie ? { Cookie: cookie } : {}), ...headers },
+      body: form ?? (body ? JSON.stringify(body) : undefined),
       redirect: "manual",
     });
     const set = res.headers.getSetCookie?.() ?? [];
@@ -50,15 +50,10 @@ const anon = client();
 // ---------- LGPD: cadastro exige aceite ----------
 const noConsent = await anon("/api/auth/signup", { method: "POST", body: { fullName: "Sem Aceite", email: `sem-${stamp}@prx.dev`, password: "Prx2026!x" } });
 check("cadastro sem aceite dos termos é recusado", noConsent.status === 400 && /Termos/.test(noConsent.data.error || ""), noConsent.data.error);
-const under16 = await anon("/api/auth/signup", { method: "POST", body: { fullName: "Criança", email: `cr-${stamp}@prx.dev`, password: "Prx2026!x", cpf: cpf(), birthDate: "2013-03-03", termsAccepted: true } });
-check("menor de 16 vai para a Conta Pai (sem criar conta)", under16.status === 403 && under16.data.code === "PARENT_REQUIRED", under16.data.error);
-const memberCpf = cpf();
-const signup = await member("/api/auth/signup", { method: "POST", body: { fullName: "Nova Geração", email: `ng-${stamp}@prx.dev`, password: "Prx2026!x", cpf: memberCpf, birthDate: "2004-08-20", termsAccepted: true } });
-check("cadastro com aceite, CPF e idade cria a conta", signup.status === 200, signup.data.error);
-const sameCpf = await anon("/api/auth/signup", { method: "POST", body: { fullName: "Outra Pessoa", email: `dup-${stamp}@prx.dev`, password: "Prx2026!x", cpf: memberCpf, birthDate: "2003-01-01", termsAccepted: true } });
-check("CPF já cadastrado é recusado", sameCpf.status === 409 && sameCpf.data.code === "CPF_TAKEN", sameCpf.data.error);
+const signup = await member("/api/auth/signup", { method: "POST", body: { fullName: "Nova Geração", email: `ng-${stamp}@prx.dev`, password: "Prx2026!x", termsAccepted: true } });
+check("cadastro sem fricção: só nome, e-mail, senha e termos", signup.status === 200, signup.data.error);
 const familyMe = (await member("/api/family/me")).data.state;
-check("conta adulta registrada como membro ativo", familyMe?.identity?.accountType === "member" && familyMe?.identity?.status === "active");
+check("cadastro comum não pede nem guarda documentos ou CPF", familyMe && familyMe.identity === null);
 
 // ---------- Carteira de pontos ----------
 let wallet = (await member("/api/points")).data.wallet;
@@ -109,6 +104,48 @@ check("resgate sem coins suficientes é recusado", poor.status === 409 && /insuf
 // ---------- PRX Bank sandbox + motor de compra em parceiro ----------
 const lookup = await member("/api/bank", { method: "POST", body: { action: "lookup_partner", key: "04252011000110", amount: 250 } });
 check("chave CNPJ reconhecida como parceiro", lookup.data.partner?.partnerId === partnerId && lookup.data.partner?.verticalCode === "BITE", JSON.stringify(lookup.data));
+const beforeKyc = await member("/api/bank", { method: "POST", body: { action: "sandbox_activate" } });
+check("PRX BANK bloqueado sem abertura de conta (KYC)", beforeKyc.status === 403 && /Abra sua conta/.test(beforeKyc.data.error || ""), beforeKyc.data.error);
+const pixBeforeKyc = await member("/api/bank", { method: "POST", body: { action: "send_pix", key: "04252011000110", amount: 10 } });
+check("movimentação bloqueada sem conta ativa", pixBeforeKyc.status === 403 || pixBeforeKyc.status === 409, pixBeforeKyc.data.error);
+
+async function upload(who, kind) {
+  const form = new FormData();
+  form.append("kind", kind);
+  form.append("file", new Blob([Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64")], { type: "image/png" }), `${kind}.png`);
+  const res = await who("/api/family/uploads", { method: "POST", form });
+  return { kind, path: res.data.path, name: `${kind}.png` };
+}
+const memberCpf = cpf();
+const kycBody = {
+  fullName: "Nova Geração Silva",
+  cpf: memberCpf,
+  birthDate: "2004-08-20",
+  motherName: "Maria Geração Silva",
+  phone: "(11) 98888-7777",
+  occupation: "Estudante",
+  incomeRange: "ate_3k",
+  pep: false,
+  address: { cep: "01310-100", street: "Avenida Paulista", number: "1000", complement: "", district: "Bela Vista", city: "São Paulo", state: "SP" },
+  documents: [await upload(member, "id_front"), await upload(member, "id_back")],
+  termsAccepted: true,
+};
+const badCpf = await member("/api/bank/kyc", { method: "POST", body: { ...kycBody, cpf: "529.982.247-26" } });
+check("KYC valida o dígito verificador do CPF no servidor", badCpf.status === 422, badCpf.data.error);
+const traversal = await member("/api/bank/kyc", { method: "POST", body: { ...kycBody, documents: [{ kind: "id_front", path: "../outro/f.png" }, kycBody.documents[1]] } });
+check("KYC recusa documento fora da pasta do usuário", traversal.status === 422, traversal.data.error);
+const kyc = await member("/api/bank/kyc", { method: "POST", body: kycBody });
+check("abertura do PRX BANK enviada para análise", kyc.status === 200 && kyc.data.kyc?.status === "pending", kyc.data.error);
+const queue = (await admin("/api/admin/family?status=pending")).data.bankKyc ?? [];
+const kycApp = queue.find((k) => k.cpf === memberCpf);
+check("admin vê a abertura na fila de verificações", Boolean(kycApp) && kycApp.documents.length === 2);
+const approveKyc = await admin("/api/admin/family", { method: "POST", body: { kind: "bank", id: kycApp?.id, decision: "approve", note: "" } });
+check("admin aprova a abertura", approveKyc.status === 200, approveKyc.data.error);
+const intruder = client();
+await intruder("/api/auth/signup", { method: "POST", body: { fullName: "Outra Pessoa", email: `dup-${stamp}@prx.dev`, password: "Prx2026!x", termsAccepted: true } });
+const dupKyc = await intruder("/api/bank/kyc", { method: "POST", body: { ...kycBody, documents: [await upload(intruder, "id_front"), await upload(intruder, "id_back")] } });
+check("CPF já usado em outra conta é recusado na abertura", dupKyc.status === 409 && dupKyc.data.code === "CPF_TAKEN", dupKyc.data.error);
+
 const sandbox = await member("/api/bank", { method: "POST", body: { action: "sandbox_activate" } });
 check("conta sandbox ativada com saldo fictício", sandbox.status === 200 && sandbox.data.account.status === "active" && sandbox.data.account.balance === 1000);
 const pix = await member("/api/bank", { method: "POST", body: { action: "send_pix", key: "04252011000110", amount: 300, description: "Almoço" } });
@@ -162,7 +199,12 @@ const parentSignup = await parent("/api/family/parent/signup", {
 check("Conta Pai criada em análise", parentSignup.status === 200 && (await parent("/api/family/me")).data.state?.identity?.status === "parent_review", parentSignup.data.error);
 const parentSandbox = await parent("/api/bank", { method: "POST", body: { action: "sandbox_activate" } });
 check("Conta Pai não guarda dinheiro", parentSandbox.status === 403, parentSandbox.data.error);
-const earlyChild = await parent("/api/family/children", { method: "POST", body: { fullName: "Filho", email: `f-${stamp}@prx.dev`, password: "SenhaFilho123", cpf: cpf(), birthDate: "2013-01-01" } });
+const childNoConsent = await parent("/api/family/children", { method: "POST", body: { fullName: "Filho", email: `f-${stamp}@prx.dev`, password: "SenhaFilho123", cpf: cpf(), birthDate: "2013-01-01" } });
+check("criar filho exige parentesco e consentimento parental (LGPD Art. 14)", childNoConsent.status === 422 && /parentesco|responsável legal|consentimento/i.test(childNoConsent.data.error || ""), childNoConsent.data.error);
+const earlyChild = await parent("/api/family/children", {
+  method: "POST",
+  body: { fullName: "Filho", email: `f-${stamp}@prx.dev`, password: "SenhaFilho123", cpf: cpf(), birthDate: "2013-01-01", relationship: "mae", guardianshipDeclared: true, consentAccepted: true },
+});
 check("filho só depois da aprovação", earlyChild.status === 403, earlyChild.data.error);
 
 // ---------- Biometria ----------

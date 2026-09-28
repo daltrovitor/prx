@@ -30,7 +30,8 @@ export function validateDocument(contentType: string, size: number): string {
 
 /** Só aceita documentos da própria pasta: ninguém anexa o arquivo de outra pessoa. */
 export function ownsDocument(userId: string, ref: Pick<DocumentRef, "path">): boolean {
-  return ref.path.startsWith(`${userId}/`) && !ref.path.includes("..");
+  // Formato exato "<usuário>/<arquivo>": sem "..", sem subpastas, sem caminho absoluto.
+  return ref.path.startsWith(`${userId}/`) && !ref.path.includes("..") && /^[\w-]+\/[\w.-]+$/.test(ref.path);
 }
 
 export function documentPath(userId: string, kind: DocumentKind, ext: string): string {

@@ -6,7 +6,6 @@ import { ScrollytellingContainer } from "@/components/scrollytelling-container";
 import { AppShell } from "@/components/app/app-shell";
 import { QuickLogin } from "@/components/auth/quick-login";
 import { ParentShell } from "@/components/family/parent-shell";
-import { EmancipationUpload, IdentityGate } from "@/components/family/identity-gate";
 import { useFamilyState } from "@/components/family/family-client";
 import { familyNotice } from "@/components/family/family-notice";
 import { useKnownAccount } from "@/lib/known-account";
@@ -20,7 +19,7 @@ export default function HomePage() {
   const known = useKnownAccount();
   // Contas de equipe (admin, parceiro, staff) não passam pelas regras de família.
   const member = user && user.role === "user" ? user : null;
-  const { state: family, unavailable: familyUnavailable, reload: reloadFamily } = useFamilyState(member?.id ?? null);
+  const { state: family, unavailable: familyUnavailable } = useFamilyState(member?.id ?? null);
   const [viewMode, setViewMode] = useState<"app" | "showcase">("app");
   const [introDone, setIntroDone] = useState(false);
 
@@ -32,12 +31,8 @@ export default function HomePage() {
   } else if (!loading && member && !family && !familyUnavailable) {
     // Carregando a situação da conta na família (tipo e pendências).
     content = null;
-  } else if (!loading && member && family && !family.identity) {
-    content = <IdentityGate onDone={() => void reloadFamily()} onLogout={() => void logout()} />;
   } else if (!loading && member && family?.identity?.accountType === "parent") {
     content = <ParentShell user={member} onLogout={() => void logout()} />;
-  } else if (!loading && member && family?.identity?.accountType === "minor" && family.identity.status === "emancipation_pending" && family.emancipation?.status !== "pending") {
-    content = <EmancipationUpload onDone={() => void reloadFamily()} onLogout={() => void logout()} note={family.emancipation?.reviewNote || undefined} />;
   } else if (!loading && user && viewMode === "app") {
     content = <AppShell user={user} onLogout={() => void logout()} onViewShowcase={() => setViewMode("showcase")} notice={familyNotice(family)} />;
   } else if (!loading && user) {

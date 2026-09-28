@@ -31,6 +31,7 @@ async function accountFor(email: string): Promise<{ id: string; name: string; ro
  * Entra funcionário com cadastro ativo na equipe ou administrador.
  * Sessão de 12h: um turno de portaria.
  */
+// nosemgrep: prx-mutation-route-without-auth — login da equipe: é aqui que a sessão nasce
 export async function POST(req: NextRequest) {
   try {
     const limit = checkRateLimit(`staff-login:${clientIp(req) || "anon"}`, 10, 60);

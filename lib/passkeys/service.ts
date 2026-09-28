@@ -53,8 +53,9 @@ export function sealChallenge(claims: Omit<ChallengeClaims, "exp">): string {
 export function openChallenge(sealed: string | undefined, purpose: Purpose): ChallengeClaims {
   const [body, signature] = (sealed || "").split(".");
   if (!body || !signature) throw new PasskeyError("A confirmação expirou. Tente de novo.", 400);
-  const expected = sign(body);
-  if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+  const given = Buffer.from(signature);
+  const expected = Buffer.from(sign(body));
+  if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
     throw new PasskeyError("A confirmação expirou. Tente de novo.", 400);
   }
   const claims = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as ChallengeClaims;

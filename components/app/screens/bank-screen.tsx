@@ -6,6 +6,7 @@ import type { User } from "@/hooks/use-auth";
 import { useAppNav } from "@/components/app/app-nav";
 import { useBankAccount, useHiddenBalance, usePointsWallet, type ActionResult, type PartnerReward } from "@/components/app/use-prx-stores";
 import { PrxMap } from "@/components/app/bank/prx-map";
+import { BankKycPanel } from "@/components/app/bank/bank-kyc";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { TransactionRow } from "@/components/app/shared";
@@ -85,6 +86,9 @@ export function BankScreen({ member }: { member: User }) {
       </div>
     );
   }
+
+  // Primeira visita ao PRX BANK: abertura de conta (KYC). O resto do PRX nunca pede documentos.
+  if (account.kyc.status !== "approved") return <BankKycPanel member={member} kyc={account.kyc} onDone={reload} />;
 
   const active = account.status === "active";
 

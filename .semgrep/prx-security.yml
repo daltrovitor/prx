@@ -1,0 +1,246 @@
+# Hello World
+# Regras de segurança do PRX (Semgrep). Complementam os rulesets públicos
+# (p/security-audit, p/default, p/owasp-top-ten) com os riscos específicos do
+# app: rotas Next.js, Supabase/PostgREST, Storage privado e dados de menores.
+#
+#   semgrep --config .semgrep/prx-security.yml --config p/security-audit --config p/default .
+#
+# Supressão só com justificativa, na linha do achado ou logo acima: // nosemgrep: <id> — <motivo>.
+# Casos de teste (ruleid/ok) em .semgrep/prx-security.tsx: npm run security:test.
+rules:
+  # ------------------------------------------------------------------------
+  # Controle de acesso quebrado (OWASP A01)
+  # ------------------------------------------------------------------------
+  - id: prx-mutation-route-without-auth
+    message: >-
+      Rota que altera dados ($METHOD) sem verificar a sessão. Chame getCurrentUser/requireUser/
+      requireAdmin/requirePartnerSession/verify*Request antes de qualquer escrita, ou justifique
+      a rota pública (login, cadastro, webhook assinado) com nosemgrep.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include: ["app/api/**/route.ts"]
+    patterns:
+      - pattern: |
+          export async function $METHOD(...) { ... }
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(POST|PUT|PATCH|DELETE)$
+      - pattern-not-regex: (getCurrentUser|requireUser|requireAdmin|requirePartnerSession|requirePartnerValidator|requireValidator|requireStaff|verifyAdminRequest|verifyPartnerRequest|verifyStaffRequest)\(
+    metadata:
+      category: security
+      cwe: "CWE-862: Missing Authorization"
+      owasp: "A01:2021 - Broken Access Control"
+
+  # ------------------------------------------------------------------------
+  # Path traversal no Storage (documentos de menores e KYC)
+  # ------------------------------------------------------------------------
+  - id: prx-storage-path-from-request
+    message: >-
+      Caminho do Storage vindo da requisição sem checar dono/anexo. Valide com ownsDocument()
+      ou documentIsAttached()/kycDocumentIsAttached() e recuse "..".
+    severity: ERROR
+    languages: [typescript]
+    mode: taint
+    pattern-sources:
+      - pattern: $REQ.nextUrl.searchParams.get(...)
+      - pattern: (await $REQ.json())
+      - pattern: (await $REQ.formData()).get(...)
+      - pattern: $FORM.get(...)
+    pattern-sanitizers:
+      - pattern: requireAttachedDocument(...)
+      - pattern: ownsDocument(...)
+      - pattern: documentIsAttached(...)
+      - pattern: kycDocumentIsAttached(...)
+      - pattern: documentPath(...)
+      - pattern: storeMemoryDocument(...)
+      - pattern: uploadFolder(...)
+      - pattern: extensionFor(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $STORAGE.from(...).createSignedUrl($PATH, ...)
+              - pattern: $STORAGE.from(...).createSignedUploadUrl($PATH, ...)
+              - pattern: $STORAGE.from(...).download($PATH, ...)
+              - pattern: $STORAGE.from(...).upload($PATH, ...)
+              - pattern: $STORAGE.from(...).remove($PATH)
+              - pattern: readMemoryDocument($PATH)
+              - pattern: documentViewUrl($PATH)
+          - focus-metavariable: $PATH
+    metadata:
+      category: security
+      cwe: "CWE-22: Path Traversal"
+      owasp: "A01:2021 - Broken Access Control"
+
+  - id: prx-fs-path-from-request
+    message: Acesso ao sistema de arquivos com caminho vindo da requisição (path traversal).
+    severity: ERROR
+    languages: [typescript]
+    mode: taint
+    pattern-sources:
+      - pattern: $REQ.nextUrl.searchParams.get(...)
+      - pattern: (await $REQ.json())
+      - pattern: $PARAMS.id
+    pattern-sinks:
+      - pattern-either:
+          - pattern: fs.$F(...)
+          - pattern: path.join(...)
+          - pattern: path.resolve(...)
+    metadata:
+      cwe: "CWE-22: Path Traversal"
+
+  # ------------------------------------------------------------------------
+  # Falsificação de log (log injection / forging)
+  # ------------------------------------------------------------------------
+  - id: prx-log-forging
+    message: >-
+      Dado da requisição direto no log: quebras de linha forjam entradas falsas (e o log pode vazar
+      dados pessoais). Registre um código fixo, ou limpe com .replace(/[\r\n]/g, " ") / JSON.stringify.
+    severity: WARNING
+    languages: [typescript]
+    mode: taint
+    pattern-sources:
+      - pattern: $REQ.nextUrl.searchParams.get(...)
+      - pattern: $REQ.headers.get(...)
+      - pattern: (await $REQ.json())
+      - pattern: (await $REQ.formData()).get(...)
+    pattern-sanitizers:
+      - pattern: JSON.stringify(...)
+      - pattern: $X.replace(/[\r\n]/g, ...)
+      - pattern: $X.replace(/[\r\n]+/g, ...)
+    pattern-sinks:
+      - pattern: console.$LEVEL(...)
+    metadata:
+      cwe: "CWE-117: Improper Output Neutralization for Logs"
+      owasp: "A09:2021 - Security Logging and Monitoring Failures"
+
+  # ------------------------------------------------------------------------
+  # Injeção
+  # ------------------------------------------------------------------------
+  - id: prx-postgrest-filter-injection
+    message: >-
+      Filtro PostgREST (.or/.filter) montado com interpolação. Vírgulas, parênteses e aspas no valor
+      mudam o filtro. Use pgQuote(valor) em cada interpolação.
+    severity: ERROR
+    languages: [typescript]
+    patterns:
+      - pattern-regex: \.(or|filter)\(\s*`[^`]*\$\{(?!pgQuote\()
+    metadata:
+      cwe: "CWE-943: Improper Neutralization of Special Elements in Data Query Logic"
+      owasp: "A03:2021 - Injection"
+
+  - id: prx-code-injection
+    message: Execução dinâmica de código (eval/new Function/child_process) — proibido no app.
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+      - pattern: require("child_process").$F(...)
+      - pattern: import("child_process")
+    metadata:
+      cwe: "CWE-95: Eval Injection"
+      owasp: "A03:2021 - Injection"
+
+  - id: prx-dangerous-html
+    message: HTML cru injetado no React. Só com conteúdo 100% estático do próprio código (justifique com nosemgrep).
+    severity: WARNING
+    languages: [typescript]
+    pattern: <$EL dangerouslySetInnerHTML={...} />
+    metadata:
+      cwe: "CWE-79: Cross-site Scripting"
+      owasp: "A03:2021 - Injection"
+
+  - id: prx-open-redirect
+    message: Redirecionamento para URL vinda da requisição (open redirect). Aceite só caminhos internos ou hosts conhecidos.
+    severity: ERROR
+    languages: [typescript]
+    mode: taint
+    pattern-sources:
+      - pattern: $REQ.nextUrl.searchParams.get(...)
+      - pattern: $URL.searchParams.get(...)
+    pattern-sanitizers:
+      - pattern: safeRedirectPath(...)
+      - pattern: documentViewUrl(...)
+      # Busca o registro pelo id e devolve a URL assinada do próprio Storage (não é URL do cliente).
+      - pattern: foundersDeck(...)
+    pattern-sinks:
+      - pattern: NextResponse.redirect(...)
+      - pattern: redirect(...)
+    metadata:
+      cwe: "CWE-601: Open Redirect"
+      owasp: "A01:2021 - Broken Access Control"
+
+  - id: prx-ssrf-fetch
+    message: fetch no servidor com URL vinda da requisição (SSRF).
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include: ["app/api/**", "lib/**"]
+    mode: taint
+    pattern-sources:
+      - pattern: $REQ.nextUrl.searchParams.get(...)
+      - pattern: (await $REQ.json())
+    pattern-sinks:
+      - patterns:
+          - pattern: fetch($URL, ...)
+          - focus-metavariable: $URL
+    metadata:
+      cwe: "CWE-918: Server-Side Request Forgery"
+      owasp: "A10:2021 - Server-Side Request Forgery"
+
+  # ------------------------------------------------------------------------
+  # Criptografia e segredos
+  # ------------------------------------------------------------------------
+  - id: prx-insecure-random-server
+    message: Math.random() no servidor não é criptográfico. Use crypto.randomInt/randomBytes/randomUUID para tokens, códigos e IDs.
+    severity: WARNING
+    languages: [typescript]
+    paths:
+      include: ["app/api/**", "lib/**"]
+      exclude: ["**/__tests__/**"]
+    pattern: Math.random()
+    metadata:
+      cwe: "CWE-338: Use of Cryptographically Weak PRNG"
+      owasp: "A02:2021 - Cryptographic Failures"
+
+  - id: prx-weak-hash
+    message: Hash fraco (MD5/SHA-1) — use SHA-256+ (ou HMAC) para integridade e pbkdf2/scrypt/argon2 para senhas.
+    severity: ERROR
+    languages: [typescript]
+    pattern-either:
+      - pattern: crypto.createHash("md5")
+      - pattern: crypto.createHash("sha1")
+      - pattern: createHash("md5")
+      - pattern: createHash("sha1")
+    metadata:
+      cwe: "CWE-328: Use of Weak Hash"
+      owasp: "A02:2021 - Cryptographic Failures"
+
+  - id: prx-timing-unsafe-secret-compare
+    message: Comparação de segredo com === (vulnerável a timing). Use crypto.timingSafeEqual com tamanhos iguais.
+    severity: WARNING
+    languages: [typescript]
+    patterns:
+      - pattern-either:
+          - pattern: $A === $B
+          - pattern: $A !== $B
+      - metavariable-regex:
+          metavariable: $A
+          regex: (?i).*(secret|signature|hmac|apiKey|api_key|webhookToken).*
+    metadata:
+      cwe: "CWE-208: Observable Timing Discrepancy"
+
+  - id: prx-session-cookie-flags
+    message: Cookie de sessão sem httpOnly/secure/sameSite. A sessão precisa de httpOnly, secure em produção e sameSite.
+    severity: WARNING
+    languages: [typescript]
+    patterns:
+      - pattern: |
+          $RES.cookies.set({ name: AUTH_COOKIE_NAME, ... })
+      - pattern-not: |
+          $RES.cookies.set({ name: AUTH_COOKIE_NAME, ..., httpOnly: true, ... })
+      - pattern-not: |
+          $RES.cookies.set({ name: AUTH_COOKIE_NAME, value: "", ... })
+    metadata:
+      cwe: "CWE-1004: Sensitive Cookie Without HttpOnly"

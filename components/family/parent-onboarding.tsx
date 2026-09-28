@@ -6,11 +6,23 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { useAuth } from "@/hooks/use-auth";
-import { Button, Checkbox, Field, Input, Notice, ProgressBar, RadioCards } from "@/components/app/ui";
+import { Button, Checkbox, Field, Input, Notice, ProgressBar, RadioCards, Select } from "@/components/app/ui";
 import { DocumentPicker } from "@/components/family/document-picker";
 import { postJson, useFamilyState } from "@/components/family/family-client";
-import { maskCpfInput } from "@/components/auth/signup-identity";
-import { INCOME_LABEL, INCOME_RANGES, missingParentDocuments, parentApplicationSchema, parentSignupSchema, type DocumentKind, type DocumentRef, type IncomeRange } from "@/lib/family/types";
+import { maskCpfInput } from "@/lib/cpf-mask";
+import {
+  GUARDIANSHIPS,
+  GUARDIANSHIP_LABEL,
+  INCOME_LABEL,
+  INCOME_RANGES,
+  missingParentDocuments,
+  parentApplicationSchema,
+  parentSignupSchema,
+  type DocumentKind,
+  type DocumentRef,
+  type Guardianship,
+  type IncomeRange,
+} from "@/lib/family/types";
 
 type Step = "intro" | "dados" | "renda" | "filho" | "documentos" | "enviado";
 const FLOW: Step[] = ["dados", "renda", "filho", "documentos"];
@@ -18,7 +30,7 @@ const STEP_TITLE: Record<Exclude<Step, "intro" | "enviado">, { title: string; bo
   dados: { title: "Seus dados", body: "Quem é o responsável. O CPF abre uma única conta no PRX." },
   renda: { title: "Profissão e renda", body: "Usamos para a análise de segurança exigida para contas de menores." },
   filho: { title: "Seu filho", body: "Depois da aprovação, você cria o acesso dele ou aceita o pedido que ele enviar." },
-  documentos: { title: "Documentos", body: "RG e CPF (ou só a CNH) e a certidão de nascimento do seu filho." },
+  documentos: { title: "Documentos", body: "RG e CPF (ou só a CNH) e a certidão de nascimento do seu filho — ou o termo de guarda/tutela." },
 };
 
 const maskPhone = (raw: string) => {
@@ -50,6 +62,7 @@ export function ParentOnboarding() {
   const [dados, setDados] = useState({ fullName: "", email: "", password: "", cpf: "", birthDate: "", phone: "", termsAccepted: false });
   const [renda, setRenda] = useState<{ profession: string; incomeRange: IncomeRange | "" }>({ profession: "", incomeRange: "" });
   const [filho, setFilho] = useState({ childName: "", childBirthDate: "" });
+  const [tutela, setTutela] = useState<{ relationship: Guardianship | ""; guardianshipDeclared: boolean }>({ relationship: "", guardianshipDeclared: false });
   const [docs, setDocs] = useState<Partial<Record<DocumentKind, DocumentRef>>>({});
 
   // Retoma de onde parou: Conta Pai criada e sem pedido enviado vai direto para a profissão.
@@ -91,7 +104,7 @@ export function ParentOnboarding() {
 
   function submitFilho(event: FormEvent) {
     event.preventDefault();
-    const parsed = parentApplicationSchema.pick({ childName: true, childBirthDate: true }).safeParse(filho);
+    const parsed = parentApplicationSchema.pick({ childName: true, childBirthDate: true, relationship: true, guardianshipDeclared: true }).safeParse({ ...filho, ...tutela });
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? "Confira os dados do seu filho.");
     go("documentos");
   }
@@ -99,9 +112,9 @@ export function ParentOnboarding() {
   async function submitDocumentos() {
     const documents = Object.values(docs).filter((d): d is DocumentRef => Boolean(d));
     const missing = missingParentDocuments(documents);
-    if (missing.length > 0) return setError("Envie RG e CPF (ou a CNH) e a certidão de nascimento do seu filho.");
+    if (missing.length > 0) return setError("Envie RG e CPF (ou a CNH) e a certidão de nascimento do seu filho (ou o termo de guarda/tutela).");
     setBusy(true);
-    const result = await postJson("/api/family/parent/application", { ...renda, ...filho, documents, phone: dados.phone });
+    const result = await postJson("/api/family/parent/application", { ...renda, ...filho, ...tutela, documents, phone: dados.phone });
     setBusy(false);
     if (!result.ok) return setError(result.error);
     await reload();
@@ -237,6 +250,23 @@ export function ParentOnboarding() {
                         <Input id={id} type="date" aria-describedby={hint} value={filho.childBirthDate} onChange={(e) => setFilho({ ...filho, childBirthDate: e.target.value })} required className="cursor-pointer" />
                       )}
                     </Field>
+                    <Field label="Parentesco ou tutela">
+                      {(id) => (
+                        <Select id={id} value={tutela.relationship} onChange={(e) => setTutela({ ...tutela, relationship: e.target.value as Guardianship | "" })} required>
+                          <option value="">Escolha</option>
+                          {GUARDIANSHIPS.map((g) => (
+                            <option key={g} value={g}>
+                              {GUARDIANSHIP_LABEL[g]}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                    </Field>
+                    <Checkbox
+                      checked={tutela.guardianshipDeclared}
+                      onChange={(checked) => setTutela({ ...tutela, guardianshipDeclared: checked })}
+                      label="Declaro, sob as penas da lei, que sou mãe, pai ou responsável legal por este menor."
+                    />
                     <StepActions error={error} busy={false} submitLabel="Continuar" onBack={() => go("renda")} />
                   </form>
                 )}
@@ -246,7 +276,11 @@ export function ParentOnboarding() {
                     <DocumentPicker kind="rg" value={docs.rg ?? null} onChange={setDoc("rg")} optional={Boolean(docs.cnh)} hint="Frente e verso legíveis" />
                     <DocumentPicker kind="cpf" value={docs.cpf ?? null} onChange={setDoc("cpf")} optional={Boolean(docs.cnh)} hint="Pode ser o próprio RG, se tiver o número" />
                     <DocumentPicker kind="cnh" value={docs.cnh ?? null} onChange={setDoc("cnh")} optional hint="Substitui RG e CPF" />
-                    <DocumentPicker kind="child_certificate" value={docs.child_certificate ?? null} onChange={setDoc("child_certificate")} hint="Certidão de nascimento do seu filho" />
+                    {tutela.relationship === "tutor" || tutela.relationship === "guardiao" ? (
+                      <DocumentPicker kind="guardianship_proof" value={docs.guardianship_proof ?? null} onChange={setDoc("guardianship_proof")} hint="Termo judicial de guarda ou tutela" />
+                    ) : (
+                      <DocumentPicker kind="child_certificate" value={docs.child_certificate ?? null} onChange={setDoc("child_certificate")} hint="Certidão de nascimento do seu filho" />
+                    )}
                     <p className="text-[12px] leading-relaxed text-muted-foreground">Os documentos ficam em área privada, visíveis só para a equipe de análise, e são usados apenas para confirmar a responsabilidade legal (LGPD).</p>
                     <StepActions error={error} busy={busy} submitLabel="Enviar para análise" onBack={() => go("filho")} onSubmit={() => void submitDocumentos()} />
                   </div>

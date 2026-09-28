@@ -28,6 +28,7 @@ export async function GET() {
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
+// nosemgrep: prx-mutation-route-without-auth — POST só apaga o cookie da própria sessão
 export async function POST() {
   const response = NextResponse.json({ success: true });
   response.cookies.delete(AUTH_COOKIE_NAME);

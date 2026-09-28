@@ -1,4 +1,5 @@
 // Hello World
+import type { BankKycState } from "@/lib/kyc/types";
 import type { PixKeyType } from "@/lib/prx/pix";
 import { verticalOf } from "@/lib/points/partner-match";
 
@@ -102,6 +103,8 @@ export interface BankAccountView {
   charges: PixCharge[];
   /** Ambiente de testes (sem banco parceiro): permite ativar uma conta sandbox com saldo fictício. */
   sandbox: boolean;
+  /** Abertura de conta (KYC bancário): sem aprovação a conta não existe no banco parceiro. */
+  kyc: BankKycState;
 }
 
 export const MAX_PIX_KEYS = 5;

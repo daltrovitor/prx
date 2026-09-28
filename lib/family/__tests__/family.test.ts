@@ -22,6 +22,34 @@ import {
   reviewEmancipation,
 } from "@/lib/family/service";
 import { activateSandbox, accountView } from "@/lib/bank/service";
+import { resetKycMemory } from "@/lib/kyc/repository";
+import { reviewBankKyc, submitBankKyc } from "@/lib/kyc/service";
+import type { BankKycInput } from "@/lib/kyc/types";
+
+const CONSENT = { relationship: "mae" as const, guardianshipDeclared: true as const, consentAccepted: true as const };
+const TUTELA = { relationship: "mae" as const, guardianshipDeclared: true as const };
+const IP = "203.0.113.7";
+
+/** Abertura do PRX BANK com os dados mínimos válidos; documentos na pasta do próprio usuário. */
+function kycInput(userId: string, cpf: string, birthDate: string, extra: Partial<BankKycInput> = {}): BankKycInput {
+  return {
+    fullName: "Pessoa Teste Silva",
+    cpf,
+    birthDate,
+    motherName: "Maria Teste Silva",
+    phone: "11988887777",
+    occupation: "Estudante",
+    incomeRange: "ate_3k",
+    pep: false,
+    address: { cep: "01310100", street: "Avenida Paulista", number: "1000", complement: "", district: "Bela Vista", city: "São Paulo", state: "SP" },
+    documents: [
+      { kind: "id_front", path: `${userId}/f.jpg`, name: "" },
+      { kind: "id_back", path: `${userId}/b.jpg`, name: "" },
+    ],
+    termsAccepted: true,
+    ...extra,
+  };
+}
 
 // 2026-09-28 12:00 UTC = 09:00 em Brasília.
 const NOW = new Date("2026-09-28T12:00:00Z");
@@ -86,8 +114,11 @@ describe("cadastro com verificação de idade (memória)", () => {
   beforeEach(() => resetFamilyMemory());
   const member = () => ({ id: `usr_${uniq()}`, email: `m${uniq()}@prx.dev`, fullName: "Jovem Teste" });
 
-  it("menor de 16 é mandado para a Conta Pai", async () => {
+  it("menor de 16 só com o responsável (vínculo com a Conta Pai)", async () => {
     await expect(registerIdentity(member(), { cpf: nextCpf(), birthDate: "2012-05-01" }, NOW)).rejects.toMatchObject({ code: "PARENT_REQUIRED", status: 403 });
+    await expect(registerIdentity(member(), { cpf: nextCpf(), birthDate: "2012-05-01", teenPath: "emancipated" }, NOW)).rejects.toMatchObject({ code: "PARENT_REQUIRED" });
+    const kid = await registerIdentity(member(), { cpf: nextCpf(), birthDate: "2012-05-01", teenPath: "linked", parentEmail: "mae@prx.dev" }, NOW);
+    expect(kid).toMatchObject({ accountType: "minor", status: "link_pending" });
   });
 
   it("16–17 precisa escolher o caminho; adulto entra como conta comum", async () => {
@@ -118,18 +149,26 @@ describe("cadastro com verificação de idade (memória)", () => {
 });
 
 describe("Conta Pai: aprovação, filhos, mesada e limites (memória + sandbox)", () => {
-  beforeEach(() => resetFamilyMemory());
+  beforeEach(() => {
+    resetFamilyMemory();
+    resetKycMemory();
+  });
 
   async function approvedParent() {
     const { user } = await registerParent({ fullName: "Maria Responsável", email: `pai${uniq()}@prx.dev`, password: "Senha1234", cpf: nextCpf(), birthDate: "1985-03-10", phone: "11988887777" }, NOW);
     const parent = { id: user.id, email: user.email, fullName: user.fullName };
-    await expect(createChildAccount(parent, { fullName: "Filho", email: `f${uniq()}@prx.dev`, password: "Senha1234", cpf: nextCpf(), birthDate: "2013-01-01" }, NOW)).rejects.toThrow(/análise/);
+    await expect(createChildAccount(parent, { fullName: "Filho", email: `f${uniq()}@prx.dev`, password: "Senha1234", cpf: nextCpf(), birthDate: "2013-01-01", ...CONSENT }, IP, NOW)).rejects.toThrow(/análise/);
     await expect(
-      submitParentApplication(parent, { profession: "Engenheira", incomeRange: "6k_10k", childName: "Filho", childBirthDate: "2013-01-01", documents: [{ kind: "rg", path: `${user.id}/rg.jpg`, name: "" }] }, NOW)
+      submitParentApplication(
+        parent,
+        { ...TUTELA, profession: "Engenheira", incomeRange: "6k_10k", childName: "Filho", childBirthDate: "2013-01-01", documents: [{ kind: "rg", path: `${user.id}/rg.jpg`, name: "" }] },
+        NOW
+      )
     ).rejects.toThrow(/Faltam documentos/);
     const app = await submitParentApplication(
       parent,
       {
+        ...TUTELA,
         profession: "Engenheira",
         incomeRange: "6k_10k",
         childName: "Filho",
@@ -154,7 +193,10 @@ describe("Conta Pai: aprovação, filhos, mesada e limites (memória + sandbox)"
 
   it("cria a conta do filho, envia Pix, paga a mesada uma única vez e aplica limites", async () => {
     const parent = await approvedParent();
-    const { child } = await createChildAccount(parent, { fullName: "Lucas Filho", email: `lucas${uniq()}@prx.dev`, password: "Senha1234", cpf: nextCpf(), birthDate: "2013-06-01" }, NOW);
+    const childCpf = nextCpf();
+    const { child, link } = await createChildAccount(parent, { fullName: "Lucas Filho", email: `lucas${uniq()}@prx.dev`, password: "Senha1234", cpf: childCpf, birthDate: "2013-06-01", ...CONSENT }, IP, NOW);
+    expect(link).toMatchObject({ status: "active", relationship: "mae", consentVersion: "2026-09-28" });
+    expect(link.consentAt).toBeTruthy();
 
     const overview = await familyOverview(parent);
     expect(overview.children.map((c) => c.id)).toContain(child.id);
@@ -165,6 +207,13 @@ describe("Conta Pai: aprovação, filhos, mesada e limites (memória + sandbox)"
 
     // Conta do filho ainda não ativa: o envio explica o motivo.
     await expect(sendToChild(parent, child.id, { amount: 20, note: "" })).rejects.toThrow(/ainda não foi ativada/);
+    // Sem abertura de conta (KYC) aprovada, o PRX BANK não existe.
+    await expect(activateSandbox(child.id)).rejects.toThrow(/Abra sua conta PRX BANK/);
+    const childRef = { id: child.id, email: child.email, fullName: child.fullName };
+    const kyc = await submitBankKyc(childRef, kycInput(child.id, childCpf, "2013-06-01", { minorPath: "linked", parentEmail: parent.email }), { ip: IP, userAgent: "vitest" }, NOW);
+    expect(kyc.riskFlags).toContain("minor");
+    await expect(activateSandbox(child.id)).rejects.toThrow(/em análise/);
+    await reviewBankKyc(kyc.id, "approve", "", "admin@prx.dev");
     await activateSandbox(child.id);
     await sendToChild(parent, child.id, { amount: 25.5, note: "Lanche" });
     expect((await accountView(child.id)).balance).toBe(1025.5);
@@ -197,12 +246,85 @@ describe("Conta Pai: aprovação, filhos, mesada e limites (memória + sandbox)"
 
     const overview = await familyOverview(parent);
     expect(overview.pendingLinks).toHaveLength(1);
-    await respondLink(parent, overview.pendingLinks[0].id, "approve");
+    await expect(respondLink(parent, overview.pendingLinks[0].id, "approve")).rejects.toThrow(/consentimento parental/);
+    await respondLink(parent, overview.pendingLinks[0].id, "approve", CONSENT, IP);
     expect((await familyState(teen)).identity?.status).toBe("active");
     await expect(assertMinorSpend(teen.id, 10, [], NOW)).resolves.toBeUndefined();
 
     // Outro responsável não vê o filho.
     const other = await approvedParent();
     await expect(childDetail(other, teen.id)).rejects.toThrow(/não encontrado/);
+  });
+});
+
+describe("abertura do PRX BANK (KYC bancário)", () => {
+  beforeEach(() => {
+    resetFamilyMemory();
+    resetKycMemory();
+  });
+  const person = () => ({ id: `usr_${uniq()}`, email: `k${uniq()}@prx.dev`, fullName: "Pessoa Teste Silva" });
+
+  it("exige frente e verso do documento, da própria pasta", async () => {
+    const u = person();
+    const cpf = nextCpf();
+    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01", { documents: [{ kind: "id_front", path: `${u.id}/f.jpg`, name: "" }] }), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/verso/);
+    await expect(
+      submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01", { documents: [{ kind: "id_front", path: "outro/f.jpg", name: "" }, { kind: "id_back", path: `${u.id}/b.jpg`, name: "" }] }), { ip: IP, userAgent: "" }, NOW)
+    ).rejects.toThrow(/inválido/);
+  });
+
+  it("aprova adulto, registra CPF único e trilha antifraude; recusa segundo pedido e CPF divergente", async () => {
+    const u = person();
+    const cpf = nextCpf();
+    const app = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01", { pep: true }), { ip: IP, userAgent: "Mozilla/5.0" }, NOW);
+    expect(app).toMatchObject({ status: "pending", ip: IP, riskFlags: ["pep"] });
+    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/em análise/);
+    await reviewBankKyc(app.id, "reject", "Documento ilegível", "admin@prx.dev");
+    await expect(submitBankKyc(u, kycInput(u.id, nextCpf(), "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/CPF informado é diferente/);
+    const again = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW);
+    await reviewBankKyc(again.id, "approve", "", "admin@prx.dev");
+    const other = person();
+    await expect(submitBankKyc(other, kycInput(other.id, cpf, "2001-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toMatchObject({ code: "CPF_TAKEN" });
+  });
+
+  it("menor só é aprovado depois do vínculo com consentimento parental", async () => {
+    const { user } = await registerParent({ fullName: "Ana Responsável", email: `r${uniq()}@prx.dev`, password: "Senha1234", cpf: nextCpf(), birthDate: "1980-02-02", phone: "11988887777" }, NOW);
+    const parent = { id: user.id, email: user.email, fullName: user.fullName };
+    const app = await submitParentApplication(
+      parent,
+      { ...TUTELA, profession: "Médica", incomeRange: "10k_20k", childName: "Teen", childBirthDate: "2009-10-10", documents: [{ kind: "cnh", path: `${user.id}/c.jpg`, name: "" }, { kind: "child_certificate", path: `${user.id}/d.pdf`, name: "" }] },
+      NOW
+    );
+    await reviewParentApplication(app.id, "approve", "", "admin@prx.dev");
+
+    const teen = person();
+    const kyc = await submitBankKyc(teen, kycInput(teen.id, nextCpf(), "2009-10-10", { minorPath: "linked", parentEmail: parent.email }), { ip: IP, userAgent: "" }, NOW);
+    await expect(reviewBankKyc(kyc.id, "approve", "", "admin@prx.dev")).rejects.toThrow(/responsável aceitar o vínculo/);
+    const link = (await familyOverview(parent)).pendingLinks[0];
+    await respondLink(parent, link.id, "approve", CONSENT, IP);
+    await expect(reviewBankKyc(kyc.id, "approve", "", "admin@prx.dev")).resolves.toMatchObject({ status: "approved" });
+  });
+
+  it("Conta Pai não abre conta bancária", async () => {
+    const { user } = await registerParent({ fullName: "Pai Teste", email: `p${uniq()}@prx.dev`, password: "Senha1234", cpf: nextCpf(), birthDate: "1979-03-03", phone: "11988887777" }, NOW);
+    const parent = { id: user.id, email: user.email, fullName: user.fullName };
+    await expect(submitBankKyc(parent, kycInput(parent.id, nextCpf(), "1979-03-03"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/Conta Pai não guarda dinheiro/);
+  });
+});
+
+describe("validação do KYC no servidor (zod)", () => {
+  it("recusa CPF com dígito errado, DDD inexistente, nome sem sobrenome, nome da mãe igual e CEP inválido", async () => {
+    const { bankKycSchema } = await import("@/lib/kyc/types");
+    const base = kycInput("usr_x", "52998224725", "2000-01-01");
+    expect(bankKycSchema.safeParse(base).success).toBe(true);
+    expect(bankKycSchema.safeParse({ ...base, cpf: "529.982.247-26" }).success).toBe(false);
+    expect(bankKycSchema.safeParse({ ...base, phone: "(10) 98888-7777" }).success).toBe(false);
+    expect(bankKycSchema.safeParse({ ...base, phone: "(11) 8888-7777" }).success).toBe(false);
+    expect(bankKycSchema.safeParse({ ...base, fullName: "Pessoa" }).success).toBe(false);
+    expect(bankKycSchema.safeParse({ ...base, fullName: "Pessoa <script>" }).success).toBe(false);
+    expect(bankKycSchema.safeParse({ ...base, motherName: "Pessoa Teste Silva" }).success).toBe(false);
+    expect(bankKycSchema.safeParse({ ...base, address: { ...base.address, cep: "00000000" } }).success).toBe(false);
+    expect(bankKycSchema.safeParse({ ...base, address: { ...base.address, state: "XX" } }).success).toBe(false);
+    expect(bankKycSchema.safeParse({ ...base, termsAccepted: false }).success).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 // Hello World
+import { pgQuote } from "@/lib/postgrest";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { PartnerError, dbError } from "@/lib/partners/errors";
@@ -9,6 +10,7 @@ import type {
   DocumentRef,
   EmancipationRequest,
   FamilyIdentity,
+  Guardianship,
   FamilyLink,
   FamilyStatus,
   LinkStatus,
@@ -42,11 +44,11 @@ export interface FamilyRepository {
   listEmancipations(status: ReviewStatus | "all"): Promise<EmancipationRequest[]>;
   decideEmancipation(id: string, status: ReviewStatus, note: string, reviewer: string): Promise<EmancipationRequest | null>;
 
-  insertLink(link: Omit<FamilyLink, "id" | "createdAt" | "approvedAt">): Promise<FamilyLink>;
+  insertLink(link: Omit<FamilyLink, "id" | "createdAt" | "approvedAt" | "relationship" | "consentVersion" | "consentAt">, consent?: ConsentRecord): Promise<FamilyLink>;
   getLink(id: string): Promise<FamilyLink | null>;
   listLinksByParent(parentUserId: string, parentEmail: string): Promise<FamilyLink[]>;
   listLinksByChild(childUserId: string): Promise<FamilyLink[]>;
-  updateLink(id: string, patch: { status: LinkStatus; parentUserId?: string }): Promise<FamilyLink | null>;
+  updateLink(id: string, patch: { status: LinkStatus; parentUserId?: string; consent?: ConsentRecord }): Promise<FamilyLink | null>;
 
   getAllowance(childUserId: string): Promise<Allowance | null>;
   upsertAllowance(parentUserId: string, childUserId: string, input: AllowanceInput, nextRunAt: string): Promise<Allowance>;
@@ -58,6 +60,13 @@ export interface FamilyRepository {
 
   getLimits(childUserId: string): Promise<SpendingLimits | null>;
   setLimits(childUserId: string, limits: SpendingLimits, updatedBy: string): Promise<SpendingLimits>;
+}
+
+/** Consentimento parental gravado no vínculo (LGPD, Art. 14): parentesco, versão do termo, data e IP. */
+export interface ConsentRecord {
+  relationship: Guardianship;
+  version: string;
+  ip: string | null;
 }
 
 const now = () => new Date().toISOString();
@@ -90,6 +99,7 @@ const mapIdentity = (r: IdentityRow): FamilyIdentity => ({
 interface ParentAppRow {
   id: string;
   user_id: string;
+  relationship: Guardianship | null;
   full_name: string;
   email: string;
   phone: string;
@@ -107,6 +117,8 @@ interface ParentAppRow {
 const mapParentApp = (r: ParentAppRow): ParentApplication => ({
   id: r.id,
   userId: r.user_id,
+  relationship: r.relationship ?? "mae",
+  guardianshipDeclared: true,
   fullName: r.full_name,
   email: r.email,
   phone: r.phone,
@@ -154,6 +166,9 @@ interface LinkRow {
   child_user_id: string;
   child_name: string;
   status: LinkStatus;
+  relationship: Guardianship | null;
+  consent_version: string | null;
+  consent_at: string | null;
   created_at: string;
   approved_at: string | null;
 }
@@ -164,9 +179,15 @@ const mapLink = (r: LinkRow): FamilyLink => ({
   childUserId: r.child_user_id,
   childName: r.child_name,
   status: r.status,
+  relationship: r.relationship,
+  consentVersion: r.consent_version,
+  consentAt: r.consent_at,
   createdAt: r.created_at,
   approvedAt: r.approved_at,
 });
+
+const consentColumns = (consent?: ConsentRecord) =>
+  consent ? { relationship: consent.relationship, consent_version: consent.version, consent_at: now(), consent_ip: consent.ip } : {};
 
 interface AllowanceRow {
   id: string;
@@ -244,6 +265,7 @@ function supabaseRepository(): FamilyRepository {
         .from("family_parent_applications")
         .insert({
           user_id: app.userId,
+          relationship: app.relationship,
           full_name: app.fullName,
           email: app.email,
           phone: app.phone,
@@ -325,10 +347,18 @@ function supabaseRepository(): FamilyRepository {
       return data ? mapEmancipation(data as EmancipationRow) : null;
     },
 
-    async insertLink(link) {
+    async insertLink(link, consent) {
       const { data, error } = await db
         .from("family_links")
-        .insert({ parent_user_id: link.parentUserId, parent_email: link.parentEmail, child_user_id: link.childUserId, child_name: link.childName, status: link.status, approved_at: link.status === "active" ? now() : null })
+        .insert({
+          parent_user_id: link.parentUserId,
+          parent_email: link.parentEmail,
+          child_user_id: link.childUserId,
+          child_name: link.childName,
+          status: link.status,
+          approved_at: link.status === "active" ? now() : null,
+          ...consentColumns(consent),
+        })
         .select("*")
         .single();
       fail("salvar o vínculo", error);
@@ -343,7 +373,7 @@ function supabaseRepository(): FamilyRepository {
       const { data, error } = await db
         .from("family_links")
         .select("*")
-        .or(`parent_user_id.eq.${parentUserId},and(parent_user_id.is.null,parent_email.eq."${parentEmail}")`)
+        .or(`parent_user_id.eq.${pgQuote(parentUserId)},and(parent_user_id.is.null,parent_email.eq.${pgQuote(parentEmail)})`)
         .neq("status", "revoked")
         .order("created_at", { ascending: true });
       fail("listar os vínculos", error);
@@ -355,7 +385,7 @@ function supabaseRepository(): FamilyRepository {
       return ((data ?? []) as LinkRow[]).map(mapLink);
     },
     async updateLink(id, patch) {
-      const row: Record<string, unknown> = { status: patch.status };
+      const row: Record<string, unknown> = { status: patch.status, ...consentColumns(patch.consent) };
       if (patch.parentUserId) row.parent_user_id = patch.parentUserId;
       if (patch.status === "active") row.approved_at = now();
       const { data, error } = await db.from("family_links").update(row).eq("id", id).select("*").maybeSingle();
@@ -533,12 +563,20 @@ const memoryRepository: FamilyRepository = {
     return clone(found);
   },
 
-  async insertLink(link) {
+  async insertLink(link, consent) {
     const state = memory();
     if (state.links.some((l) => l.childUserId === link.childUserId && l.status !== "revoked" && (l.parentUserId === link.parentUserId || l.parentEmail === link.parentEmail))) {
       throw new PartnerError("Registro duplicado.", 409);
     }
-    const created: FamilyLink = { ...link, id: `fl-${crypto.randomUUID()}`, createdAt: now(), approvedAt: link.status === "active" ? now() : null };
+    const created: FamilyLink = {
+      ...link,
+      id: `fl-${crypto.randomUUID()}`,
+      relationship: consent?.relationship ?? null,
+      consentVersion: consent?.version ?? null,
+      consentAt: consent ? now() : null,
+      createdAt: now(),
+      approvedAt: link.status === "active" ? now() : null,
+    };
     state.links.push(created);
     return clone(created);
   },
@@ -558,6 +596,7 @@ const memoryRepository: FamilyRepository = {
     found.status = patch.status;
     if (patch.parentUserId) found.parentUserId = patch.parentUserId;
     if (patch.status === "active") found.approvedAt = now();
+    if (patch.consent) Object.assign(found, { relationship: patch.consent.relationship, consentVersion: patch.consent.version, consentAt: now() });
     return clone(found);
   },
 

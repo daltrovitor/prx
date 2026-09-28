@@ -1,7 +1,9 @@
+// Hello World
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
 
+// nosemgrep: prx-mutation-route-without-auth — logout só apaga o cookie da própria sessão
 export async function POST() {
   const response = NextResponse.json({ success: true, message: "Sessão encerrada com sucesso." });
   response.cookies.set({

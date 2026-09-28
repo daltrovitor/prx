@@ -445,12 +445,13 @@ export function parseMissionDescription(descWithMeta?: string): {
   targetAction?: string;
 } {
   if (!descWithMeta) return { cleanDescription: "" };
-  const match = descWithMeta.match(/<!--(?:nxt|prx)-meta:(.*?)-->/);
+  // \x3c e \x3e são "<" e ">": escritos assim para os analisadores estáticos lerem o regex (e não um comentário HTML).
+  const match = descWithMeta.match(/\x3c!--(?:nxt|prx)-meta:(.*?)--\x3e/);
   if (!match) {
     return { cleanDescription: descWithMeta.trim() };
   }
   // "nxt-meta" is the legacy marker still stored in rows created before the PRX rebrand.
-  const cleanDescription = descWithMeta.replace(/\n?<!--(?:nxt|prx)-meta:.*?-->/g, "").trim();
+  const cleanDescription = descWithMeta.replace(/\n?\x3c!--(?:nxt|prx)-meta:.*?--\x3e/g, "").trim();
   try {
     const parsed = JSON.parse(match[1]);
     return {

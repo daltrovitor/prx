@@ -10,6 +10,7 @@ import { handlePixSettled, pixSettledSchema, verifySignature, webhookSecret } fr
  * Header x-prx-signature: HMAC-SHA256 do corpo com PRX_BAAS_WEBHOOK_SECRET.
  * Responde 200 também para eventos repetidos (idempotente pelo E2E).
  */
+// nosemgrep: prx-mutation-route-without-auth — webhook do banco parceiro autenticado por assinatura HMAC, não por sessão
 export async function POST(req: NextRequest) {
   try {
     const secret = webhookSecret();

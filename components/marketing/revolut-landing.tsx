@@ -326,7 +326,7 @@ function PinnedStory({ appUrl }: { appUrl: string }) {
           <div className="max-w-[600px]">
             <h1 className="text-[clamp(52px,13vw,84px)] font-semibold leading-[0.9] tracking-[-0.055em] text-[#0b0b10] lg:text-[clamp(84px,8.6vw,136px)]">
               Banking
-              <br />& Beyond
+              <br />&amp; Beyond
             </h1>
             <p className="mt-4 max-w-[440px] text-[16px] leading-relaxed text-[#1c2a3a] sm:mt-6 sm:text-[18px]">
               Conta digital, cartão, Pix e benefícios em um só app. Cada compra em parceiro vira PRX Coins.

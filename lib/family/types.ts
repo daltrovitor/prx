@@ -50,7 +50,7 @@ export const MIN_SELF_SIGNUP_AGE = 16;
 export const ADULT_AGE = 18;
 export const MAX_MEMBER_AGE = 29;
 
-export const PARENT_REQUIRED_MESSAGE = "Menores de 16 anos entram no PRX pela Conta Pai: um responsável cria e acompanha a conta.";
+export const PARENT_REQUIRED_MESSAGE = "Menores de 16 anos precisam do responsável: informe o e-mail da Conta Pai dele para vincular a conta.";
 export const OVER_AGE_MESSAGE = "O ecossistema PRX é exclusivo para jovens até 29 anos (Gerações Alpha e Z). Responsáveis podem abrir a Conta Pai.";
 export const CPF_TAKEN_MESSAGE = "Este CPF já está cadastrado no PRX. Entre com a conta existente ou fale com o suporte.";
 
@@ -73,7 +73,10 @@ export const birthDateSchema = z
     return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d && y >= 1900 && date.getTime() < Date.now();
   }, "Data de nascimento inválida.");
 
-/** Caminho escolhido por quem tem 16 ou 17 anos. */
+/**
+ * Caminho de quem tem menos de 18 anos: vínculo com o responsável (qualquer
+ * idade) ou emancipação comprovada (só 16–17).
+ */
 export const TEEN_PATHS = ["linked", "emancipated"] as const;
 export type TeenPath = (typeof TEEN_PATHS)[number];
 
@@ -90,7 +93,7 @@ export type IdentityInput = z.output<typeof identityInputSchema>;
 /* Documentos                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export const DOCUMENT_KINDS = ["rg", "cpf", "cnh", "child_certificate", "emancipation_certificate", "id_document"] as const;
+export const DOCUMENT_KINDS = ["rg", "cpf", "cnh", "child_certificate", "emancipation_certificate", "id_document", "id_front", "id_back", "guardianship_proof"] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
 export const DOCUMENT_LABEL: Record<DocumentKind, string> = {
@@ -100,6 +103,9 @@ export const DOCUMENT_LABEL: Record<DocumentKind, string> = {
   child_certificate: "Certidão de nascimento do filho",
   emancipation_certificate: "Certidão de emancipação",
   id_document: "Documento com foto",
+  id_front: "Documento com foto (frente)",
+  id_back: "Documento com foto (verso)",
+  guardianship_proof: "Termo de guarda ou tutela",
 };
 
 export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
@@ -144,7 +150,36 @@ export const parentSignupSchema = z.object({
   termsAccepted: z.literal(true, { error: "Aceite os Termos de Uso e a Política de Privacidade para continuar." }),
 });
 
+/* -------------------------------------------------------------------------- */
+/* Tutela legal e consentimento parental (LGPD, Art. 14)                      */
+/* -------------------------------------------------------------------------- */
+
+export const GUARDIANSHIPS = ["mae", "pai", "tutor", "guardiao"] as const;
+export type Guardianship = (typeof GUARDIANSHIPS)[number];
+export const GUARDIANSHIP_LABEL: Record<Guardianship, string> = {
+  mae: "Mãe",
+  pai: "Pai",
+  tutor: "Tutor(a) legal",
+  guardiao: "Guardião(ã) judicial",
+};
+
+/** Versão do termo de consentimento parental. Muda o texto → muda a versão (fica gravada em cada vínculo). */
+export const PARENTAL_CONSENT_VERSION = "2026-09-28";
+export const PARENTAL_CONSENT_TEXT =
+  "Como mãe, pai ou responsável legal, autorizo de forma específica e em destaque o tratamento dos dados pessoais do menor pela PRX para abrir e manter a conta, " +
+  "acompanhar benefícios, eventos e movimentações e cumprir obrigações legais, conforme o Art. 14 da LGPD e a Política de Privacidade. Posso revogar a qualquer momento.";
+
+/** Parentesco, declaração de tutela e consentimento explícito — exigidos a cada vínculo com um menor. */
+export const guardianConsentSchema = z.object({
+  relationship: z.enum(GUARDIANSHIPS, { error: "Informe o parentesco ou a tutela legal." }),
+  guardianshipDeclared: z.literal(true, { error: "Confirme que você é o responsável legal pelo menor." }),
+  consentAccepted: z.literal(true, { error: "Aceite o termo de consentimento parental (LGPD, Art. 14)." }),
+});
+export type GuardianConsent = z.output<typeof guardianConsentSchema>;
+
 export const parentApplicationSchema = z.object({
+  relationship: z.enum(GUARDIANSHIPS, { error: "Informe o parentesco ou a tutela legal." }),
+  guardianshipDeclared: z.literal(true, { error: "Confirme que você é o responsável legal pelo menor." }),
   profession: z.string().trim().min(2, "Informe a profissão.").max(80),
   incomeRange: z.enum(INCOME_RANGES, { error: "Escolha a faixa de renda." }),
   childName: z.string().trim().min(2, "Informe o nome do filho.").max(120),
@@ -161,7 +196,8 @@ export function missingParentDocuments(docs: ReadonlyArray<{ kind: DocumentKind 
     if (!has("rg")) missing.push("rg");
     if (!has("cpf")) missing.push("cpf");
   }
-  if (!has("child_certificate")) missing.push("child_certificate");
+  // Parentesco comprovado pela certidão de nascimento; tutores e guardiões enviam o termo judicial.
+  if (!has("child_certificate") && !has("guardianship_proof")) missing.push("child_certificate");
   return missing;
 }
 
@@ -192,7 +228,7 @@ export interface EmancipationRequest {
 }
 
 export const reviewSchema = z.object({
-  kind: z.enum(["parent", "emancipation"]),
+  kind: z.enum(["parent", "emancipation", "bank"]),
   id: z.string().trim().min(1).max(100),
   decision: z.enum(["approve", "reject"]),
   note: z.string().trim().max(280).default(""),
@@ -213,17 +249,23 @@ export interface FamilyLink {
   childUserId: string;
   childName: string;
   status: LinkStatus;
+  /** Parentesco declarado e consentimento parental (LGPD, Art. 14) dados na aprovação. */
+  relationship: Guardianship | null;
+  consentVersion: string | null;
+  consentAt: string | null;
   createdAt: string;
   approvedAt: string | null;
 }
 
-export const childAccountSchema = z.object({
-  fullName: z.string().trim().min(2, "Informe o nome do filho.").max(120),
-  email: z.string().trim().toLowerCase().email("E-mail inválido.").max(160),
-  password: z.string().min(8, "A senha precisa de pelo menos 8 caracteres.").max(128),
-  cpf: cpfSchema,
-  birthDate: birthDateSchema,
-});
+export const childAccountSchema = z
+  .object({
+    fullName: z.string().trim().min(2, "Informe o nome do filho.").max(120),
+    email: z.string().trim().toLowerCase().email("E-mail inválido.").max(160),
+    password: z.string().min(8, "A senha precisa de pelo menos 8 caracteres.").max(128),
+    cpf: cpfSchema,
+    birthDate: birthDateSchema,
+  })
+  .extend(guardianConsentSchema.shape);
 
 export const FREQUENCIES = ["weekly", "monthly"] as const;
 export type AllowanceFrequency = (typeof FREQUENCIES)[number];

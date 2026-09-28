@@ -1,18 +1,27 @@
 {
+  "id": "/",
   "name": "PRX — Experiências que conectam gerações",
   "short_name": "PRX",
   "description": "Benefícios, conta digital e eventos para as gerações Z e Alpha. PRX PASS, PRX BANK e PRX LIVE em um app.",
   "lang": "pt-BR",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
-  "orientation": "portrait",
+  "orientation": "any",
+  "categories": ["finance", "lifestyle", "entertainment"],
+  "prefer_related_applications": false,
   "icons": [
     { "src": "/brand/prx-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/brand/prx-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/brand/prx-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "/brand/prx-app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "PRX PASS", "short_name": "Pass", "description": "Benefícios e vouchers", "url": "/#pass", "icons": [{ "src": "/brand/prx-icon-192.png", "sizes": "192x192" }] },
+    { "name": "PRX BANK", "short_name": "Bank", "description": "Conta, Pix e cartão", "url": "/#bank", "icons": [{ "src": "/brand/prx-icon-192.png", "sizes": "192x192" }] },
+    { "name": "Destaques", "short_name": "Destaques", "description": "Novidades dos parceiros", "url": "/#reels", "icons": [{ "src": "/brand/prx-icon-192.png", "sizes": "192x192" }] }
   ]
 }

@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { startInstallCapture } from "@/lib/pwa-install";
 
 /**
  * Registrador do Service Worker PWA para PRX.
@@ -10,6 +11,9 @@ import { useEffect } from "react";
  */
 export function PwaRegister() {
   useEffect(() => {
+    // Guarda o convite de instalação desde a primeira página (o card da Home usa depois).
+    startInstallCapture();
+
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
       return;
     }

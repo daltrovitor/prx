@@ -10,6 +10,7 @@ import { EventDate, TextLink, TransactionRow } from "@/components/app/shared";
 import { PaymentCard } from "@/components/app/bank/card-visual";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { PointsSheet } from "@/components/app/points/points-sheet";
+import { PwaInstallCard } from "@/components/app/pwa-install-card";
 import { ActionTile, EmptyState, ProgressBar, SectionHeader, Sheet } from "@/components/app/ui";
 import {
   IconBank,
@@ -89,6 +90,9 @@ export function HomeScreen({ pass }: { pass: PassData }) {
             onOpenLevel={() => go("pass", "missions")}
           />
         </motion.section>
+
+        {/* Convite para instalar o app (Android e Windows), logo abaixo da Carteira Central */}
+        <PwaInstallCard />
 
         {/* Cartão (no desktop fica na coluna lateral) */}
         <motion.section aria-label="Cartão" initial="hidden" animate="show" custom={1} variants={reveal} className="lg:hidden">

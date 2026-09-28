@@ -17,6 +17,7 @@ const LoginSchema = z.object({
   termsAccepted: z.boolean().optional(),
 });
 
+// nosemgrep: prx-mutation-route-without-auth — login: é aqui que a sessão nasce (limite de tentativas e senha verificada)
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";

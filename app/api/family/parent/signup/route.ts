@@ -9,6 +9,7 @@ import { registerParent } from "@/lib/family/service";
 import { body, familyErrorResponse, invalid } from "@/lib/family/http";
 
 /** Passo 1 do "Sou Pai": dados pessoais e senha. A conta nasce em análise até os documentos serem conferidos. */
+// nosemgrep: prx-mutation-route-without-auth — cadastro público da Conta Pai com limite de tentativas
 export async function POST(req: NextRequest) {
   try {
     const ip = (req.headers.get("x-forwarded-for") || "127.0.0.1").split(",")[0].trim();

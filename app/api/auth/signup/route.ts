@@ -1,64 +1,40 @@
 // Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { sanitizeInput } from "@/lib/security";
-import { errorMessage } from "@/lib/errors";
+import { checkRateLimit, sanitizeInput } from "@/lib/security";
 import { CONSENT_REQUIRED_MESSAGE } from "@/lib/legal";
-import { attachSession, createAccount, discardAccount, publicUser } from "@/lib/accounts";
+import { attachSession, createAccount, publicUser } from "@/lib/accounts";
 import { PartnerError } from "@/lib/partners/errors";
-import { identityInputSchema } from "@/lib/family/types";
-import { assertCpfAvailable, assertEligibleAge, FamilyError, registerIdentity } from "@/lib/family/service";
+import { clientIp } from "@/lib/partners/http";
 
 const SignupSchema = z.object({
-  fullName: z.string().min(2, "Nome completo é obrigatório"),
-  email: z.string().email("E-mail corporativo ou pessoal válido"),
-  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
-  /** Verificação de idade e CPF único, antes de a conta existir. */
-  cpf: z.string().optional(),
-  birthDate: z.string().optional(),
-  teenPath: z.enum(["linked", "emancipated"]).optional(),
-  parentEmail: z.string().optional(),
+  fullName: z.string().trim().min(2, "Nome completo é obrigatório").max(120, "Nome muito longo"),
+  email: z.string().trim().toLowerCase().email("E-mail inválido").max(160),
+  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres").max(128, "Senha muito longa"),
   // LGPD: sem o aceite dos Termos e da Política de Privacidade não existe conta.
   termsAccepted: z.literal(true, { error: CONSENT_REQUIRED_MESSAGE }),
 });
 
 /**
- * Cadastro do membro. Com CPF e nascimento (tela atual), a idade é conferida
- * antes de criar a conta: menores de 16 vão para a Conta Pai; 16–17 escolhem
- * Conta Filho ou emancipação; CPF repetido é recusado. Sem esses dados
- * (clientes antigos), o app pede CPF e nascimento no primeiro acesso.
+ * Cadastro do ecossistema, sem fricção: nome, e-mail, senha e aceite dos
+ * Termos. Nada de documentos aqui — a verificação de identidade só acontece
+ * na abertura do PRX BANK e na Conta Pai (tutela de menores).
  */
+// nosemgrep: prx-mutation-route-without-auth — cadastro público com limite de tentativas; cria a própria conta
 export async function POST(req: NextRequest) {
   try {
-    const parseResult = SignupSchema.safeParse(await req.json().catch(() => null));
-    if (!parseResult.success) {
-      return NextResponse.json({ error: parseResult.error.issues[0]?.message || "Dados inválidos." }, { status: 400 });
-    }
-    const data = parseResult.data;
+    const rate = checkRateLimit(`signup_${clientIp(req) ?? "anon"}`, 8, 60);
+    if (!rate.allowed) return NextResponse.json({ error: `Muitas tentativas. Tente em ${rate.resetInSeconds}s.` }, { status: 429 });
 
-    let identity: z.output<typeof identityInputSchema> | null = null;
-    if (data.cpf || data.birthDate) {
-      const parsed = identityInputSchema.safeParse({ cpf: data.cpf ?? "", birthDate: data.birthDate ?? "", teenPath: data.teenPath, parentEmail: data.parentEmail ?? "" });
-      if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Dados inválidos." }, { status: 422 });
-      identity = parsed.data;
-      assertEligibleAge(identity);
-      await assertCpfAvailable(identity.cpf);
-    }
+    const parsed = SignupSchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Dados inválidos." }, { status: 400 });
+    const data = parsed.data;
 
     const user = await createAccount({ email: sanitizeInput(data.email), fullName: sanitizeInput(data.fullName), password: data.password });
-    if (identity) {
-      try {
-        await registerIdentity(user, identity);
-      } catch (err) {
-        await discardAccount(user.id);
-        throw err;
-      }
-    }
-
-    return attachSession(NextResponse.json({ success: true, message: "Conta criada e ativada imediatamente com sucesso!", user: publicUser(user) }), user);
+    return attachSession(NextResponse.json({ success: true, message: "Conta criada. Bem-vindo ao PRX!", user: publicUser(user) }), user);
   } catch (error) {
-    if (error instanceof FamilyError) return NextResponse.json({ error: error.message, code: error.code ?? null }, { status: error.status });
     if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status === 409 ? 400 : error.status });
-    return NextResponse.json({ error: errorMessage(error) || "Erro ao registrar conta." }, { status: 400 });
+    console.warn("[signup] falha ao criar conta");
+    return NextResponse.json({ error: "Erro ao registrar a conta." }, { status: 400 });
   }
 }

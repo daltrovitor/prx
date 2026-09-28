@@ -7,6 +7,7 @@ import { firstIssue } from "@/lib/partners/types";
 import { joinWaitlist, waitlistSchema } from "@/lib/waitlist";
 
 /** POST /api/waitlist — entrada na Lista de Espera VIP do prx.app.br. */
+// nosemgrep: prx-mutation-route-without-auth — lista VIP pública (só e-mail + aceite), com limite de tentativas
 export async function POST(req: NextRequest) {
   try {
     const limit = checkRateLimit(`waitlist:${clientIp(req) ?? "anon"}`, 5, 600);

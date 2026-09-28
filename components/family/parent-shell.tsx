@@ -14,7 +14,8 @@ import { useThemeScope } from "@/components/theme-provider";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { SmoothScroll } from "@/components/app/smooth-scroll";
 import { postJson } from "@/components/family/family-client";
-import { maskCpfInput } from "@/components/auth/signup-identity";
+import { maskCpfInput } from "@/lib/cpf-mask";
+import { EMPTY_CONSENT, GuardianConsentFields, consentProblem, type GuardianConsentValue } from "@/components/family/guardian-consent";
 import { FAMILY_STATUS_LABEL, FREQUENCY_LABEL, WEEKDAY_LABEL, type AllowanceFrequency } from "@/lib/family/types";
 import type { ChildDetail, ChildSummary, FamilyOverview } from "@/lib/family/service";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const fmt = (iso: string | null) => (iso ? when.format(new Date(iso)).replace(".
 
 type ChildTab = "resumo" | "extrato" | "beneficios" | "eventos" | "projetos";
 type SheetKind = "pix" | "mesada" | "limites" | "novo" | null;
+type PendingLink = FamilyOverview["pendingLinks"][number];
 
 /**
  * Conta Pai: controle, segurança e mesada. O responsável acompanha cada filho
@@ -41,6 +43,7 @@ export function ParentShell({ user, onLogout }: { user: User; onLogout: () => vo
   const [detail, setDetail] = useState<ChildDetail | null>(null);
   const [tab, setTab] = useState<ChildTab>("resumo");
   const [sheet, setSheet] = useState<SheetKind>(null);
+  const [approving, setApproving] = useState<PendingLink | null>(null);
   const first = (user.name || "").trim().split(/\s+/)[0] || "responsável";
 
   const load = useCallback(async () => {
@@ -99,10 +102,10 @@ export function ParentShell({ user, onLogout }: { user: User; onLogout: () => vo
   const approved = status === "active";
   const child = detail && detail.id === current ? detail : null;
 
-  async function respond(linkId: string, decision: "approve" | "reject") {
-    const result = await postJson(`/api/family/links/${encodeURIComponent(linkId)}`, { decision });
+  async function reject(linkId: string) {
+    const result = await postJson(`/api/family/links/${encodeURIComponent(linkId)}`, { decision: "reject" });
     if (!result.ok) return showToast("error", result.error);
-    showToast("success", decision === "approve" ? "Conta vinculada. Agora você acompanha e define os limites." : "Pedido recusado.");
+    showToast("success", "Pedido recusado.");
     await refresh();
   }
 
@@ -175,10 +178,10 @@ export function ParentShell({ user, onLogout }: { user: User; onLogout: () => vo
                       <strong className="font-semibold">{link.childName || "Seu filho"}</strong> pediu para vincular a Conta Filho a você.
                     </p>
                     <div className="flex gap-2">
-                      <Button size="sm" className="min-h-11" onClick={() => void respond(link.id, "approve")} disabled={!approved}>
+                      <Button size="sm" className="min-h-11" onClick={() => setApproving(link)} disabled={!approved}>
                         Aceitar
                       </Button>
-                      <Button size="sm" variant="danger" className="min-h-11" onClick={() => void respond(link.id, "reject")} disabled={!approved}>
+                      <Button size="sm" variant="danger" className="min-h-11" onClick={() => void reject(link.id)} disabled={!approved}>
                         Recusar
                       </Button>
                     </div>
@@ -223,6 +226,16 @@ export function ParentShell({ user, onLogout }: { user: User; onLogout: () => vo
         {child && sheet === "pix" && <PixSheet child={child} onClose={() => setSheet(null)} onDone={refresh} />}
         {child && sheet === "mesada" && <AllowanceSheet child={child} onClose={() => setSheet(null)} onDone={refresh} />}
         {child && sheet === "limites" && <LimitsSheet child={child} onClose={() => setSheet(null)} onDone={refresh} />}
+        {approving && (
+          <ApproveLinkSheet
+            link={approving}
+            onClose={() => setApproving(null)}
+            onDone={async () => {
+              setSelected(approving.childUserId);
+              await refresh();
+            }}
+          />
+        )}
         {sheet === "novo" && (
           <NewChildSheet
             onClose={() => setSheet(null)}
@@ -583,14 +596,17 @@ function LimitsSheet({ child, onClose, onDone }: { child: ChildDetail; onClose: 
 function NewChildSheet({ onClose, onDone }: { onClose: () => void; onDone: (childId: string) => Promise<void> }) {
   const { showToast } = useConfirmToast();
   const [form, setForm] = useState({ fullName: "", email: "", password: "", cpf: "", birthDate: "" });
+  const [consent, setConsent] = useState<GuardianConsentValue>(EMPTY_CONSENT);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    const problem = consentProblem(consent);
+    if (problem) return setError(problem);
     setBusy(true);
     setError(null);
-    const result = await postJson<{ child?: { id: string } }>("/api/family/children", form);
+    const result = await postJson<{ child?: { id: string } }>("/api/family/children", { ...form, ...consent });
     setBusy(false);
     if (!result.ok) return setError(result.error);
     showToast("success", "Conta do seu filho criada. Ele já pode entrar com o e-mail e a senha.");
@@ -610,9 +626,56 @@ function NewChildSheet({ onClose, onDone }: { onClose: () => void; onDone: (chil
         <Field label="Senha inicial" hint="Pelo menos 8 caracteres. Combine com seu filho.">
           {(id, hint) => <Input id={id} type="password" autoComplete="new-password" aria-describedby={hint} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} />}
         </Field>
+        <GuardianConsentFields
+          value={consent}
+          onChange={(next) => {
+            setConsent(next);
+            setError(null);
+          }}
+        />
         {error && <Notice tone="error">{error}</Notice>}
         <Button type="submit" block disabled={busy}>
           {busy ? "Criando…" : "Criar conta do filho"}
+        </Button>
+      </form>
+    </Sheet>
+  );
+}
+
+/** Aceitar o pedido de vínculo de um menor = parentesco + tutela declarada + consentimento parental (LGPD, Art. 14). */
+function ApproveLinkSheet({ link, onClose, onDone }: { link: PendingLink; onClose: () => void; onDone: () => Promise<void> }) {
+  const { showToast } = useConfirmToast();
+  const [consent, setConsent] = useState<GuardianConsentValue>(EMPTY_CONSENT);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const problem = consentProblem(consent);
+    if (problem) return setError(problem);
+    setBusy(true);
+    setError(null);
+    const result = await postJson(`/api/family/links/${encodeURIComponent(link.id)}`, { decision: "approve", ...consent });
+    setBusy(false);
+    if (!result.ok) return setError(result.error);
+    showToast("success", "Conta vinculada. Agora você acompanha e define os limites.");
+    onClose();
+    await onDone();
+  }
+
+  return (
+    <Sheet open onClose={onClose} title={`Vincular ${link.childName || "seu filho"}`} description="Confirme a responsabilidade legal para acompanhar a conta e liberar Pix e cartão." size="lg">
+      <form onSubmit={(e) => void submit(e)} className="space-y-4">
+        <GuardianConsentFields
+          value={consent}
+          onChange={(next) => {
+            setConsent(next);
+            setError(null);
+          }}
+        />
+        {error && <Notice tone="error">{error}</Notice>}
+        <Button type="submit" block disabled={busy}>
+          {busy ? "Vinculando…" : "Aceitar e vincular"}
         </Button>
       </form>
     </Sheet>

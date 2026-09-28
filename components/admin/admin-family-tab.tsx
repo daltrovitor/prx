@@ -4,8 +4,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button, EmptyState, Input, Notice, Segmented, Tag } from "@/components/app/ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
-import { ageOn } from "@/lib/family/age";
-import { DOCUMENT_LABEL, INCOME_LABEL, REVIEW_STATUS_LABEL, type DocumentRef, type EmancipationRequest, type ParentApplication, type ReviewStatus } from "@/lib/family/types";
+import { ageOn, maskCpf } from "@/lib/family/age";
+import { DOCUMENT_LABEL, GUARDIANSHIP_LABEL, INCOME_LABEL, REVIEW_STATUS_LABEL, type DocumentRef, type EmancipationRequest, type ParentApplication, type ReviewStatus } from "@/lib/family/types";
+import { RISK_FLAG_LABEL, type BankKycApplication } from "@/lib/kyc/types";
+
+type KycRow = BankKycApplication & { guardianReady: boolean };
 
 type Filter = ReviewStatus | "all";
 const when = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -13,14 +16,15 @@ const tone = (s: ReviewStatus) => (s === "approved" ? "success" : s === "rejecte
 const phone = (d: string) => (d.length >= 10 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d || "—");
 
 /**
- * Análise das contas de família: cadastros de Conta Pai (com RG, CPF, CNH e
- * certidão do filho) e comprovações de emancipação de jovens de 16–17.
+ * Verificações de identidade — só existem em dois cenários:
+ *   1. abertura do PRX BANK (KYC bancário);
+ *   2. tutela de menores: Conta Pai (com certidão/termo de guarda) e emancipação.
  * Documentos abrem por link temporário, só para o admin.
  */
 export function AdminFamilyTab() {
   const { showToast } = useConfirmToast();
   const [filter, setFilter] = useState<Filter>("pending");
-  const [data, setData] = useState<{ parents: ParentApplication[]; emancipations: EmancipationRequest[] } | null>(null);
+  const [data, setData] = useState<{ parents: ParentApplication[]; emancipations: EmancipationRequest[]; bankKyc: KycRow[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -28,13 +32,13 @@ export function AdminFamilyTab() {
   const load = useCallback(async (status: Filter) => {
     try {
       const res = await fetch(`/api/admin/family?status=${status}`, { cache: "no-store" });
-      const json = (await res.json().catch(() => ({}))) as { parents?: ParentApplication[]; emancipations?: EmancipationRequest[]; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { parents?: ParentApplication[]; emancipations?: EmancipationRequest[]; bankKyc?: KycRow[]; error?: string };
       if (!res.ok || !json.parents || !json.emancipations) throw new Error(json.error || "Não foi possível carregar a fila.");
-      setData({ parents: json.parents, emancipations: json.emancipations });
+      setData({ parents: json.parents, emancipations: json.emancipations, bankKyc: json.bankKyc ?? [] });
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sem conexão.");
-      setData((d) => d ?? { parents: [], emancipations: [] });
+      setData((d) => d ?? { parents: [], emancipations: [], bankKyc: [] });
     }
   }, []);
 
@@ -48,7 +52,7 @@ export function AdminFamilyTab() {
     };
   }, [load, filter]);
 
-  async function decide(kind: "parent" | "emancipation", id: string, decision: "approve" | "reject") {
+  async function decide(kind: "parent" | "emancipation" | "bank", id: string, decision: "approve" | "reject") {
     setBusy(id);
     try {
       const res = await fetch("/api/admin/family", {
@@ -67,17 +71,20 @@ export function AdminFamilyTab() {
     }
   }
 
-  const pendingCount = (data?.parents.filter((p) => p.status === "pending").length ?? 0) + (data?.emancipations.filter((e) => e.status === "pending").length ?? 0);
+  const pendingCount =
+    (data?.parents.filter((p) => p.status === "pending").length ?? 0) +
+    (data?.emancipations.filter((e) => e.status === "pending").length ?? 0) +
+    (data?.bankKyc.filter((k) => k.status === "pending").length ?? 0);
 
   return (
     <section aria-labelledby="family-title" className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 id="family-title" className="text-lg font-semibold tracking-[-0.02em] text-ink sm:text-xl">
-            Famílias {filter === "pending" && pendingCount > 0 ? <span className="text-primary">· {pendingCount}</span> : null}
+            Verificações {filter === "pending" && pendingCount > 0 ? <span className="text-primary">· {pendingCount}</span> : null}
           </h2>
           <p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">
-            Aprove a Conta Pai só com documentos legíveis e a certidão que comprove a responsabilidade. Emancipação exige certidão e documento com foto do próprio jovem.
+            O cadastro comum não pede documentos. Aqui chegam só a abertura do PRX BANK e a tutela de menores (Conta Pai e emancipação). Aprove apenas com documentos legíveis e coerentes com os dados.
           </p>
         </div>
         <Segmented
@@ -100,6 +107,52 @@ export function AdminFamilyTab() {
       ) : (
         <>
           <div className="space-y-3">
+            <h3 className="text-[15px] font-semibold text-ink">Abertura do PRX BANK</h3>
+            {data.bankKyc.length === 0 ? (
+              <EmptyState title={filter === "pending" ? "Nenhuma abertura para analisar" : "Nenhuma abertura"} body="Quem abre a conta na aba PRX BANK aparece aqui." />
+            ) : (
+              <ul className="space-y-3">
+                {data.bankKyc.map((k) => (
+                  <li key={k.id} className="glass-soft space-y-4 rounded-3xl p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[16px] font-semibold text-ink">{k.fullName}</p>
+                        <p className="text-[13px] text-muted-foreground">
+                          {k.email} · CPF {maskCpf(k.cpf)} · {when.format(new Date(k.createdAt)).replace(".", "")}
+                        </p>
+                      </div>
+                      <Tag tone={tone(k.status)}>{REVIEW_STATUS_LABEL[k.status]}</Tag>
+                    </div>
+                    <dl className="grid gap-2 text-[14px] sm:grid-cols-3">
+                      <Info label="Idade" value={`${ageOn(k.birthDate)} anos`} />
+                      <Info label="Mãe" value={k.motherName} />
+                      <Info label="Celular" value={phone(k.phone)} />
+                      <Info label="Ocupação" value={k.occupation} />
+                      <Info label="Renda" value={INCOME_LABEL[k.incomeRange]} />
+                      <Info label="Endereço" value={`${k.address.street}, ${k.address.number} · ${k.address.city}/${k.address.state}`} />
+                    </dl>
+                    {k.riskFlags.length > 0 && (
+                      <ul className="flex flex-wrap gap-2" aria-label="Sinais para a análise">
+                        {k.riskFlags.map((flag) => (
+                          <li key={flag}>
+                            <Tag tone="warning">{RISK_FLAG_LABEL[flag]}</Tag>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {k.riskFlags.includes("minor") && !k.guardianReady && k.status === "pending" && (
+                      <Notice tone="warning">Aguardando o responsável aceitar o vínculo (ou a emancipação ser aprovada). A aprovação fica bloqueada até lá.</Notice>
+                    )}
+                    <p className="text-[12px] text-muted-foreground">Trilha antifraude: IP {k.ip ?? "—"}</p>
+                    <Documents documents={k.documents} />
+                    <Decision id={k.id} status={k.status} note={k.reviewNote} value={notes[k.id] ?? ""} onNote={(v) => setNotes((n) => ({ ...n, [k.id]: v }))} busy={busy} onDecide={(d) => void decide("bank", k.id, d)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="space-y-3">
             <h3 className="text-[15px] font-semibold text-ink">Conta Pai</h3>
             {data.parents.length === 0 ? (
               <EmptyState title={filter === "pending" ? "Nenhum cadastro para analisar" : "Nenhum cadastro"} body="Os cadastros feitos em Sou Pai aparecem aqui." />
@@ -117,6 +170,7 @@ export function AdminFamilyTab() {
                       <Tag tone={tone(app.status)}>{REVIEW_STATUS_LABEL[app.status]}</Tag>
                     </div>
                     <dl className="grid gap-2 text-[14px] sm:grid-cols-3">
+                      <Info label="Parentesco" value={GUARDIANSHIP_LABEL[app.relationship]} />
                       <Info label="Profissão" value={app.profession} />
                       <Info label="Renda" value={INCOME_LABEL[app.incomeRange]} />
                       <Info label="Filho" value={`${app.childName} · ${ageOn(app.childBirthDate)} anos`} />

@@ -1,4 +1,5 @@
 // Hello World
+import { pgQuote } from "@/lib/postgrest";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { passStore, SystemVoucher } from "@/lib/pass-store";
@@ -108,7 +109,7 @@ export async function GET(req: NextRequest) {
             .order("created_at", { ascending: false });
 
           if (isUuid(user.id) && user.email) {
-            voucherQuery = voucherQuery.or(`user_id.eq.${user.id},user_email.eq.${user.email}`);
+            voucherQuery = voucherQuery.or(`user_id.eq.${pgQuote(user.id)},user_email.eq.${pgQuote(user.email)}`);
           } else if (isUuid(user.id)) {
             voucherQuery = voucherQuery.eq("user_id", user.id);
           } else if (user.email) {

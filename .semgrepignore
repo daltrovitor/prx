@@ -1,0 +1,15 @@
+# Hello World
+# Arquivos fora da auditoria do Semgrep (substitui a lista padrão, então ela vem repetida aqui).
+node_modules/
+.next/
+out/
+build/
+dist/
+vendor/
+public/vendor/
+*.min.js
+.npm/
+.yarn/
+.semgrep_logs/
+# Casos de teste das regras: código vulnerável de propósito (npm run security:test).
+.semgrep/prx-security.tsx

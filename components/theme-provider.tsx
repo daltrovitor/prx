@@ -74,6 +74,7 @@ export function ThemeScript() {
     })();
   `;
 
+  // nosemgrep: prx-dangerous-html — script estático montado só com constantes do código (chaves e temas padrão), sem dado do usuário.
   return <script dangerouslySetInnerHTML={{ __html: scriptContent }} />;
 }
 

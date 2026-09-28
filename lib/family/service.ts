@@ -1,4 +1,5 @@
 // Hello World
+import { pgQuote } from "@/lib/postgrest";
 import { PartnerError } from "@/lib/partners/errors";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { isUuid } from "@/lib/partners/catalog";
@@ -18,6 +19,8 @@ import {
   DEFAULT_MINOR_LIMITS,
   DOCUMENT_LABEL,
   OVER_AGE_MESSAGE,
+  PARENTAL_CONSENT_VERSION,
+  type GuardianConsent,
   PARENT_REQUIRED_MESSAGE,
   missingParentDocuments,
   type Allowance,
@@ -58,14 +61,22 @@ export class FamilyError extends PartnerError {
 /* Idade e CPF (antes de criar a conta)                                       */
 /* -------------------------------------------------------------------------- */
 
-/** Confere idade e caminho escolhido; lança com o código que a tela usa para redirecionar. */
+/**
+ * Confere idade e caminho escolhido (usado na abertura do PRX BANK e no pedido
+ * de vínculo com o responsável — o cadastro comum não pede idade).
+ *   <16: só com o responsável (vínculo com a Conta Pai).
+ *   16–17: vínculo com o responsável ou emancipação comprovada.
+ *   18–29: conta comum. 30+: fora do público do PRX BANK.
+ */
 export function assertEligibleAge(input: Pick<IdentityInput, "birthDate" | "teenPath" | "parentEmail">, now = new Date()) {
   const group = ageGroup(input.birthDate, now);
-  if (group === "child") throw new FamilyError(PARENT_REQUIRED_MESSAGE, 403, "PARENT_REQUIRED");
   if (group === "over") throw new FamilyError(OVER_AGE_MESSAGE, 403, "OVER_AGE");
-  if (group === "teen") {
-    if (!input.teenPath) throw new FamilyError("Com 16 ou 17 anos, escolha: Conta Filho vinculada aos pais ou comprovar emancipação.", 422, "TEEN_PATH_REQUIRED");
-    if (input.teenPath === "linked" && !input.parentEmail) throw new FamilyError("Informe o e-mail do responsável para vincular a Conta Filho.", 422);
+  if (group === "child" && input.teenPath !== "linked") throw new FamilyError(PARENT_REQUIRED_MESSAGE, 403, "PARENT_REQUIRED");
+  if (group === "teen" && !input.teenPath) {
+    throw new FamilyError("Com 16 ou 17 anos, escolha: vincular a conta ao seu responsável ou comprovar emancipação.", 422, "TEEN_PATH_REQUIRED");
+  }
+  if ((group === "child" || group === "teen") && input.teenPath === "linked" && !input.parentEmail) {
+    throw new FamilyError("Informe o e-mail do responsável para vincular a conta.", 422);
   }
   return group;
 }
@@ -143,7 +154,9 @@ export async function submitEmancipation(user: MemberRef, documents: DocumentRef
     throw new FamilyError("A comprovação de emancipação é para contas de 16 e 17 anos.", 403);
   }
   assertOwnedDocuments(user.id, documents);
-  const missing = (["emancipation_certificate", "id_document"] as const).filter((k) => !documents.some((d) => d.kind === k));
+  const missing: Array<"emancipation_certificate" | "id_document"> = [];
+  if (!documents.some((d) => d.kind === "emancipation_certificate")) missing.push("emancipation_certificate");
+  if (!documents.some((d) => d.kind === "id_document" || d.kind === "id_front")) missing.push("id_document");
   if (missing.length > 0) throw new FamilyError(`Faltam documentos: ${missing.map((k) => DOCUMENT_LABEL[k]).join(" e ")}.`, 422);
   const latest = await repo().latestEmancipation(user.id);
   if (latest?.status === "pending") throw new FamilyError("Seus documentos já estão em análise.", 409);
@@ -228,7 +241,12 @@ async function requireChild(parentId: string, childId: string): Promise<FamilyLi
   return link;
 }
 
-export async function createChildAccount(parent: MemberRef, input: { fullName: string; email: string; password: string; cpf: string; birthDate: string }, now = new Date()) {
+export async function createChildAccount(
+  parent: MemberRef,
+  input: { fullName: string; email: string; password: string; cpf: string; birthDate: string } & GuardianConsent,
+  ip: string | null = null,
+  now = new Date()
+) {
   await requireApprovedParent(parent.id);
   if (ageOn(input.birthDate, now) >= 18) throw new FamilyError("Maiores de 18 anos abrem a própria conta PRX.", 422);
   if (input.email === parent.email.toLowerCase()) throw new FamilyError("Use um e-mail do seu filho, diferente do seu.", 422);
@@ -240,12 +258,20 @@ export async function createChildAccount(parent: MemberRef, input: { fullName: s
     await discardAccount(child.id);
     throw err;
   }
-  const link = await repo().insertLink({ parentUserId: parent.id, parentEmail: parent.email.toLowerCase(), childUserId: child.id, childName: child.fullName, status: "active" });
+  // Tutela declarada e consentimento parental (LGPD, Art. 14) ficam gravados no vínculo.
+  const link = await repo().insertLink(
+    { parentUserId: parent.id, parentEmail: parent.email.toLowerCase(), childUserId: child.id, childName: child.fullName, status: "active" },
+    { relationship: input.relationship, version: PARENTAL_CONSENT_VERSION, ip }
+  );
   await repo().setLimits(child.id, DEFAULT_MINOR_LIMITS, parent.id);
   return { child, link };
 }
 
-export async function respondLink(parent: MemberRef, linkId: string, decision: "approve" | "reject"): Promise<FamilyLink> {
+/**
+ * Resposta do responsável a um pedido de vínculo. Aprovar exige parentesco,
+ * declaração de tutela e o consentimento parental explícito (LGPD, Art. 14).
+ */
+export async function respondLink(parent: MemberRef, linkId: string, decision: "approve" | "reject", consent: GuardianConsent | null = null, ip: string | null = null): Promise<FamilyLink> {
   await requireApprovedParent(parent.id);
   const link = await repo().getLink(linkId);
   const mine = link && (link.parentUserId === parent.id || (!link.parentUserId && link.parentEmail === parent.email.toLowerCase()));
@@ -256,7 +282,8 @@ export async function respondLink(parent: MemberRef, linkId: string, decision: "
     await repo().updateIdentity(link.childUserId, { status: "rejected" });
     return updated!;
   }
-  const updated = await repo().updateLink(linkId, { status: "active", parentUserId: parent.id });
+  if (!consent) throw new FamilyError("Para aceitar, informe o parentesco e aceite o termo de consentimento parental (LGPD, Art. 14).", 422);
+  const updated = await repo().updateLink(linkId, { status: "active", parentUserId: parent.id, consent: { relationship: consent.relationship, version: PARENTAL_CONSENT_VERSION, ip } });
   await repo().updateIdentity(link.childUserId, { status: "active", parentUserId: parent.id });
   if (!(await repo().getLimits(link.childUserId))) await repo().setLimits(link.childUserId, DEFAULT_MINOR_LIMITS, parent.id);
   return updated!;
@@ -271,7 +298,7 @@ async function memberVouchers(user: Pick<StoredUser, "id" | "email">): Promise<S
     const { data } = await supabaseAdmin
       .from("vouchers")
       .select("id, code, benefit_title, partner_name, discount_label, status, created_at, redeemed_at")
-      .or(`user_id.eq.${user.id},user_email.eq.${user.email}`)
+      .or(`user_id.eq.${pgQuote(user.id)},user_email.eq.${pgQuote(user.email)}`)
       .order("created_at", { ascending: false })
       .limit(50);
     return ((data ?? []) as Array<Record<string, string | null>>).map((v) => ({

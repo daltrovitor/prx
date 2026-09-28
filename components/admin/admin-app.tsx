@@ -223,7 +223,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             { value: "events", label: "Eventos" },
             { value: "founders", label: "Founders" },
             { value: "staff", label: "Equipe" },
-            { value: "family", label: "Famílias" },
+            { value: "family", label: "Verificações" },
             { value: "landing", label: "Nova landing" },
           ]}
         />

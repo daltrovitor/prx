@@ -1,12 +1,25 @@
+// Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
 import { errorMessage } from "@/lib/errors";
+import { z } from "zod";
+import { checkRateLimit } from "@/lib/security";
+import { clientIp } from "@/lib/partners/http";
 
+const LoginSchema = z.object({ email: z.string().trim().email().max(160), password: z.string().min(1).max(128) });
+
+// nosemgrep: prx-mutation-route-without-auth — login do parceiro: é aqui que a sessão nasce (com limite de tentativas por IP)
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    // Força bruta: no máximo 10 tentativas por minuto por IP.
+    const limit = checkRateLimit(`partner-login:${clientIp(req) ?? "anon"}`, 10, 60);
+    if (!limit.allowed) {
+      return NextResponse.json({ error: `Muitas tentativas. Tente em ${limit.resetInSeconds}s.` }, { status: 429 });
+    }
+    const parsed = LoginSchema.safeParse(await req.json().catch(() => null));
+    const { email, password } = parsed.success ? parsed.data : { email: "", password: "" };
 
     if (!email || !password) {
       return NextResponse.json(
