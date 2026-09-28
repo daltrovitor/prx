@@ -1,32 +1,55 @@
 // Hello World
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { motion, useScroll, useSpring, useTransform, type MotionValue } from "motion/react";
-import { ReactLenis } from "lenis/react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode, type Ref } from "react";
+import Image, { type StaticImageData } from "next/image";
+import {
+  AnimatePresence,
+  MotionConfig,
+  cancelFrame,
+  frame,
+  motion,
+  useMotionValueEvent,
+  useScroll,
+  useSpring,
+  useTransform,
+  type FrameData,
+  type MotionValue,
+} from "motion/react";
+import { ReactLenis, type LenisRef } from "lenis/react";
+import type { LenisOptions } from "lenis";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { ViraWebCredit } from "@/components/brand/viraweb-credit";
+import { OBSIDIAN_IMAGES } from "@/components/obsidian/obsidian-ui";
 import { useMainSiteUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /*
- * Nova landing PRX no estilo Revolut, em três momentos guiados pela rolagem:
- *   1. Céu azul: título monumental à esquerda, texto, botão de baixar o app e,
- *      no centro, o cartão grande com a foto de uma pessoa e o saldo da conta.
- *   2. A página fixa: o cartão encolhe até o tamanho normal, dois cartões entram
- *      pelas bordas (café e contas da casa), o título sobe e some, um novo título
- *      surge centralizado e o azul vira branco puro.
- *   3. Fundo branco: "Your salary, reimagined", subtítulo, botão preto e três
- *      cartões lado a lado.
- * Tudo é ligado à rolagem (nada se move sozinho) com molas stiffness 300 / damping 28.
+ * Nova landing PRX na identidade Cyber-Luxury Obsidian, em três momentos guiados pela rolagem:
+ *   1. Palco Obsidian: breu com haze violeta e cobalto, o cristal 3D PRX ao fundo,
+ *      o manifesto monumental à esquerda e, no centro, o cartão de metal com o saldo.
+ *   2. A página fixa: o breu se dissolve no branco, o cartão encolhe, PRX LIVE e
+ *      PRX PASS entram pelas bordas e "Descontos reais. Vantagens exclusivas." surge.
+ *   3. Fundo branco: "As bets lucram com a perda.", os destaques Bank, Coins & Level
+ *      e Pass em Liquid Glass e os quatro pilares com as fotos originais da marca.
+ * Tudo é ligado à rolagem (nada se move sozinho) com molas stiffness 300 / damping 28,
+ * e o Lenis roda dentro do loop de quadros do Motion para os dois nunca descompassarem.
  */
 
-/** Retrato do cartão principal. Se a imagem remota falhar, entra um retrato ilustrado. */
-export const LANDING_PORTRAIT = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80";
+type Tone = "dark" | "light";
 
 const SPRING = { stiffness: 300, damping: 28, mass: 0.6 } as const;
+/** Com movimento reduzido, a cena acompanha a rolagem sem o atraso elástico da mola. */
+const INSTANT = { stiffness: 2000, damping: 200, mass: 0.1 } as const;
 /** A partir de 1024px o título fica ao lado do cartão; abaixo disso, empilhado. */
 const DESKTOP = "(min-width: 1024px)";
+/** Celulares baixos (SE, Android compactos): o cartão começa mais abaixo do manifesto. */
+const SHORT = "(max-height: 740px)";
+const TINY = "(max-height: 620px)";
+const REDUCE = "(prefers-reduced-motion: reduce)";
+
+/** Lenis sem RAF próprio (quem avança é o frame loop do Motion) e com âncoras suaves. */
+const LENIS_OPTIONS: LenisOptions = { autoRaf: false, lerp: 0.08, anchors: true, syncTouch: false };
 
 function subscribeMedia(query: string) {
   return (callback: () => void) => {
@@ -36,11 +59,61 @@ function subscribeMedia(query: string) {
   };
 }
 
-function useMedia(query: string): boolean {
+function useMedia(query: string, serverValue: boolean): boolean {
   return useSyncExternalStore(
     subscribeMedia(query),
     () => window.matchMedia(query).matches,
-    () => true,
+    () => serverValue,
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Liquid Glass                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Vidro líquido: desfoque profundo, borda especular (mais clara no topo, quase
+ * apagada na base) e sombra de levitação. Fumê sobre o breu, leitoso sobre o branco.
+ */
+const LIQUID: Record<Tone, string> = {
+  dark: "border border-x-white/10 border-t-white/30 border-b-white/5 bg-white/[0.06] backdrop-blur-2xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.2)]",
+  light:
+    "border border-x-black/[0.06] border-t-white border-b-black/[0.08] bg-white/70 backdrop-blur-2xl shadow-[0_24px_48px_-20px_rgba(22,12,52,0.22),inset_0_1px_1px_rgba(255,255,255,0.9)]",
+};
+
+/** Reflexo especular no canto superior esquerdo: a luz refratada no vidro curvo. Pede um pai relative + overflow-hidden. */
+function Specular({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn("pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgba(148,104,250,0.18),transparent)]", className)}
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Botões                                                                     */
+/* -------------------------------------------------------------------------- */
+
+const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+/** Botão de destaque Cyber-Luxury: violeta profundo (5.7:1 com o branco) e um reflexo de luz que atravessa no hover. */
+function LuxuryButton({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
+  return (
+    <a
+      href={href}
+      className={cn(
+        "group/lux relative inline-flex min-h-12 cursor-pointer items-center justify-center overflow-hidden whitespace-nowrap rounded-full bg-[#7c3aed] px-5 text-[14px] font-semibold text-white",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_28px_-10px_rgba(124,58,237,0.8)] transition-[background-color,transform] duration-200 hover:bg-[#6d28d9] active:scale-[0.98]",
+        className,
+      )}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 -skew-x-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.42),transparent)] opacity-0 transition-[translate,opacity] duration-700 ease-out group-hover/lux:translate-x-[300%] group-hover/lux:opacity-100 motion-reduce:hidden"
+      />
+      <span className="relative">{children}</span>
+    </a>
   );
 }
 
@@ -62,21 +135,22 @@ function useInstallPrompt() {
   return event;
 }
 
-function DownloadButton({ appUrl, tone = "ink", className }: { appUrl: string; tone?: "ink" | "light"; className?: string }) {
+function DownloadButton({ appUrl, className }: { appUrl: string; className?: string }) {
   const install = useInstallPrompt();
   return (
-    <a
+    <motion.a
       href={appUrl}
       onClick={(e) => {
         if (!install) return;
         e.preventDefault();
         void install.prompt();
       }}
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 300, damping: 28 }}
       className={cn(
-        "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold transition-[transform,opacity] duration-150 active:scale-[0.98]",
-        tone === "ink"
-          ? "bg-[#0b0b10] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_24px_-12px_rgba(11,11,16,0.6)] hover:opacity-90"
-          : "glass-chip text-[#0b0b10]",
+        "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-6 text-[15px] font-semibold text-[#0b0b10]",
+        "shadow-[inset_0_-1px_0_rgba(11,11,16,0.12),0_14px_36px_-14px_rgba(148,104,250,0.75)]",
         className,
       )}
     >
@@ -86,7 +160,7 @@ function DownloadButton({ appUrl, tone = "ink", className }: { appUrl: string; t
         <path d="M5 20h14" />
       </svg>
       Baixar o app
-    </a>
+    </motion.a>
   );
 }
 
@@ -94,101 +168,238 @@ function DownloadButton({ appUrl, tone = "ink", className }: { appUrl: string; t
 /* Cabeçalho                                                                  */
 /* -------------------------------------------------------------------------- */
 
-const NAV = [
-  { href: "#salario", label: "Bank" },
-  { href: "#salario", label: "Pass" },
-  { href: "#salario", label: "Live" },
+interface NavItem {
+  href: `#${string}`;
+  label: string;
+  soon?: boolean;
+}
+
+const NAV: ReadonlyArray<NavItem> = [
+  { href: "#bank", label: "Bank" },
+  { href: "#pass", label: "Pass" },
+  { href: "#live", label: "Live" },
+  { href: "#invest", label: "Invest", soon: true },
+  { href: "#me", label: "Me", soon: true },
 ];
 
-function Header({ appUrl }: { appUrl: string }) {
+const BAR_TEXT: Record<Tone, string> = { dark: "text-white", light: "text-[#0b0b10]" };
+const NAV_LINK: Record<Tone, string> = {
+  dark: "text-white/75 hover:bg-white/[0.08] hover:text-white",
+  light: "text-[#3d3d48] hover:bg-black/[0.05] hover:text-[#0b0b10]",
+};
+const SOON_PILL: Record<Tone, string> = {
+  dark: "border-x-white/10 border-t-white/25 border-b-white/5 bg-white/[0.08] text-white/80",
+  light: "border-x-black/[0.06] border-t-white border-b-black/[0.08] bg-white/80 text-[#5b5b66]",
+};
+/** Menus pedem vidro mais denso: a leitura não pode competir com o manifesto por baixo. */
+const MENU_PANEL: Record<Tone, string> = {
+  dark: "border border-x-white/10 border-t-white/25 border-b-white/5 bg-[#0b0b12]/85 text-white shadow-[0_24px_48px_-12px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.14)]",
+  light: "border border-x-black/[0.06] border-t-white border-b-black/[0.08] bg-white/90 text-[#0b0b10] shadow-[0_24px_48px_-20px_rgba(22,12,52,0.3),inset_0_1px_1px_rgba(255,255,255,0.9)]",
+};
+
+function SoonPill({ tone, className }: { tone: Tone; className?: string }) {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-2 pt-2 sm:px-4 sm:pt-3">
-      <div className="glass-bar mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-3 rounded-[22px] pl-4 pr-1.5 sm:h-16 sm:pl-6 sm:pr-2">
-        <a href="#topo" className="flex min-h-11 cursor-pointer items-center" aria-label="PRX — início">
-          <PrxLogo variant="compact" title="" className="h-6 w-auto text-[#0b0b10] sm:h-7" />
+    <span className={cn("rounded-full border px-1.5 py-px text-[10px] font-semibold uppercase leading-4 tracking-[0.08em] backdrop-blur-md", SOON_PILL[tone], className)}>
+      Em breve
+    </span>
+  );
+}
+
+/**
+ * Menu compacto do celular. O botão mora na cápsula e o painel fica fora dela, no
+ * próprio <header>: aninhado na cápsula (que já tem backdrop-filter) o painel perderia o desfoque.
+ */
+function useMobileMenu() {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  const root = useRef<HTMLElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      button.current?.focus();
+    };
+    const onPointer = (e: PointerEvent) => {
+      if (e.target instanceof Node && !root.current?.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [open]);
+
+  return { open, setOpen, panelId, root, button };
+}
+
+interface MenuControlProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  panelId: string;
+  tone: Tone;
+}
+
+function MenuButton({ open, onOpenChange, panelId, tone, ref }: MenuControlProps & { ref: Ref<HTMLButtonElement> }) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-expanded={open}
+      aria-controls={panelId}
+      aria-label={open ? "Fechar menu" : "Abrir menu"}
+      onClick={() => onOpenChange(!open)}
+      className={cn("inline-flex h-12 w-12 cursor-pointer items-center justify-center rounded-full transition-colors md:hidden", NAV_LINK[tone])}
+    >
+      <span aria-hidden className="relative block h-3 w-[18px]">
+        <span className={cn("absolute left-0 top-0 h-[1.5px] w-full rounded-full bg-current transition-transform duration-300", open && "translate-y-[5.25px] rotate-45")} />
+        <span className={cn("absolute bottom-0 left-0 h-[1.5px] w-full rounded-full bg-current transition-transform duration-300", open && "-translate-y-[5.25px] -rotate-45")} />
+      </span>
+    </button>
+  );
+}
+
+function MenuPanel({ open, onOpenChange, panelId, tone }: MenuControlProps) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.nav
+          id={panelId}
+          aria-label="Pilares PRX"
+          initial={{ opacity: 0, y: -8, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8, scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          className={cn("absolute inset-x-2 top-[calc(100%+8px)] origin-top overflow-hidden rounded-[22px] p-2 backdrop-blur-2xl sm:inset-x-4 md:hidden", MENU_PANEL[tone])}
+        >
+          <Specular />
+          <ul className="relative">
+            {NAV.map((item) => (
+              <li key={item.href}>
+                <a
+                  href={item.href}
+                  onClick={() => onOpenChange(false)}
+                  className={cn("flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-[14px] px-4 text-[16px] font-medium transition-colors", NAV_LINK[tone])}
+                >
+                  {item.label}
+                  {item.soon && <SoonPill tone={tone} />}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </motion.nav>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** Cápsula de vidro líquido flutuante; fumê sobre o palco Obsidian, leitosa sobre o branco. */
+function Header({ appUrl, tone }: { appUrl: string; tone: Tone }) {
+  const base = appUrl.replace(/\/$/, "");
+  const { open, setOpen, panelId, root, button } = useMobileMenu();
+  return (
+    <header ref={root} className="fixed inset-x-0 top-0 z-50 px-2 pt-2 sm:px-4 sm:pt-3">
+      <div
+        className={cn(
+          "relative mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-2 rounded-full pl-4 pr-1 transition-[background-color,border-color,box-shadow,color] duration-500 sm:h-16 sm:pl-6 sm:pr-2",
+          LIQUID[tone],
+          BAR_TEXT[tone],
+        )}
+      >
+        <a href="#topo" className="flex min-h-12 shrink-0 cursor-pointer items-center" aria-label="PRX — início">
+          <PrxLogo variant="symbol" title="" className="h-6 w-auto min-[360px]:hidden" />
+          <PrxLogo variant="compact" title="" className="hidden h-[22px] w-auto min-[360px]:block sm:h-6 lg:h-7" />
         </a>
-        <nav aria-label="Menu principal" className="hidden items-center gap-1 md:flex">
+
+        <nav aria-label="Menu principal" className="hidden items-center md:flex">
           {NAV.map((item) => (
             <a
-              key={item.label}
+              key={item.href}
               href={item.href}
-              className="inline-flex min-h-11 cursor-pointer items-center rounded-full px-4 text-[15px] font-medium text-[#3d3d48] transition-colors hover:bg-black/[0.05] hover:text-[#0b0b10]"
+              className={cn("inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-[14px] font-medium transition-colors lg:px-3.5 lg:text-[15px]", NAV_LINK[tone])}
             >
               {item.label}
+              {item.soon && <SoonPill tone={tone} />}
             </a>
           ))}
           <a
-            href={`${appUrl.replace(/\/$/, "")}/sou-pai`}
-            className="inline-flex min-h-11 cursor-pointer items-center rounded-full px-4 text-[15px] font-medium text-[#3d3d48] transition-colors hover:bg-black/[0.05] hover:text-[#0b0b10]"
+            href={`${base}/sou-pai`}
+            className={cn("inline-flex min-h-12 cursor-pointer items-center rounded-full px-2.5 text-[14px] font-medium transition-colors lg:px-3.5 lg:text-[15px]", NAV_LINK[tone])}
           >
             Sou Pai
           </a>
         </nav>
-        <div className="flex items-center gap-1.5">
+
+        <div className="flex items-center gap-1">
           <a
-            href={`${appUrl.replace(/\/$/, "")}/sou-pai`}
-            className="inline-flex min-h-11 cursor-pointer items-center whitespace-nowrap rounded-full px-2.5 text-[14px] font-medium text-[#3d3d48] transition-colors hover:bg-black/[0.05] min-[360px]:px-3.5 md:hidden"
+            href={`${base}/sou-pai`}
+            className={cn("inline-flex min-h-12 cursor-pointer items-center whitespace-nowrap rounded-full px-2.5 text-[14px] font-medium transition-colors min-[360px]:px-3 md:hidden", NAV_LINK[tone])}
           >
             Sou Pai
           </a>
-          <a
-            href={appUrl}
-            className="inline-flex min-h-11 cursor-pointer items-center whitespace-nowrap rounded-full bg-[#0b0b10] px-4 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 min-[360px]:px-5"
-          >
+          <LuxuryButton href={appUrl} className="px-4 min-[360px]:px-5">
             Entrar
-          </a>
+          </LuxuryButton>
+          <MenuButton ref={button} open={open} onOpenChange={setOpen} panelId={panelId} tone={tone} />
         </div>
       </div>
+      <MenuPanel open={open} onOpenChange={setOpen} panelId={panelId} tone={tone} />
     </header>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/* Cartões                                                                    */
+/* Cartões do palco                                                           */
 /* -------------------------------------------------------------------------- */
-
-const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-
-function Portrait() {
-  const [failed, setFailed] = useState(false);
-  const imgRef = useRef<HTMLImageElement>(null);
-  // Se a foto falhou antes da hidratação, o onError não dispara: confere ao montar.
-  useEffect(() => {
-    const img = imgRef.current;
-    if (img && img.complete && img.naturalWidth === 0) setFailed(true);
-  }, []);
-  if (failed) {
-    return (
-      <div aria-hidden className="absolute inset-0 bg-[linear-gradient(160deg,#c9b3ff_0%,#8a47f5_45%,#3b0896_100%)]">
-        <svg viewBox="0 0 300 400" className="absolute inset-x-0 bottom-0 h-[82%] w-full text-white/25" fill="currentColor" preserveAspectRatio="xMidYMax meet">
-          <circle cx="150" cy="140" r="66" />
-          <path d="M30 400c0-78 54-138 120-138s120 60 120 138z" />
-        </svg>
-      </div>
-    );
-  }
-  return (
-    // Foto remota, recortada pelo próprio CDN; sem otimização do Next para não depender do servidor de imagens.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img ref={imgRef} src={LANDING_PORTRAIT} alt="" className="absolute inset-0 h-full w-full object-cover" loading="eager" decoding="async" onError={() => setFailed(true)} />
-  );
-}
 
 /*
  * Os cartões mudam de tamanho com a tela e com a animação; o conteúdo acompanha
  * em unidades do contêiner (cqw), mantendo a mesma proporção do celular ao desktop.
+ * O @container fica no invólucro: cqw no próprio elemento mediria o contêiner de fora.
  */
 
-/** Cartão principal: retrato em tela cheia e o saldo em vidro fosco. */
+/** Borda especular das "ilhas" fotográficas (escuras nos dois fundos). */
+const PHOTO_EDGE = "border border-x-white/10 border-t-white/30 border-b-white/5 bg-[#07070b]";
+
+/** Cartão principal: o cartão de metal PRX com acabamento de vidro reflexivo, o Pix recebido e o saldo. */
 function HeroCard() {
   return (
-    // O @container fica no invólucro: cqw no próprio elemento mediria o contêiner de fora.
     <div className="@container w-full">
-      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[9cqw] bg-[#e9e3ff] shadow-[0_2px_6px_rgba(22,12,52,0.08),0_40px_80px_-36px_rgba(22,12,52,0.55)]">
-        <Portrait />
-        <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_45%,rgba(10,6,30,0.45)_100%)]" />
-        <div className="glass-chip absolute left-1/2 top-[4.5cqw] flex max-w-[92%] -translate-x-1/2 items-center gap-[2cqw] whitespace-nowrap rounded-full py-[1.4cqw] pl-[1.4cqw] pr-[3.4cqw] text-[clamp(9px,3.1cqw,13px)] font-medium text-[#0b0b10]">
-          <span aria-hidden className="flex h-[max(16px,6cqw)] w-[max(16px,6cqw)] shrink-0 items-center justify-center rounded-full bg-[#0f7b4f] text-white">
+      <div
+        className={cn(
+          "relative isolate aspect-[3/4] w-full overflow-hidden rounded-[9cqw] text-white",
+          "shadow-[0_40px_90px_-30px_rgba(0,0,0,0.85),0_0_90px_-24px_rgba(124,58,237,0.45),inset_0_1px_1px_rgba(255,255,255,0.2)]",
+          PHOTO_EDGE,
+        )}
+      >
+        <Image
+          src={OBSIDIAN_IMAGES.cardMetal}
+          alt="Cartão de metal escovado PRX com o símbolo em relevo"
+          fill
+          sizes="(min-width: 1280px) 420px, (min-width: 1024px) 400px, (min-width: 640px) 40vw, 58vw"
+          loading="eager"
+          fetchPriority="high"
+          placeholder="blur"
+          className="-z-10 object-cover object-[50%_44%]"
+        />
+        {/* Vidro reflexivo: diagonal de luz no topo e retorno violeta no canto oposto. */}
+        <span
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-[linear-gradient(125deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0)_30%,rgba(255,255,255,0)_68%,rgba(148,104,250,0.16)_100%)]"
+        />
+        <span aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(5,5,8,0)_42%,rgba(5,5,8,0.72)_100%)]" />
+        <Specular className="-left-[20cqw] -top-[20cqw] h-[70cqw] w-[70cqw]" />
+
+        <div
+          className={cn(
+            "absolute left-1/2 top-[4.5cqw] flex max-w-[92%] -translate-x-1/2 items-center gap-[2cqw] whitespace-nowrap rounded-full py-[1.4cqw] pl-[1.4cqw] pr-[3.4cqw] text-[clamp(9px,3.1cqw,13px)] font-medium",
+            LIQUID.dark,
+          )}
+        >
+          <span aria-hidden className="flex h-[max(16px,6cqw)] w-[max(16px,6cqw)] shrink-0 items-center justify-center rounded-full bg-[#7c3aed] text-white">
             <svg viewBox="0 0 24 24" className="h-[60%] w-[60%]" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 19V5" />
               <path d="m5 12 7 7 7-7" />
@@ -196,89 +407,100 @@ function HeroCard() {
           </span>
           <span className="truncate">Pix recebido · + {brl.format(1250)}</span>
         </div>
-        <div className="glass absolute inset-x-[3.5cqw] bottom-[3.5cqw] rounded-[6.5cqw] p-[4.8cqw] text-[#0b0b10]">
-          <p className="text-[clamp(8px,2.7cqw,11px)] font-semibold uppercase tracking-[0.08em] text-[#3d3d48]">Conta PRX Bank</p>
-          <p className="mt-[1.4cqw] whitespace-nowrap text-[10.5cqw] font-normal leading-none tracking-[-0.04em] tabular-nums">
-            R$ 3.482<span className="text-[#8a8a96]">,</span>90
+
+        <div className={cn("absolute inset-x-[3.5cqw] bottom-[3.5cqw] overflow-hidden rounded-[6.5cqw] p-[4.8cqw]", LIQUID.dark)}>
+          <Specular className="-left-[12cqw] -top-[16cqw] h-[50cqw] w-[50cqw]" />
+          <p className="ob-label relative text-[clamp(8px,2.7cqw,11px)] text-white/75">Saldo PRX Bank</p>
+          <p className="relative mt-[1.6cqw] whitespace-nowrap text-[10.5cqw] font-light leading-none tracking-[-0.03em] tabular-nums">
+            R$ 3.482<span className="text-[0.62em]">,90</span>
           </p>
-          <p className="mt-[2.2cqw] text-[clamp(10px,3.1cqw,13px)] leading-snug text-[#3d3d48] @max-[300px]:hidden">Saldo disponível · rende PRX Coins a cada compra em parceiro</p>
+          <p className="relative mt-[2.2cqw] text-[clamp(10px,3.1cqw,13px)] leading-snug text-white/75 @max-[300px]:hidden">Cada compra em parceiro vira PRX Coins</p>
         </div>
       </div>
     </div>
   );
 }
 
-function SideCard({ title, meta, amount, footer, visual }: { title: string; meta: string; amount: number; footer: ReactNode; visual: ReactNode }) {
+const SIDE_SIZES = "(min-width: 1280px) 269px, (min-width: 1024px) 256px, (min-width: 640px) 32vw, 46vw";
+
+/** PRX LIVE: o show ao vivo, o ingresso VIP e o cashback em coins no balcão. */
+function LiveCard() {
   return (
     <div className="@container w-full">
-      <div className="glass flex aspect-[3/4] w-full flex-col justify-between rounded-[11cqw] p-[7cqw] text-[#0b0b10]">
-        <div className="flex items-start justify-between gap-[4cqw]">
-          <div className="min-w-0">
-            <p className="truncate text-[clamp(11px,6.4cqw,17px)] font-semibold tracking-[-0.01em]">{title}</p>
-            <p className="mt-0.5 truncate text-[clamp(9px,4.9cqw,13px)] text-[#5b5b66]">{meta}</p>
-          </div>
-          {visual}
+      <div
+        className={cn(
+          "relative isolate flex aspect-[3/4] w-full flex-col justify-between overflow-hidden rounded-[11cqw] p-[6cqw] text-white shadow-[0_30px_60px_-24px_rgba(22,12,52,0.55)]",
+          PHOTO_EDGE,
+        )}
+      >
+        <Image src={OBSIDIAN_IMAGES.liveConcert} alt="" fill sizes={SIDE_SIZES} placeholder="blur" className="-z-10 object-cover object-[50%_42%]" />
+        <span
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(5,5,8,0.55)_0%,rgba(5,5,8,0)_32%,rgba(5,5,8,0.2)_55%,rgba(5,5,8,0.88)_100%)]"
+        />
+        <div className="flex items-start justify-between gap-[3cqw]">
+          <p className="ob-label text-[clamp(10px,5.6cqw,15px)] leading-[1.15] tracking-[0.16em]">
+            PRX
+            <br />
+            Live
+          </p>
+          <span className={cn("rounded-full px-[3.6cqw] py-[1.2cqw] text-[clamp(9px,4.4cqw,12px)] font-semibold tracking-[0.08em]", LIQUID.dark)}>VIP</span>
         </div>
-        <div>
-          <p className="whitespace-nowrap text-[12cqw] font-normal leading-none tracking-[-0.04em] tabular-nums">− {brl.format(amount)}</p>
-          <div className="mt-[4.5cqw] text-[clamp(9px,4.9cqw,13px)] text-[#3d3d48]">{footer}</div>
+        <div className={cn("relative overflow-hidden rounded-[7cqw] p-[5cqw]", LIQUID.dark)}>
+          <p className="truncate text-[clamp(9px,4.6cqw,13px)] text-white/80">Ingresso VIP · sáb, 22h</p>
+          <p className="mt-[1.6cqw] whitespace-nowrap text-[10cqw] font-light leading-none tracking-[-0.03em] tabular-nums">− {brl.format(180)}</p>
+          <p className="mt-[3.6cqw] inline-flex max-w-full items-center whitespace-nowrap rounded-full bg-[#7c3aed] px-[3.4cqw] py-[1.3cqw] text-[clamp(8px,4.2cqw,12px)] font-semibold">
+            <span className="truncate">+ 36 coins no balcão</span>
+          </p>
         </div>
       </div>
     </div>
   );
 }
 
-function CafeCard() {
-  return (
-    <SideCard
-      title="Café Aurora"
-      meta="Gastronomia · hoje, 08:42"
-      amount={18.9}
-      visual={
-        <span aria-hidden className="flex h-[15cqw] w-[15cqw] shrink-0 items-center justify-center rounded-full bg-[#6c0cf0]/10 text-[#6c0cf0]">
-          <svg viewBox="0 0 24 24" className="h-1/2 w-1/2" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z" />
-            <path d="M17 11h1.5a2.5 2.5 0 0 1 0 5H17" />
-          </svg>
-        </span>
-      }
-      footer={<span className="inline-flex items-center whitespace-nowrap rounded-full bg-[#6c0cf0]/10 px-[4cqw] py-[1.6cqw] font-semibold text-[#6c0cf0]">+ 19 PRX Coins</span>}
-    />
-  );
-}
-
-function BillsCard() {
-  const bills = [
-    { label: "Luz", pct: 38 },
-    { label: "Internet", pct: 27 },
-    { label: "Streaming", pct: 15 },
+/** PRX PASS: cupons digitais, desconto no balcão e o ecossistema de parceiros credenciados. */
+function PassCard() {
+  const coupons = [
+    { label: "Cafés", off: 20 },
+    { label: "Academias", off: 35 },
+    { label: "Shows", off: 50 },
   ];
   return (
-    <SideCard
-      title="Contas da casa"
-      meta="Pagas no automático"
-      amount={312.4}
-      visual={
-        <span aria-hidden className="flex h-[15cqw] w-[15cqw] shrink-0 items-center justify-center rounded-full bg-[#0b0b10]/[0.06] text-[#0b0b10]">
-          <svg viewBox="0 0 24 24" className="h-1/2 w-1/2" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-            <path d="m3 11 9-7 9 7" />
-            <path d="M5 10v10h14V10" />
-          </svg>
-        </span>
-      }
-      footer={
-        <ul className="space-y-[2.4cqw]">
-          {bills.map((b) => (
-            <li key={b.label} className="flex items-center gap-[3cqw]">
-              <span className="w-[28cqw] shrink-0 truncate">{b.label}</span>
-              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/[0.06]">
-                <span className="block h-full rounded-full bg-[#0b0b10]" style={{ width: `${b.pct * 2}%` }} />
-              </span>
-            </li>
-          ))}
-        </ul>
-      }
-    />
+    <div className="@container w-full">
+      <div className={cn("relative flex aspect-[3/4] w-full flex-col justify-between overflow-hidden rounded-[11cqw] p-[7cqw] text-[#0b0b10]", LIQUID.light)}>
+        <Specular className="-left-[24cqw] -top-[28cqw] h-[90cqw] w-[90cqw]" />
+        <div className="relative flex items-start justify-between gap-[4cqw]">
+          <div className="min-w-0">
+            <p className="ob-label text-[clamp(10px,5.6cqw,15px)] leading-[1.15] tracking-[0.16em]">
+              PRX
+              <br />
+              Pass
+            </p>
+            <p className="mt-[1.8cqw] truncate text-[clamp(9px,4.6cqw,13px)] text-[#5b5b66]">Parceiros credenciados</p>
+          </div>
+          <span aria-hidden className="flex h-[15cqw] w-[15cqw] shrink-0 items-center justify-center rounded-full bg-[#7c3aed]/10 text-[#7c3aed]">
+            <svg viewBox="0 0 24 24" className="h-1/2 w-1/2" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="4" width="6" height="6" rx="1" />
+              <rect x="14" y="4" width="6" height="6" rx="1" />
+              <rect x="4" y="14" width="6" height="6" rx="1" />
+              <path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 20h2M20 14v2" />
+            </svg>
+          </span>
+        </div>
+        <div className="relative">
+          <p className="whitespace-nowrap text-[14cqw] font-light leading-none tracking-[-0.04em] text-[#7c3aed]">−50%</p>
+          <p className="mt-[2cqw] truncate text-[clamp(9px,4.6cqw,13px)] text-[#3d3d48]">Cupom digital · QR protegido</p>
+          <ul className="mt-[3.5cqw] space-y-[1.6cqw] text-[clamp(9px,4.6cqw,13px)]">
+            {coupons.map((c) => (
+              <li key={c.label} className="flex items-center justify-between gap-[3cqw] border-t border-black/[0.07] pt-[1.6cqw]">
+                <span className="truncate text-[#3d3d48]">{c.label}</span>
+                <span className="font-semibold tabular-nums">−{c.off}%</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -286,15 +508,30 @@ function BillsCard() {
 /* Momentos 1 e 2: seção fixada guiada pela rolagem                           */
 /* -------------------------------------------------------------------------- */
 
-function useStage(progress: MotionValue<number>, desktop: boolean) {
-  const p = useSpring(progress, SPRING);
+type PhoneHeight = "tall" | "short" | "tiny";
+
+/** Abaixo do manifesto, no celular: quanto mais baixa a tela, mais o cartão desce para não encostar no botão. */
+function heroCardY(desktop: boolean, height: PhoneHeight): [string, string] {
+  if (desktop) return ["0dvh", "0dvh"];
+  const start = { tall: "15dvh", short: "22dvh", tiny: "27dvh" }[height];
+  return [start, "0dvh"];
+}
+
+function useStage(progress: MotionValue<number>, desktop: boolean, height: PhoneHeight, reduce: boolean) {
+  const p = useSpring(progress, reduce ? INSTANT : SPRING);
   return {
-    sky: useTransform(p, [0.3, 0.64], [1, 0]),
+    p,
+    // A luz nasce atrás do cartão e se expande até lavar o breu; só então o breu some de vez.
+    bloom: useTransform(p, [0.2, 0.6], [0, 2.6]),
+    night: useTransform(p, [0.34, 0.6], [1, 0]),
+    crystalY: useTransform(p, [0, 0.6], ["0%", "-8%"]),
+    crystalScale: useTransform(p, [0, 0.6], [1, 1.14]),
+    crystalRotate: useTransform(p, [0, 0.6], [0, -6]),
     titleY: useTransform(p, [0, 0.32], [0, desktop ? -160 : -110]),
-    titleOpacity: useTransform(p, [0.04, 0.28], [1, 0]),
+    titleOpacity: useTransform(p, [0.04, 0.26], [1, 0]),
     cardScale: useTransform(p, [0.08, 0.62], [1, desktop ? 0.64 : 0.82]),
     cardX: useTransform(p, [0.08, 0.62], desktop ? ["17vw", "0vw"] : ["0vw", "0vw"]),
-    cardY: useTransform(p, [0.08, 0.62], desktop ? ["0dvh", "0dvh"] : ["16dvh", "0dvh"]),
+    cardY: useTransform(p, [0.08, 0.62], heroCardY(desktop, height)),
     leftX: useTransform(p, [0.4, 0.8], ["-75vw", "0vw"]),
     rightX: useTransform(p, [0.4, 0.8], ["75vw", "0vw"]),
     sideOpacity: useTransform(p, [0.4, 0.62], [0, 1]),
@@ -303,59 +540,96 @@ function useStage(progress: MotionValue<number>, desktop: boolean) {
   };
 }
 
-function PinnedStory({ appUrl }: { appUrl: string }) {
+function PinnedStory({ appUrl, reduceMotion, onTone }: { appUrl: string; reduceMotion: boolean; onTone: (tone: Tone) => void }) {
   const ref = useRef<HTMLElement>(null);
-  const desktop = useMedia(DESKTOP);
+  const desktop = useMedia(DESKTOP, true);
+  const short = useMedia(SHORT, false);
+  const tiny = useMedia(TINY, false);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
-  const s = useStage(scrollYProgress, desktop);
+  const s = useStage(scrollYProgress, desktop, tiny ? "tiny" : short ? "short" : "tall", reduceMotion);
+
+  // A cápsula do topo acompanha o palco: fumê enquanto o breu domina, leitosa quando a luz a alcança.
+  useMotionValueEvent(s.p, "change", (v) => onTone(v < 0.45 ? "dark" : "light"));
 
   return (
-    <section ref={ref} id="topo" aria-label="Banking & Beyond" className="relative h-[300dvh] lg:h-[320dvh]">
+    <section ref={ref} id="topo" aria-labelledby="manifesto" className="relative h-[300dvh] lg:h-[320dvh]">
       <div className="sticky top-0 h-dvh overflow-hidden bg-white">
-        {/* Céu azul que se dissolve no branco puro */}
-        <motion.div aria-hidden style={{ opacity: s.sky }} className="absolute inset-0">
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,#5fb4f0_0%,#8fcbf7_38%,#c4e5fc_72%,#eaf6ff_100%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(40rem_16rem_at_18%_78%,rgba(255,255,255,0.75),transparent_70%),radial-gradient(34rem_14rem_at_82%_88%,rgba(255,255,255,0.7),transparent_70%),radial-gradient(28rem_10rem_at_62%_20%,rgba(255,255,255,0.35),transparent_70%)]" />
+        {/* Palco Obsidian: breu, haze violeta ao centro, cobalto na base e o cristal PRX fundido ao fundo. */}
+        <motion.div aria-hidden style={{ opacity: s.night }} className="absolute inset-0 bg-[#050508]">
+          <div className="absolute inset-0 bg-[radial-gradient(62%_52%_at_50%_46%,rgba(124,58,237,0.28),transparent_72%),radial-gradient(90%_42%_at_50%_108%,rgba(0,102,255,0.14),transparent_72%)]" />
+          <motion.div
+            style={{ y: s.crystalY, scale: s.crystalScale, rotate: s.crystalRotate }}
+            className="absolute left-1/2 top-[30%] aspect-[9/16] h-[80%] -translate-x-1/2 mix-blend-screen lg:left-[58%] lg:top-[-5%] lg:h-[110%]"
+          >
+            <Image
+              src={OBSIDIAN_IMAGES.crystal}
+              alt=""
+              fill
+              sizes="(min-width: 1024px) 34rem, 100vw"
+              loading="eager"
+              placeholder="blur"
+              className="object-cover opacity-90 [mask-image:radial-gradient(closest-side,#000_42%,transparent_100%)]"
+            />
+          </motion.div>
         </motion.div>
 
-        {/* Momento 1: título monumental à esquerda */}
+        {/* Bloom: a clareza do vidro nasce atrás do cartão (segue a mesma posição) e se espalha em luz difusa lavanda. */}
+        <motion.div
+          aria-hidden
+          style={{ x: s.cardX, y: s.cardY, scale: s.bloom }}
+          className="absolute left-1/2 top-[60%] aspect-square w-[100vmax] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,#ffffff_30%,rgba(248,245,255,0.92)_52%,rgba(243,238,255,0.5)_74%,rgba(243,238,255,0)_100%)] lg:top-[58%]"
+        />
+
+        {/* Clareza do vidro: luz ambiente mínima sobre o branco para o Liquid Glass ter o que refratar. */}
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[radial-gradient(46rem_26rem_at_50%_62%,rgba(124,58,237,0.07),transparent_70%),radial-gradient(40rem_20rem_at_50%_100%,rgba(0,102,255,0.05),transparent_70%)]"
+        />
+
+        {/* Momento 1: o manifesto monumental à esquerda */}
         <motion.div
           style={{ y: s.titleY, opacity: s.titleOpacity }}
-          className="absolute inset-x-0 top-[84px] z-20 mx-auto w-full max-w-[1200px] px-5 sm:top-[104px] sm:px-8 lg:top-1/2 lg:-translate-y-1/2"
+          className="absolute inset-x-0 top-[84px] z-20 mx-auto w-full max-w-[1200px] px-5 sm:top-[108px] sm:px-8 lg:top-1/2 lg:-translate-y-1/2"
         >
-          <div className="max-w-[600px]">
-            <h1 className="text-[clamp(52px,13vw,84px)] font-semibold leading-[0.9] tracking-[-0.055em] text-[#0b0b10] lg:text-[clamp(84px,8.6vw,136px)]">
-              Banking
-              <br />&amp; Beyond
+          <div className="max-w-[560px]">
+            <h1 id="manifesto" className="ob-display text-[clamp(25px,8.2vw,46px)] leading-[1.1] tracking-[0.07em] text-white lg:text-[clamp(40px,3.9vw,60px)]">
+              O futuro
+              <br />
+              não se assiste.
+              <br />
+              Se constrói.
             </h1>
-            <p className="mt-4 max-w-[440px] text-[16px] leading-relaxed text-[#1c2a3a] sm:mt-6 sm:text-[18px]">
-              Conta digital, cartão, Pix e benefícios em um só app. Cada compra em parceiro vira PRX Coins.
+            <p className="mt-4 max-w-[460px] text-[15px] leading-relaxed text-white/75 sm:mt-6 sm:text-[17px]">
+              Sua vida financeira, benefícios reais e comunidade exclusiva unificados em um só ecossistema. Cada gasto em parceiro vira PRX Coins e impulsiona o seu nível.
             </p>
             <DownloadButton appUrl={appUrl} className="mt-5 sm:mt-8" />
           </div>
         </motion.div>
 
-        {/* Momento 2: novo título centralizado */}
+        {/* Momento 2: novo título centralizado, já sobre o branco */}
         <motion.div
           style={{ opacity: s.newTitleOpacity, y: s.newTitleY }}
-          className="pointer-events-none absolute inset-x-0 top-[92px] z-20 px-5 text-center sm:top-[112px] lg:top-[13dvh]"
+          className="pointer-events-none absolute inset-x-0 top-[88px] z-20 px-5 text-center sm:top-[112px] lg:top-[11dvh]"
         >
-          <h2 className="mx-auto max-w-[820px] text-[clamp(34px,8vw,56px)] font-semibold leading-[0.98] tracking-[-0.045em] text-[#0b0b10] lg:text-[clamp(56px,5.4vw,80px)]">
-            Spend smarter.
+          <h2 className="mx-auto max-w-[860px] text-balance text-[clamp(24px,7.6vw,52px)] font-semibold leading-[1] tracking-[-0.045em] text-[#0b0b10] lg:text-[clamp(44px,4vw,64px)]">
+            Descontos reais.
+            <br />
+            Vantagens exclusivas.
           </h2>
-          <p className="mx-auto mt-3 max-w-[480px] text-[15px] leading-relaxed text-[#5b5b66] sm:text-[17px]">
-            Do café às contas da casa: cada gasto cai no nicho certo do PRX Map, e o que é parceiro volta como coins.
+          <p className="mx-auto mt-3 max-w-[560px] text-pretty text-[15px] leading-relaxed text-[#5b5b66] sm:mt-4 sm:text-[17px]">
+            Do café diário aos grandes eventos: cada pagamento via Pix é categorizado no PRX Map e devolve vantagens instantâneas.
           </p>
         </motion.div>
 
         {/* Fileira de cartões: o central encolhe, os laterais entram pelas bordas */}
         {/* --c: largura do cartão central · --s: escala final · --side: largura dos laterais · --gap: respiro entre eles */}
-        <div className="absolute inset-x-0 top-[58%] z-10 [--c:58vw] [--gap:12px] [--s:0.82] [--side:46vw] max-[380px]:[--c:50vw] sm:[--c:40vw] sm:[--side:32vw] lg:top-[56%] lg:[--c:400px] lg:[--gap:24px] lg:[--s:0.64] lg:[--side:256px] xl:[--c:420px] xl:[--side:269px]">
+        {/* No desktop o cartão respeita a altura da tela e, no fim, os três cartões têm a mesma largura (--side = --c × --s). */}
+        <div className="absolute inset-x-0 top-[60%] z-10 [--c:58vw] [--gap:12px] [--s:0.82] [--side:46vw] max-[380px]:[--c:50vw] sm:[--c:40vw] sm:[--side:32vw] lg:top-[58%] lg:[--c:min(400px,46dvh)] lg:[--gap:24px] lg:[--s:0.64] lg:[--side:calc(var(--c)*var(--s))] xl:[--c:min(420px,46dvh)]">
           <motion.div
             style={{ x: s.leftX, opacity: s.sideOpacity }}
             className="absolute left-[calc(50%_-_var(--c)*var(--s)/2_-_var(--gap)_-_var(--side))] top-0 w-[var(--side)] -translate-y-1/2"
           >
-            <CafeCard />
+            <LiveCard />
           </motion.div>
           <motion.div style={{ x: s.cardX, y: s.cardY, scale: s.cardScale }} className="absolute left-1/2 top-0 w-[var(--c)] -translate-x-1/2 -translate-y-1/2">
             <HeroCard />
@@ -364,7 +638,7 @@ function PinnedStory({ appUrl }: { appUrl: string }) {
             style={{ x: s.rightX, opacity: s.sideOpacity }}
             className="absolute left-[calc(50%_+_var(--c)*var(--s)/2_+_var(--gap))] top-0 w-[var(--side)] -translate-y-1/2"
           >
-            <BillsCard />
+            <PassCard />
           </motion.div>
         </div>
       </div>
@@ -373,7 +647,7 @@ function PinnedStory({ appUrl }: { appUrl: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Momento 3: fundo branco, três cartões lado a lado                          */
+/* Momento 3: gamificação, destaques e os quatro pilares                      */
 /* -------------------------------------------------------------------------- */
 
 const rise = {
@@ -381,97 +655,179 @@ const rise = {
   show: (i: number) => ({ opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 28, delay: i * 0.08 } }),
 };
 
-function SalaryCards() {
+const IN_VIEW = { once: true, amount: 0.35 } as const;
+
+function HighlightCard({ id, title, children, text, index }: { id?: string; title: string; children: ReactNode; text: string; index: number }) {
   return (
-    <ul className="mt-12 grid gap-4 text-left sm:mt-16 md:grid-cols-3 md:gap-5">
-      <motion.li custom={0} variants={rise} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.35 }}>
-        <article className="prx-holo flex aspect-[5/4] flex-col justify-between rounded-[32px] md:aspect-[4/5] p-6 sm:p-7">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/85">Salário e mesada</p>
-          <div>
-            <p className="text-[40px] font-normal leading-none tracking-[-0.045em] tabular-nums sm:text-[48px]">+ {brl.format(2150)}</p>
-            <p className="mt-3 max-w-[260px] text-[15px] leading-relaxed text-white/85">Caiu, está disponível. Pix na hora, 24 horas por dia, sem tarifa.</p>
+    // A âncora fica no <li> parado: a revelação anima só o conteúdo, e o Lenis mede a posição final.
+    <li id={id} className="scroll-mt-28">
+      <motion.div custom={index} variants={rise} initial="hidden" whileInView="show" viewport={IN_VIEW} className="h-full">
+        <article className={cn("relative flex h-full flex-col justify-between gap-10 overflow-hidden rounded-[28px] p-6 text-[#0b0b10] sm:p-7 lg:min-h-[300px]", LIQUID.light)}>
+          <Specular />
+          <h3 className="ob-label relative text-[12px] text-[#3d3d48]">{title}</h3>
+          <div className="relative">
+            {children}
+            <p className="mt-4 max-w-[300px] text-[15px] leading-relaxed text-[#3d3d48]">{text}</p>
           </div>
         </article>
-      </motion.li>
-      <motion.li custom={1} variants={rise} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.35 }}>
-        <article className="prx-metal flex aspect-[5/4] flex-col justify-between rounded-[32px] md:aspect-[4/5] p-6 text-[#0b0b10] sm:p-7">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#3d3d48]">PRX Coins</p>
-          <div>
-            <p className="text-[40px] font-normal leading-none tracking-[-0.045em] tabular-nums sm:text-[48px]">+ 120 coins</p>
-            <p className="mt-3 max-w-[260px] text-[15px] leading-relaxed text-[#3d3d48]">Cada Pix em parceiro PRX é reconhecido sozinho e vira coins e XP.</p>
-          </div>
-        </article>
-      </motion.li>
-      <motion.li custom={2} variants={rise} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.35 }}>
-        <article className="glass flex aspect-[5/4] flex-col justify-between rounded-[32px] md:aspect-[4/5] p-6 text-[#0b0b10] sm:p-7">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#3d3d48]">PRX Pass</p>
-          <div>
-            <p className="text-[40px] font-normal leading-none tracking-[-0.045em] text-[#6c0cf0] sm:text-[48px]">−30%</p>
-            <p className="mt-3 max-w-[260px] text-[15px] leading-relaxed text-[#3d3d48]">Troque coins por descontos reais em marcas parceiras. Mostre o QR no balcão.</p>
-          </div>
-        </article>
-      </motion.li>
-    </ul>
+      </motion.div>
+    </li>
   );
 }
 
-function SalarySection({ appUrl }: { appUrl: string }) {
+function LevelBar() {
   return (
-    <section id="salario" aria-labelledby="salary-title" className="relative scroll-mt-24 bg-white px-5 pb-24 pt-10 sm:px-8 sm:pb-32">
-      <div className="mx-auto max-w-[1200px] text-center">
-        <motion.h2
-          id="salary-title"
-          variants={rise}
-          custom={0}
-          initial="hidden"
-          whileInView="show"
+    <div>
+      <p className="text-[40px] font-light leading-none tracking-[-0.04em] tabular-nums sm:text-[46px]">+ 120 coins</p>
+      <div className="mt-5 flex items-center justify-between text-[12px] font-semibold text-[#3d3d48]">
+        <span>Level 3</span>
+        <span>Level 4</span>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/[0.07]">
+        <motion.span
+          className="block h-full origin-left rounded-full bg-[#7c3aed]"
+          initial={{ scaleX: 0 }}
+          whileInView={{ scaleX: 0.68 }}
           viewport={{ once: true, amount: 0.6 }}
-          className="mx-auto max-w-[900px] text-[clamp(40px,9vw,56px)] font-semibold leading-[0.95] tracking-[-0.05em] text-[#0b0b10] md:text-[clamp(56px,6.4vw,96px)]"
+          transition={{ type: "spring", stiffness: 300, damping: 28, delay: 0.2 }}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface LandingPillar {
+  id: "pass" | "live" | "invest" | "me";
+  name: string;
+  caption: string;
+  image: StaticImageData;
+  /** Enquadramento da foto dentro do card vertical. */
+  focus: string;
+  soon: boolean;
+}
+
+const PILLARS: ReadonlyArray<LandingPillar> = [
+  { id: "pass", name: "Pass", caption: "Clube de benefícios com descontos reais em parceiros credenciados.", image: OBSIDIAN_IMAGES.cardMetal, focus: "object-[50%_58%]", soon: false },
+  { id: "live", name: "Live", caption: "Shows e eventos com ingresso VIP e cashback em coins.", image: OBSIDIAN_IMAGES.liveConcert, focus: "object-[50%_62%]", soon: false },
+  { id: "invest", name: "Invest", caption: "Invista nos seus planos.", image: OBSIDIAN_IMAGES.investCopper, focus: "object-[50%_45%]", soon: true },
+  { id: "me", name: "Me", caption: "Saúde mental e longevidade pra ir mais longe.", image: OBSIDIAN_IMAGES.meHorizon, focus: "object-[60%_62%]", soon: true },
+];
+
+function PillarCard({ pillar, index }: { pillar: LandingPillar; index: number }) {
+  return (
+    <li id={pillar.id} className="scroll-mt-28">
+      <motion.div custom={index} variants={rise} initial="hidden" whileInView="show" viewport={IN_VIEW}>
+        <article
+          className={cn(
+            "relative isolate flex aspect-[3/4.2] flex-col justify-between overflow-hidden rounded-[24px] p-4 text-white shadow-[0_30px_60px_-30px_rgba(22,12,52,0.6)] sm:p-5",
+            PHOTO_EDGE,
+          )}
         >
-          Your salary, reimagined
-        </motion.h2>
-        <motion.p
-          variants={rise}
-          custom={1}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, amount: 0.6 }}
-          className="mx-auto mt-5 max-w-[560px] text-[16px] leading-relaxed text-[#5b5b66] sm:text-[19px]"
-        >
-          Receba no PRX Bank, acompanhe cada real no PRX Map e transforme o que você já gasta em benefícios, eventos e experiências.
-        </motion.p>
-        <motion.div variants={rise} custom={2} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.6 }} className="mt-8 flex justify-center">
-          <a
-            href={appUrl}
-            className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-[#0b0b10] px-7 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_24px_-12px_rgba(11,11,16,0.6)] transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.98]"
+          <Image src={pillar.image} alt="" fill sizes="(min-width: 1024px) 282px, 50vw" placeholder="blur" className={cn("-z-10 object-cover", pillar.focus)} />
+          <span aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(5,5,8,0.62)_0%,rgba(5,5,8,0.06)_34%,rgba(5,5,8,0.12)_52%,rgba(5,5,8,0.9)_100%)]" />
+          <h4 className="ob-label text-[15px] leading-[1.15] tracking-[0.16em] sm:text-[18px]">
+            PRX
+            <br />
+            {pillar.name}
+          </h4>
+          <div>
+            {pillar.soon && (
+              <span className={cn("ob-label mb-3 inline-flex rounded-full px-2.5 py-1 text-[10px] tracking-[0.14em]", LIQUID.dark)}>Em breve</span>
+            )}
+            <p className="text-[13px] leading-snug text-white/85 sm:text-[14px]">{pillar.caption}</p>
+          </div>
+        </article>
+      </motion.div>
+    </li>
+  );
+}
+
+function AchievementsSection({ appUrl }: { appUrl: string }) {
+  return (
+    <section id="conquistas" aria-labelledby="conquistas-title" className="relative isolate scroll-mt-24 overflow-hidden bg-white px-5 pb-24 pt-10 sm:px-8 sm:pb-32">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(48rem_28rem_at_12%_46%,rgba(124,58,237,0.08),transparent_70%),radial-gradient(40rem_26rem_at_90%_64%,rgba(0,102,255,0.06),transparent_70%)]"
+      />
+      <div className="mx-auto max-w-[1200px]">
+        <div className="text-center">
+          <motion.h2
+            id="conquistas-title"
+            variants={rise}
+            custom={0}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.6 }}
+            className="mx-auto max-w-[1100px] text-balance text-[clamp(30px,7.6vw,52px)] font-semibold leading-[1.02] tracking-[-0.045em] text-[#0b0b10] md:text-[clamp(44px,4.8vw,72px)]"
           >
-            Abrir minha conta
-          </a>
-        </motion.div>
-        <SalaryCards />
+            As bets lucram com a perda.
+            <br />
+            <span className="text-[#7c3aed]">Nós premiamos suas conquistas.</span>
+          </motion.h2>
+          <motion.p
+            variants={rise}
+            custom={1}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.6 }}
+            className="mx-auto mt-5 max-w-[620px] text-pretty text-[16px] leading-relaxed text-[#5b5b66] sm:text-[19px]"
+          >
+            Economizar, bater metas e viver experiências pontua no seu PRX Level. Suba de nível e desbloqueie limites ampliados, anuidade zero e acesso a lounges VIP.
+          </motion.p>
+          <motion.div variants={rise} custom={2} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.6 }} className="mt-8 flex justify-center">
+            <LuxuryButton href={appUrl} className="px-7 text-[15px]">
+              Abrir minha conta
+            </LuxuryButton>
+          </motion.div>
+        </div>
+
+        <ul className="mt-12 grid gap-4 text-left sm:mt-16 lg:grid-cols-3 lg:gap-5">
+          <HighlightCard id="bank" index={0} title="PRX Bank" text="Conta digital, Pix 24/7 sem tarifas e cartão de metal exclusivo.">
+            <p className="text-[40px] font-light leading-none tracking-[-0.04em] tabular-nums sm:text-[46px]">
+              R$ 0<span className="ml-2 text-[15px] font-medium tracking-normal text-[#5b5b66]">de tarifa no Pix</span>
+            </p>
+          </HighlightCard>
+          <HighlightCard index={1} title="PRX Coins & Level" text="Cada compra em parceiro reconhecida na hora; pontuação acumulada para subir de nível.">
+            <LevelBar />
+          </HighlightCard>
+          <HighlightCard index={2} title="PRX Pass" text="Descontos de 20% a 50% direto no balcão via QR Code protegido.">
+            <p className="text-[40px] font-light leading-none tracking-[-0.04em] text-[#7c3aed] tabular-nums sm:text-[46px]">20–50%</p>
+          </HighlightCard>
+        </ul>
+
+        <div className="mt-16 sm:mt-24">
+          <h3 className="ob-label border-b border-black/[0.07] pb-4 text-[12px] text-[#3d3d48]">Os pilares PRX</h3>
+          <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
+            {PILLARS.map((pillar, i) => (
+              <PillarCard key={pillar.id} pillar={pillar} index={i} />
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );
 }
 
+/** Rodapé Obsidian: a página termina no mesmo breu em que começou. */
 function Footer({ appUrl }: { appUrl: string }) {
   const base = appUrl.replace(/\/$/, "");
   return (
-    <footer className="border-t border-black/[0.06] bg-white px-5 py-10 sm:px-8">
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-6 text-[13px] text-[#5b5b66] md:flex-row md:items-center md:justify-between">
-        <PrxLogo variant="compact" title="PRX" className="h-6 w-auto text-[#0b0b10]" />
+    <footer className="relative isolate overflow-hidden bg-[#050508] px-5 py-12 text-[13px] text-white/75 sm:px-8">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(44rem_18rem_at_50%_130%,rgba(124,58,237,0.24),transparent_70%)]" />
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <PrxLogo variant="compact" title="PRX" className="h-6 w-auto text-white" />
         <nav aria-label="Documentos" className="flex flex-wrap gap-x-5 gap-y-1">
-          <a href={`${base}/termos`} className="inline-flex min-h-10 cursor-pointer items-center hover:text-[#0b0b10]">
+          <a href={`${base}/termos`} className="inline-flex min-h-12 cursor-pointer items-center transition-colors hover:text-white">
             Termos de Uso
           </a>
-          <a href={`${base}/privacidade`} className="inline-flex min-h-10 cursor-pointer items-center hover:text-[#0b0b10]">
+          <a href={`${base}/privacidade`} className="inline-flex min-h-12 cursor-pointer items-center transition-colors hover:text-white">
             Política de Privacidade
           </a>
-          <a href={`${base}/sou-pai`} className="inline-flex min-h-10 cursor-pointer items-center hover:text-[#0b0b10]">
+          <a href={`${base}/sou-pai`} className="inline-flex min-h-12 cursor-pointer items-center transition-colors hover:text-white">
             Sou Pai
           </a>
         </nav>
-        <ViraWebCredit className="md:justify-end" />
+        <ViraWebCredit onDark className="md:justify-end" />
       </div>
     </footer>
   );
@@ -481,31 +837,36 @@ function Footer({ appUrl }: { appUrl: string }) {
 /* Página                                                                     */
 /* -------------------------------------------------------------------------- */
 
-const REDUCE = "(prefers-reduced-motion: reduce)";
-
 export function RevolutLanding({ preview = false }: { preview?: boolean }) {
   const appUrl = useMainSiteUrl();
-  const reduceMotion = useSyncExternalStore(
-    subscribeMedia(REDUCE),
-    () => window.matchMedia(REDUCE).matches,
-    () => false,
-  );
+  const reduceMotion = useMedia(REDUCE, false);
+  const [tone, setTone] = useState<Tone>("dark");
+  const lenisRef = useRef<LenisRef>(null);
+
+  // Lenis avança dentro do frame loop do Motion: rolagem e molas leem o mesmo quadro.
+  useEffect(() => {
+    const update = (data: FrameData) => lenisRef.current?.lenis?.raf(data.timestamp);
+    frame.update(update, true);
+    return () => cancelFrame(update);
+  }, []);
 
   return (
-    <ReactLenis root options={{ lerp: 0.1, smoothWheel: !reduceMotion, syncTouch: false }}>
-      <div className="prx-rv min-h-dvh overflow-x-clip selection:bg-[#6c0cf0] selection:text-white">
-        <Header appUrl={appUrl} />
-        <main>
-          <PinnedStory appUrl={appUrl} />
-          <SalarySection appUrl={appUrl} />
-        </main>
-        <Footer appUrl={appUrl} />
-        {preview && (
-          <p className="glass-chip fixed bottom-3 right-3 z-50 rounded-full px-3.5 py-1.5 text-[12px] font-medium text-[#3d3d48]">
-            Prévia para aprovação · visível só para o admin
-          </p>
-        )}
-      </div>
-    </ReactLenis>
+    <MotionConfig reducedMotion="user">
+      <ReactLenis root ref={lenisRef} options={LENIS_OPTIONS}>
+        <div className="prx-rv min-h-dvh overflow-x-clip selection:bg-[#7c3aed] selection:text-white">
+          <Header appUrl={appUrl} tone={tone} />
+          <main>
+            <PinnedStory appUrl={appUrl} reduceMotion={reduceMotion} onTone={setTone} />
+            <AchievementsSection appUrl={appUrl} />
+          </main>
+          <Footer appUrl={appUrl} />
+          {preview && (
+            <p className="fixed bottom-3 right-3 z-50 rounded-full border border-white/10 bg-[#0b0b12]/80 px-3.5 py-1.5 text-[12px] font-medium text-white/85 shadow-[0_12px_32px_-12px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+              Prévia para aprovação · visível só para o admin
+            </p>
+          )}
+        </div>
+      </ReactLenis>
+    </MotionConfig>
   );
 }
