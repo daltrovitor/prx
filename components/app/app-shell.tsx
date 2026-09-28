@@ -1,7 +1,7 @@
 // Hello World
 "use client";
 
-import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLenis } from "lenis/react";
 import type { User } from "@/hooks/use-auth";
@@ -47,6 +47,8 @@ interface AppShellProps {
   user: User;
   onLogout: () => void;
   onViewShowcase: () => void;
+  /** Aviso da conta (ex.: menor aguardando o responsável), acima do conteúdo de todas as abas. */
+  notice?: ReactNode;
 }
 
 export function AppShell(props: AppShellProps) {
@@ -59,7 +61,7 @@ export function AppShell(props: AppShellProps) {
   );
 }
 
-function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
+function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) {
   useThemeScope("app");
   const { tab, go } = useAppNav();
   const pass = usePassData(user);
@@ -190,6 +192,7 @@ function ShellLayout({ user, onLogout, onViewShowcase }: AppShellProps) {
               immersive ? "px-0 pb-[calc(62px+max(0.5rem,env(safe-area-inset-bottom)))] sm:px-6 lg:px-12 lg:pb-6" : "px-4 pb-32 pt-3 sm:px-6 lg:px-12 lg:pb-20 lg:pt-4"
             )}
           >
+            {notice && !immersive && <div className="mb-6">{notice}</div>}
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={tab}

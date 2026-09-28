@@ -23,7 +23,7 @@ export function ViraWebCredit({ className, onDark = false }: { className?: strin
       >
         {/* Logo servida pela própria ViraWeb (sem otimização de imagem do Next). */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={VIRAWEB_LOGO} alt="ViraWeb" height={20} className="h-5 w-auto" loading="lazy" decoding="async" />
+        <img src={VIRAWEB_LOGO} alt="ViraWeb" width={80} height={20} className="h-5 w-auto" loading="lazy" decoding="async" />
       </a>
     </p>
   );

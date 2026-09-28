@@ -156,6 +156,11 @@ class UserStore {
     return Array.from(this.users.values());
   }
 
+  deleteUser(id: string): boolean {
+    const user = this.findById(id);
+    return user ? this.users.delete(user.email) : false;
+  }
+
   updateRole(idOrEmail: string, newRole: "user" | "partner" | "staff" | "admin"): StoredUser | null {
     const user = this.findByEmail(idOrEmail) || this.findById(idOrEmail);
     if (!user) return null;

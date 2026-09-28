@@ -17,7 +17,15 @@ export interface User {
   avatarUrl: string;
 }
 
-type AuthResult = { success: boolean; error?: string };
+type AuthResult = { success: boolean; error?: string; code?: string | null };
+
+/** CPF, nascimento e caminho de 16–17 anos informados no cadastro (verificação de idade). */
+export interface SignupIdentityInput {
+  cpf: string;
+  birthDate: string;
+  teenPath?: "linked" | "emancipated" | "";
+  parentEmail?: string;
+}
 
 interface LoginOptions {
   /** false: autentica mas mantém a tela de login aberta (ex.: oferecer a biometria antes de entrar). */
@@ -37,7 +45,7 @@ interface AuthContextType {
   loginWithPasskey: (userId: string) => Promise<AuthResult & { missing?: boolean }>;
   /** "Entrar com outra conta": encerra a sessão e esquece a conta lembrada neste aparelho. */
   forgetAccount: () => Promise<void>;
-  signup: (fullName: string, email: string, pass: string, termsAccepted?: boolean) => Promise<AuthResult>;
+  signup: (fullName: string, email: string, pass: string, termsAccepted?: boolean, identity?: SignupIdentityInput) => Promise<AuthResult>;
   loginWithGoogle: (rememberMe?: boolean, termsAccepted?: boolean) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -189,15 +197,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [markUnlocked]
   );
 
-  const signup = useCallback(async (fullName: string, email: string, pass: string, termsAccepted = false): Promise<AuthResult> => {
+  const signup = useCallback(async (fullName: string, email: string, pass: string, termsAccepted = false, identity?: SignupIdentityInput): Promise<AuthResult> => {
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, email, password: pass, termsAccepted }),
+        body: JSON.stringify({
+          fullName,
+          email,
+          password: pass,
+          termsAccepted,
+          ...(identity ? { cpf: identity.cpf, birthDate: identity.birthDate, teenPath: identity.teenPath || undefined, parentEmail: identity.parentEmail || undefined } : {}),
+        }),
       });
-      const data = (await res.json()) as { user?: User; error?: string };
-      if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta" };
+      const data = (await res.json()) as { user?: User; error?: string; code?: string | null };
+      if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta", code: data.code ?? null };
       storage.mark(true);
       rememberAccount(data.user, true, "password");
       setUser(data.user);

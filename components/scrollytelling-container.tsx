@@ -21,6 +21,7 @@ const Phone3DModel = dynamic(() => import("@/components/phone-3d-model").then((m
   loading: () => <div aria-hidden className={PHONE_BOX} />,
 });
 import { useAuth } from "@/hooks/use-auth";
+import { EMPTY_IDENTITY, SignupIdentityFields, identityProblem, type SignupIdentity } from "@/components/auth/signup-identity";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -301,6 +302,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
   const [authEmail, setAuthEmail] = useState("");
   const [authPass, setAuthPass] = useState("");
   const [authName, setAuthName] = useState("");
+  const [identity, setIdentity] = useState<SignupIdentity>(EMPTY_IDENTITY);
   const [showPassword, setShowPassword] = useState(false);
   const [phoneReady, setPhoneReady] = useState(false);
 
@@ -366,7 +368,17 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
           setAuthErrorMsg(res.error || "Credenciais incorretas. Verifique seu e-mail e senha.");
         }
       } else {
-        const res = await signup(authName, authEmail, authPass, termsAccepted);
+        const problem = identityProblem(identity);
+        if (problem) {
+          setAuthErrorMsg(problem);
+          return;
+        }
+        const res = await signup(authName, authEmail, authPass, termsAccepted, identity);
+        if (!res.success && res.code === "PARENT_REQUIRED") {
+          setAuthErrorMsg(res.error || "Menores de 16 anos entram pela Conta Pai.");
+          window.setTimeout(() => router.push("/sou-pai"), 1800);
+          return;
+        }
         if (res.success) {
           setAuthSuccessMsg("Conta criada com sucesso! Bem-vindo.");
           setTimeout(() => {
@@ -677,6 +689,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                       />
                     </div>
                   )}
+                  {authTab === "signup" && <SignupIdentityFields value={identity} onChange={setIdentity} inputClass="w-full py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 focus:bg-white dark:focus:bg-white/10 text-sm transition-all font-sans" />}
 
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1122,6 +1135,7 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
                         />
                       </div>
                     )}
+                    {authTab === "signup" && <SignupIdentityFields value={identity} onChange={setIdentity} inputClass="w-full py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-600 dark:focus:border-purple-500 focus:bg-white dark:focus:bg-white/10 text-sm transition-all font-sans" />}
 
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
