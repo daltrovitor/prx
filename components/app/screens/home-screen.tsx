@@ -5,16 +5,17 @@ import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import type { PassData } from "@/components/app/use-pass-data";
 import { useAppNav, type AppTab } from "@/components/app/app-nav";
-import { useBankAccount, useHiddenBalance, useLiveData } from "@/components/app/use-prx-stores";
+import { useBankAccount, useHiddenBalance, useLiveData, usePointsWallet } from "@/components/app/use-prx-stores";
 import { EventDate, TextLink, TransactionRow } from "@/components/app/shared";
-import { PaymentCard, ScoreCard } from "@/components/app/bank/card-visual";
-import { ActionTile, BalanceFigure, EmptyState, IconButton, ProgressBar, SectionHeader, Sheet } from "@/components/app/ui";
+import { PaymentCard } from "@/components/app/bank/card-visual";
+import { WalletTriad } from "@/components/app/points/wallet-triad";
+import { PointsSheet } from "@/components/app/points/points-sheet";
+import { ActionTile, EmptyState, ProgressBar, SectionHeader, Sheet } from "@/components/app/ui";
 import {
   IconCalendar,
   IconCard,
   IconChevronDown,
-  IconEye,
-  IconEyeOff,
+  IconCoin,
   IconGift,
   IconLevel,
   IconPix,
@@ -24,7 +25,6 @@ import {
   IconTicket,
   IconUsers,
 } from "@/components/icons/prx-icons";
-import { levelProgress } from "@/lib/pass-data";
 
 const reveal = {
   hidden: { opacity: 0, y: 14 },
@@ -32,15 +32,17 @@ const reveal = {
 };
 
 export function HomeScreen({ pass }: { pass: PassData }) {
-  const { go } = useAppNav();
+  const { go, sub } = useAppNav();
   const { member, vouchers, missions, benefits } = pass;
   const { account } = useBankAccount(member.id);
   const { data: live } = useLiveData(member.id);
+  const { wallet, error: pointsError, checkin } = usePointsWallet(member.id);
   const [hidden, toggleHidden] = useHiddenBalance();
   const [moreOpen, setMoreOpen] = useState(false);
+  // #home/pontos (ex.: aviso de compra em parceiro) abre o extrato de pontos.
+  const pointsOpen = sub === "pontos";
 
   const activeVouchers = vouchers.filter((v) => v.status === "valid");
-  const progress = levelProgress(member.prxScore ?? 0);
   const inProgress = missions.filter((m) => m.isAccepted && !m.isCompleted).slice(0, 3);
   const suggestedMissions = inProgress.length > 0 ? inProgress : missions.filter((m) => !m.isCompleted).slice(0, 3);
 
@@ -64,43 +66,31 @@ export function HomeScreen({ pass }: { pass: PassData }) {
     { label: "Ingressos", Icon: IconTicket, tab: "live", sub: "ingressos" },
     { label: "Convidar", Icon: IconUsers, tab: "pass", sub: "convidar" },
     { label: "Chaves Pix", Icon: IconPix, tab: "bank", sub: "chaves" },
+    { label: "PRX Coins", Icon: IconCoin, tab: "home", sub: "pontos" },
   ];
 
-  const scoreCard = (
-    <ScoreCard
-      level={progress.level}
-      score={member.prxScore ?? 0}
-      pct={progress.pct}
-      remaining={progress.next === null ? null : progress.remaining}
-      onClick={() => go("pass", "missions")}
-    />
-  );
   const paymentCard = <PaymentCard card={account?.virtualCard ?? null} holder={member.name || "Membro PRX"} onClick={() => go("bank", "cartoes")} />;
 
   return (
     <div className="grid gap-9 lg:grid-cols-12 lg:gap-12">
       <div className="min-w-0 space-y-9 lg:col-span-7">
-        {/* Topo: saldo */}
-        <motion.section aria-label="Saldo" initial="hidden" animate="show" custom={0} variants={reveal}>
-          <BalanceFigure
-            label={account && account.status !== "active" ? "Saldo da conta · em ativação" : "Saldo da conta"}
-            value={account?.balance ?? 0}
+        {/* Topo: Carteira Central — saldo, PRX Coins e nível */}
+        <motion.section aria-label="Carteira Central" initial="hidden" animate="show" custom={0} variants={reveal}>
+          <WalletTriad
+            balance={account?.balance ?? 0}
+            balanceLabel={account && account.status !== "active" ? "Saldo PRX Bank · em ativação" : "Saldo PRX Bank"}
+            coins={wallet?.coins ?? null}
+            xp={wallet?.xp ?? member.prxScore ?? 0}
             hidden={hidden}
-            action={
-              <IconButton tone="plain" label={hidden ? "Mostrar saldo" : "Ocultar saldo"} aria-pressed={hidden} onClick={toggleHidden} className="-mr-2 h-10 w-10">
-                {hidden ? <IconEyeOff size={18} /> : <IconEye size={18} />}
-              </IconButton>
-            }
+            onToggleHidden={toggleHidden}
+            onOpenPoints={() => go("home", "pontos")}
+            onOpenLevel={() => go("pass", "missions")}
           />
         </motion.section>
 
-        {/* Cartões em carrossel (no desktop ficam na coluna lateral) */}
-        <motion.section aria-label="Cartões" initial="hidden" animate="show" custom={1} variants={reveal} className="lg:hidden">
-          {/* pb/-mb: espaço para a sombra dos cartões não ser cortada pela rolagem. */}
-          <ul className="-mx-4 -mb-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-6 scrollbar-none touch-pan-x overscroll-x-contain sm:-mx-6 sm:px-6">
-            <li className="w-[80%] max-w-[320px] shrink-0 snap-center">{paymentCard}</li>
-            <li className="w-[80%] max-w-[320px] shrink-0 snap-center">{scoreCard}</li>
-          </ul>
+        {/* Cartão (no desktop fica na coluna lateral) */}
+        <motion.section aria-label="Cartão" initial="hidden" animate="show" custom={1} variants={reveal} className="lg:hidden">
+          <div className="max-w-[340px]">{paymentCard}</div>
         </motion.section>
 
         {/* Ações rápidas */}
@@ -155,10 +145,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
       </div>
 
       <aside className="min-w-0 space-y-9 lg:col-span-5" aria-label="Resumo">
-        <div className="hidden space-y-4 lg:block">
-          {paymentCard}
-          {scoreCard}
-        </div>
+        <div className="hidden lg:block">{paymentCard}</div>
 
         <section aria-labelledby="home-vouchers" className="flex items-center justify-between gap-4 rounded-3xl bg-surface p-5">
           <div>
@@ -231,6 +218,8 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           </section>
         )}
       </aside>
+
+      <PointsSheet open={pointsOpen} onClose={() => go("home")} wallet={wallet} error={pointsError} onCheckin={checkin} />
 
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Mais ações">
         <div className="grid grid-cols-4 gap-x-3 gap-y-5 pb-2">

@@ -1,5 +1,6 @@
 // Hello World
 import { z } from "zod";
+import { MAX_GATE_LEVEL } from "@/lib/pass-data";
 import { inferDocumentType, isValidCpf, isValidDocument, onlyDigits, type DocumentType } from "@/lib/partners/documents";
 import {
   REDEMPTION_MODE_IDS,
@@ -269,7 +270,7 @@ export const commercialSummarySchema = z
     mediaPeriods: z.coerce.number().int().min(1).max(52),
     mediaPrice: money,
     commission: z.string().trim().min(2, "Descreva repasse, comissão ou taxa (ou “Sem comissão”).").max(400),
-    minPrxLevel: z.coerce.number().int().min(1).max(7).default(1),
+    minPrxLevel: z.coerce.number().int().min(1).max(MAX_GATE_LEVEL).default(1),
     rules: z.array(z.string().trim().min(1).max(200)).max(10).default([]),
   })
   .superRefine((s, ctx) => {

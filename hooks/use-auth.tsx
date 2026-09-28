@@ -2,6 +2,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { CONSENT_COOKIE, TERMS_VERSION } from "@/lib/legal-version";
 
 export interface User {
   id: string;
@@ -19,9 +20,9 @@ type AuthResult = { success: boolean; error?: string };
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, pass: string, rememberMe?: boolean) => Promise<AuthResult>;
-  signup: (fullName: string, email: string, pass: string) => Promise<AuthResult>;
-  loginWithGoogle: (rememberMe?: boolean) => Promise<AuthResult>;
+  login: (email: string, pass: string, rememberMe?: boolean, termsAccepted?: boolean) => Promise<AuthResult>;
+  signup: (fullName: string, email: string, pass: string, termsAccepted?: boolean) => Promise<AuthResult>;
+  loginWithGoogle: (rememberMe?: boolean, termsAccepted?: boolean) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -112,12 +113,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (email: string, pass: string, rememberMe = true): Promise<AuthResult> => {
+  const login = useCallback(async (email: string, pass: string, rememberMe = true, termsAccepted = false): Promise<AuthResult> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: pass, rememberMe }),
+        body: JSON.stringify({ email, password: pass, rememberMe, termsAccepted }),
       });
       const data = (await res.json()) as { user?: User; error?: string };
       if (!res.ok || !data.user) return { success: false, error: data.error || "Falha no login" };
@@ -129,12 +130,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signup = useCallback(async (fullName: string, email: string, pass: string): Promise<AuthResult> => {
+  const signup = useCallback(async (fullName: string, email: string, pass: string, termsAccepted = false): Promise<AuthResult> => {
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, email, password: pass }),
+        body: JSON.stringify({ fullName, email, password: pass, termsAccepted }),
       });
       const data = (await res.json()) as { user?: User; error?: string };
       if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta" };
@@ -146,10 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const loginWithGoogle = useCallback(async (rememberMe = true): Promise<AuthResult> => {
+  const loginWithGoogle = useCallback(async (rememberMe = true, termsAccepted = false): Promise<AuthResult> => {
     try {
       storage.mark(rememberMe);
       document.cookie = `prx_remember_pending=${rememberMe ? 1 : 0}; path=/; max-age=1800; SameSite=Lax`;
+      // O aceite dos Termos/LGPD atravessa o redirecionamento do Google e é gravado no callback.
+      if (termsAccepted) document.cookie = `${CONSENT_COOKIE}=${TERMS_VERSION}; path=/; max-age=1800; SameSite=Lax`;
 
       const { supabase, isUsingLiveSupabase } = await import("@/lib/supabase/client");
       if (isUsingLiveSupabase && supabase) {

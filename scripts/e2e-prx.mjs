@@ -255,7 +255,7 @@ await step("security", async () => {
   ok("anonymous redeem rejected (401)", r.status() === 401, String(r.status()));
   r = await ap.request.get(`${BASE}/api/admin/users`);
   ok("anonymous admin API rejected", r.status() === 401 || r.status() === 403, String(r.status()));
-  r = await ap.request.post(`${BASE}/api/auth/signup`, { data: { fullName: "Invasor", email: "adminv@nxtgen.com", password: "123456789" } });
+  r = await ap.request.post(`${BASE}/api/auth/signup`, { data: { fullName: "Invasor", email: "adminv@nxtgen.com", password: "123456789", termsAccepted: true } });
   ok("signup with reserved admin email blocked", r.status() === 400, String(r.status()));
   r = await ap.request.get(`${BASE}/api/auth/me`);
   ok("guest /api/auth/me returns 200 null", r.status() === 200, String(r.status()));

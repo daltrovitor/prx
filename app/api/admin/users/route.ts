@@ -1,4 +1,6 @@
+// Hello World
 import { NextRequest, NextResponse } from "next/server";
+import { calculatePrxLevel, xpForLevel } from "@/lib/pass-data";
 import { userStore, verifyAdminRequest } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { errorMessage } from "@/lib/errors";
@@ -49,7 +51,7 @@ export async function GET(req: NextRequest) {
               name: p.full_name || p.name || p.email.split("@")[0],
               role: effectiveRole,
               prxScore: p.nxt_score ?? 250,
-              prxLevel: p.nxt_level ?? 1,
+              prxLevel: calculatePrxLevel(p.nxt_score ?? 250),
               walletBalance: Number(p.wallet_balance || 0),
               createdAt: p.created_at,
               vouchersCount: userVouchers.length,
@@ -104,7 +106,13 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json();
     // Saldo não é editável: a conta PRX BANK só muda por movimentações do banco parceiro.
-    const { id, email, prxLevel, prxScore, role } = body;
+    const { id, email, role } = body;
+    // Régua infinita: nível e XP andam juntos. XP informado define o nível; só o nível
+    // informado leva o XP ao piso daquele nível.
+    const scoreInput = body.prxScore !== undefined && body.prxScore !== "" ? Math.max(0, Math.floor(Number(body.prxScore) || 0)) : undefined;
+    const levelInput = body.prxLevel !== undefined && body.prxLevel !== "" ? Math.max(1, Math.floor(Number(body.prxLevel) || 1)) : undefined;
+    const prxScore = scoreInput ?? (levelInput !== undefined ? xpForLevel(levelInput) : undefined);
+    const prxLevel = prxScore !== undefined ? calculatePrxLevel(prxScore) : undefined;
     if (role !== undefined && !["user", "partner", "admin"].includes(role)) {
       return NextResponse.json({ error: "Papel inválido. A Equipe PRX é gerenciada na aba Equipe." }, { status: 400 });
     }

@@ -8,6 +8,7 @@ import { errorResponse, readJson } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
 import {
   accountView,
+  activateSandbox,
   addPixKey,
   assertBankOperational,
   cancelPhysicalCard,
@@ -15,7 +16,10 @@ import {
   pixKeyInputSchema,
   removePixKey,
   requestPhysicalCard,
+  sendPix,
+  sendPixSchema,
 } from "@/lib/bank/service";
+import { previewPartnerPix, type PartnerPixResult } from "@/lib/points/service";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -35,14 +39,33 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("remove_pix_key"), id: z.string().min(1).max(100) }),
   z.object({ action: z.literal("request_card"), address: z.unknown() }),
   z.object({ action: z.literal("cancel_card_request"), id: z.string().min(1).max(100) }),
-  z.object({ action: z.enum(["send_pix", "create_charge", "toggle_lock"]) }).loose(),
+  z.object({ action: z.literal("send_pix") }).loose(),
+  z.object({ action: z.literal("lookup_partner"), key: z.string().trim().min(1).max(140), recipientName: z.string().trim().max(80).nullish(), amount: z.coerce.number().min(0).max(50_000).optional() }),
+  z.object({ action: z.literal("sandbox_activate") }),
+  z.object({ action: z.enum(["create_charge", "toggle_lock"]) }).loose(),
 ]);
+
+/** Recompensa da compra em parceiro, para o aviso logo depois do Pix. */
+function rewardView(result: PartnerPixResult | null) {
+  if (!result || result.duplicate) return null;
+  return {
+    partnerName: result.purchase.partnerName,
+    categoryName: result.categoryName,
+    coins: result.purchase.coins,
+    xp: result.purchase.xp,
+    balanceCoins: result.coins,
+    level: result.level,
+  };
+}
 
 /**
  * POST /api/bank
  *   add_pix_key / remove_pix_key          pré-cadastro de chaves (registradas no banco na ativação)
  *   request_card / cancel_card_request    pedido do cartão físico (enviado ao emissor na ativação)
- *   send_pix / create_charge / toggle_lock dependem do banco parceiro: 409 até a ativação
+ *   lookup_partner                        identifica se a chave é de um parceiro PRX (tela de revisão)
+ *   send_pix                              sandbox: liquida e passa pelo motor de compras em parceiros
+ *   sandbox_activate                      só no ambiente de testes: conta ativa com saldo fictício
+ *   create_charge / toggle_lock           dependem do banco parceiro: 409 até a ativação
  */
 export async function POST(req: NextRequest) {
   try {
@@ -54,6 +77,7 @@ export async function POST(req: NextRequest) {
     const parsed = schema.safeParse(await readJson(req));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const body = parsed.data;
+    let reward: ReturnType<typeof rewardView> = null;
 
     switch (body.action) {
       case "add_pix_key": {
@@ -74,10 +98,21 @@ export async function POST(req: NextRequest) {
       case "cancel_card_request":
         await cancelPhysicalCard(user.id, body.id);
         break;
+      case "lookup_partner":
+        return NextResponse.json({ success: true, partner: await previewPartnerPix(body) }, { headers: NO_STORE });
+      case "sandbox_activate":
+        await activateSandbox(user.id);
+        break;
+      case "send_pix": {
+        const pix = sendPixSchema.safeParse(body);
+        if (!pix.success) throw new PartnerError(firstIssue(pix.error), 422);
+        reward = rewardView((await sendPix(user.id, pix.data)).partner);
+        break;
+      }
       default:
         await assertBankOperational(user.id);
     }
-    return NextResponse.json({ success: true, account: await accountView(user.id) }, { headers: NO_STORE });
+    return NextResponse.json({ success: true, account: await accountView(user.id), reward }, { headers: NO_STORE });
   } catch (error) {
     return errorResponse(error, "Erro ao processar a operação.");
   }

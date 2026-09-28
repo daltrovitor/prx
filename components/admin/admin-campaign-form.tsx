@@ -4,7 +4,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Button, Checkbox, Field, Input, Notice, RadioCards, Select, Sheet, Textarea } from "@/components/app/ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
-import { PRX_CATEGORIES } from "@/lib/pass-data";
+import { PRX_CATEGORIES, levelGateOptions } from "@/lib/pass-data";
 import { buildSummaryRows } from "@/lib/partners/contract";
 import {
   OFFER_KINDS,
@@ -283,7 +283,7 @@ function CampaignForm({ partner, campaign, onSaved }: { partner: Partner; campai
       <Field label="Nível mínimo no app">
         {(id) => (
           <Select id={id} value={form.minPrxLevel} onChange={(e) => set("minPrxLevel", e.target.value)}>
-            {[1, 2, 3, 4, 5, 6, 7].map((lvl) => (
+            {levelGateOptions(Number(form.minPrxLevel)).map((lvl) => (
               <option key={lvl} value={lvl}>
                 {lvl === 1 ? "Nível 1 (todos)" : `Nível ${lvl}`}
               </option>

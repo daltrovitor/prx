@@ -1,5 +1,6 @@
 // Hello World
 import { z } from "zod";
+import { MAX_GATE_LEVEL } from "@/lib/pass-data";
 
 /**
  * Domínio do PRX LIVE: eventos criados pelo admin, ingressos (reserva, convite,
@@ -220,7 +221,7 @@ export const eventInputSchema = z
     coverUrl: coverUrl.default(""),
     capacity: z.union([z.coerce.number().int().min(1), z.null()]).default(null),
     perUserLimit: z.coerce.number().int().min(1).max(20).default(1),
-    minPrxLevel: z.coerce.number().int().min(1).max(7).default(1),
+    minPrxLevel: z.coerce.number().int().min(1).max(MAX_GATE_LEVEL).default(1),
     partnerId: z.union([z.string().trim().min(1), z.null()]).default(null),
     staffCheckin: z.boolean().default(true),
     status: z.enum(EVENT_STATUSES).default("draft"),

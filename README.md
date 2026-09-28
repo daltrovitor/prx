@@ -1,3 +1,4 @@
+<!-- Hello World -->
 # PRX
 
 Experiências que conectam gerações. App de benefícios (PRX PASS), conta digital (PRX BANK) e eventos (PRX LIVE) para as gerações Z e Alpha.
@@ -32,16 +33,27 @@ Sem variáveis do Supabase o app roda com contas de demonstração, que só exis
 | `PRX_ADMIN_EMAILS` | Lista de e-mails admin separada por vírgula (opcional) |
 | `NEXT_PUBLIC_SITE_URL` | URL pública do app (opcional) |
 | `NEXT_PUBLIC_PRIVACY_POLICY_URL` | Link da Política de Privacidade na tela de aceite do parceiro (opcional) |
+| `NEXT_PUBLIC_PRX_LEGAL_NAME` / `NEXT_PUBLIC_PRX_CNPJ` | Razão social e CNPJ exibidos no rodapé e na Política de Privacidade |
+| `NEXT_PUBLIC_PRX_DPO_EMAIL` / `NEXT_PUBLIC_PRX_SUPPORT_EMAIL` | Canal do Encarregado (LGPD) e contato (padrão `privacidade@` e `contato@prx.app.br`) |
+| `PRX_BAAS_WEBHOOK_SECRET` | Segredo HMAC (32+ caracteres) do webhook `POST /api/bank/webhooks/pix` do banco parceiro |
+| `PRX_BAAS_MODE=sandbox` | Liga a conta sandbox (saldo fictício) fora do desenvolvimento, só para contas em memória |
+| `PRX_TEASER_HOSTS` | Hosts extras que abrem o teaser `/em-breve` na raiz (além de `prx.app.br`) |
 
 ## Estrutura
 
-- `app/`: rotas (App Router). `/` é a landing e o app; `/admin` e `/partner` são servidas pelos subdomínios (`proxy.ts`).
-- `components/app/`: shell do app, telas (Início, Pass, Bank, Live, Perfil) e UI do Modelo Padrão.
+- `app/`: rotas (App Router). `/` é a landing e o app; `/admin` e `/partner` são servidas pelos subdomínios (`proxy.ts`). Páginas públicas: `/institucional`, `/termos`, `/privacidade` e `/em-breve` (raiz do domínio `prx.app.br`).
+- `components/app/`: shell do app, telas (Início, Pass, Reels, Bank, Live e Perfil no cabeçalho) e UI do Modelo Padrão.
 - `components/brand/`: logo vetorial e abertura animada.
 - `components/icons/`: ícones próprios da PRX.
 - `lib/prx/`: domínio do PRX BANK (Pix EMV, cartões, extrato) e do PRX LIVE.
+- `lib/points/`: economia PRX: PRX Coins, régua infinita de níveis, regras de bom comportamento, calculadora de viabilidade e motor de compras em parceiros via Pix.
+- `lib/reels/`: Reels de parceiros (feed, curtidas, salvos e métricas).
 - `lib/partners/`: programa de parceiros: Termo e Resumo Comercial, aceite eletrônico, planos de mídia e métricas agregadas. Ver [docs/PARCEIROS.md](docs/PARCEIROS.md), que inclui a ordem de implantação.
 - `docs/`: [relatório](docs/RELATORIO_PRX.md), [plano de BaaS](docs/PLANO_BAAS.md), [infraestrutura para escala](docs/INFRA_ESCALA.md) e [programa de parceiros](docs/PARCEIROS.md).
+
+## Banco de dados
+
+Aplique as migrações de `supabase/migrations` em ordem. A `20260927_prx_points_reels_finance.sql` cria PRX Coins, extrato de pontos, regras de comportamento, Reels, compras em parceiros (BACEN) e lista VIP, com crédito atômico por `prx_apply_point_transaction` (só a service role executa).
 
 ## Qualidade
 
@@ -51,4 +63,5 @@ npm run lint
 npm test
 npm run build
 BASE=http://localhost:3000 node scripts/e2e-partners.mjs   # com npm run dev, sem Supabase
+BASE=http://localhost:3000 node scripts/e2e-prx2.mjs       # pontos, Pix em parceiro, Reels, financeiro, LGPD
 ```

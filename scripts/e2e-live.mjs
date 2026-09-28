@@ -41,7 +41,7 @@ const member2 = client();
 // ---------- Contas ----------
 check("admin entra", (await admin("/api/admin/login", { method: "POST", body: { email: "admin@prx.dev", password: "AdminPrx2026!" } })).status === 200);
 check("membro demo entra", (await member("/api/auth/login", { method: "POST", body: { email: "membro@prx.dev", password: "Prx2026!" } })).status === 200);
-const signup2 = await member2("/api/auth/signup", { method: "POST", body: { fullName: "Bruna Tavares", email: `bruna-${stamp}@prx.dev`, password: "Prx2026!x" } });
+const signup2 = await member2("/api/auth/signup", { method: "POST", body: { fullName: "Bruna Tavares", email: `bruna-${stamp}@prx.dev`, password: "Prx2026!x", termsAccepted: true } });
 check("segundo membro se cadastra", signup2.status === 200 || signup2.status === 201, signup2.data);
 
 const partnerEmail = `portaria-${stamp}@parceiro.dev`;

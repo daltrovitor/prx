@@ -4,7 +4,10 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import type { User } from "@/hooks/use-auth";
 import { useAppNav } from "@/components/app/app-nav";
-import { useBankAccount, useHiddenBalance, type ActionResult } from "@/components/app/use-prx-stores";
+import { useBankAccount, useHiddenBalance, usePointsWallet, type ActionResult, type PartnerReward } from "@/components/app/use-prx-stores";
+import { PrxMap } from "@/components/app/bank/prx-map";
+import { WalletTriad } from "@/components/app/points/wallet-triad";
+import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { TransactionRow } from "@/components/app/shared";
 import { CardVisual } from "@/components/app/bank/card-visual";
 import { QrScanner } from "@/components/app/qr-scanner";
@@ -28,7 +31,30 @@ import { cn } from "@/lib/utils";
 type BankSection = "extrato" | "pix" | "cobrar" | "cartoes" | "chaves";
 const SECTIONS: ReadonlyArray<BankSection> = ["extrato", "pix", "cobrar", "cartoes", "chaves"];
 
-type Run = (body: { action: string } & Record<string, unknown>) => Promise<ActionResult>;
+type Run = (body: { action: string } & Record<string, unknown>) => Promise<ActionResult & { reward?: PartnerReward | null }>;
+
+interface PartnerPreview {
+  partnerName: string;
+  categoryName: string;
+  verticalCode: string;
+  coins: number;
+  xp: number;
+}
+
+/** Pergunta ao servidor se a chave é de um parceiro PRX (e quanto o Pix rende em coins e XP). */
+async function lookupPartner(key: string, recipientName: string | null, amount: number): Promise<PartnerPreview | null> {
+  try {
+    const res = await fetch("/api/bank", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "lookup_partner", key, recipientName, amount }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { partner?: PartnerPreview | null };
+    return res.ok ? json.partner ?? null : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Converte "1.234,56" ou "1234.56" em número. */
 function parseMoney(text: string): number {
@@ -42,9 +68,9 @@ export function BankScreen({ member }: { member: User }) {
   const { sub, go } = useAppNav();
   const section: BankSection = SECTIONS.includes(sub as BankSection) ? (sub as BankSection) : "extrato";
   const { account, loading, error, reload, run } = useBankAccount(member.id);
+  const { wallet } = usePointsWallet(member.id);
   const [hidden, toggleHidden] = useHiddenBalance();
-
-  const last30 = useMemo(() => summarize(filterTransactions(account?.transactions ?? [], 30, "all")), [account?.transactions]);
+  const [activating, setActivating] = useState(false);
 
   if (!account) {
     return (
@@ -74,32 +100,63 @@ export function BankScreen({ member }: { member: User }) {
             pré-cadastrar chaves Pix e pedir o cartão físico: tudo segue para o banco na ativação.
           </Notice>
         )}
+        {account.sandbox && account.status === "pending_activation" && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-input p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              Ambiente de testes: ative uma conta sandbox com R$ 1.000 fictícios para testar Pix para parceiros, PRX Coins e o PRX Map. Nenhum dinheiro real é
+              movimentado.
+            </p>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="min-h-12 shrink-0"
+              disabled={activating}
+              onClick={async () => {
+                setActivating(true);
+                await run({ action: "sandbox_activate" });
+                setActivating(false);
+              }}
+            >
+              {activating ? "Ativando…" : "Ativar conta sandbox"}
+            </Button>
+          </div>
+        )}
+        {account.sandbox && account.status === "active" && <Tag tone="warning">Conta sandbox · valores fictícios</Tag>}
         {account.status === "blocked" && <Notice tone="warning">Conta bloqueada. Fale com o suporte PRX para entender o motivo.</Notice>}
       </header>
 
-      <section aria-label="Saldo" className="grid gap-6 md:grid-cols-12 md:items-end">
+      <section aria-label="Carteira Central" className="grid gap-6 md:grid-cols-12 md:items-end">
         <BalanceFigure
           className="md:col-span-7"
           label="Saldo disponível"
           value={account.balance}
           hidden={hidden}
           action={
-            <IconButton tone="plain" label={hidden ? "Mostrar saldo" : "Ocultar saldo"} aria-pressed={hidden} onClick={toggleHidden} className="-mr-2 h-10 w-10">
+            <IconButton tone="plain" label={hidden ? "Mostrar saldo" : "Ocultar saldo"} aria-pressed={hidden} onClick={toggleHidden} className="-mr-2 h-12 w-12">
               {hidden ? <IconEyeOff size={18} /> : <IconEye size={18} />}
             </IconButton>
           }
         />
-        <div className="grid grid-cols-2 gap-3 md:col-span-5">
-          <div className="min-w-0 rounded-3xl bg-surface p-4 sm:p-5">
-            <p className="text-[13px] text-muted-foreground">Entradas (30d)</p>
-            <p className="mt-1.5 break-words text-lg font-semibold tracking-[-0.02em] text-success tabular-nums sm:text-2xl">{hidden ? "••••" : formatBRL(last30.income)}</p>
-          </div>
-          <div className="min-w-0 rounded-3xl bg-surface p-4 sm:p-5">
-            <p className="text-[13px] text-muted-foreground">Saídas (30d)</p>
-            <p className="mt-1.5 break-words text-lg font-semibold tracking-[-0.02em] text-ink tabular-nums sm:text-2xl">{hidden ? "••••" : formatBRL(last30.outcome)}</p>
-          </div>
-        </div>
+        <WalletTriad
+          compact
+          className="md:col-span-5"
+          balance={account.balance}
+          balanceLabel="Saldo disponível"
+          coins={wallet?.coins ?? null}
+          xp={wallet?.xp ?? member.prxScore ?? 0}
+          hidden={hidden}
+          onToggleHidden={toggleHidden}
+          onOpenPoints={() => go("home", "pontos")}
+          onOpenLevel={() => go("pass", "missions")}
+        />
       </section>
+
+      <div className="grid gap-6 lg:grid-cols-12">
+        <div className="lg:col-span-8">
+          <PrxMap transactions={account.transactions} hidden={hidden} />
+        </div>
+        <YieldSoonCard className="lg:col-span-4" />
+      </div>
 
       <Segmented
         label="Seções do PRX BANK"
@@ -124,6 +181,26 @@ export function BankScreen({ member }: { member: User }) {
 }
 
 /* ------------------------------------------------------------------------ */
+
+/** Rentabilidade automática do saldo: anunciada com transparência, ainda sem render nada. */
+function YieldSoonCard({ className }: { className?: string }) {
+  return (
+    <section aria-labelledby="yield-soon" className={cn("flex flex-col justify-between gap-6 rounded-2xl bg-surface p-5 sm:p-6", className)}>
+      <div className="space-y-3">
+        <Tag>Em breve</Tag>
+        <h2 id="yield-soon" className="text-lg font-semibold leading-snug tracking-[-0.02em] text-ink sm:text-xl">
+          Seu saldo rendendo 100% do CDI, todo dia útil
+        </h2>
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
+          Sem aplicar, sem resgatar: o que estiver na conta rende sozinho e continua disponível para Pix e cartão.
+        </p>
+      </div>
+      <p className="border-t border-line pt-4 text-[12px] leading-relaxed text-muted-foreground">
+        Em fase de homologação regulatória com o banco parceiro. Nada rende até a liberação oficial, e a data será avisada aqui.
+      </p>
+    </section>
+  );
+}
 
 function ActivationPanel({ title, onKeys }: { title: string; onKeys: () => void }) {
   return (
@@ -210,6 +287,8 @@ type PixMethod = "chave" | "copia" | "qr";
 interface PixDraft {
   key: string;
   recipient: string;
+  /** Nome do recebedor vindo do QR/Copia e Cola, usado para reconhecer o parceiro. */
+  recipientName: string | null;
   amount: number;
   description: string;
   fixedAmount: boolean;
@@ -225,8 +304,16 @@ function PixPanel({ account, run }: { account: BankAccountView; run: Run }) {
   const [draft, setDraft] = useState<PixDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [partner, setPartner] = useState<PartnerPreview | null>(null);
+  const { showToast } = useConfirmToast();
 
   const keyType = detectPixKeyType(key);
+
+  function review(next: PixDraft) {
+    setDraft(next);
+    setPartner(null);
+    void lookupPartner(next.key, next.recipientName, next.amount).then(setPartner);
+  }
 
   function reviewFromKey(event: FormEvent) {
     event.preventDefault();
@@ -235,7 +322,7 @@ function PixPanel({ account, run }: { account: BankAccountView; run: Run }) {
     const amount = parseMoney(amountText);
     if (!(amount > 0)) return setError("Informe o valor do Pix.");
     if (amount > account.balance) return setError("Saldo insuficiente para esta transferência.");
-    setDraft({ key: key.trim(), recipient: `${PIX_KEY_LABEL[keyType]} ${key.trim()}`, amount, description, fixedAmount: false });
+    review({ key: key.trim(), recipient: `${PIX_KEY_LABEL[keyType]} ${key.trim()}`, recipientName: null, amount, description, fixedAmount: false });
   }
 
   function reviewFromPayload(raw: string) {
@@ -243,16 +330,22 @@ function PixPanel({ account, run }: { account: BankAccountView; run: Run }) {
     const parsed = parsePixPayload(raw);
     if (!parsed) return setError("Esse código não é um Pix Copia e Cola válido.");
     if (!parsed.valid) return setError("O código Pix está incompleto ou foi alterado (falha na verificação). Peça um novo código.");
-    setDraft({ key: parsed.key, recipient: parsed.merchantName || parsed.key, amount: parsed.amount ?? 0, description: "", fixedAmount: Boolean(parsed.amount) });
+    review({ key: parsed.key, recipient: parsed.merchantName || parsed.key, recipientName: parsed.merchantName || null, amount: parsed.amount ?? 0, description: "", fixedAmount: Boolean(parsed.amount) });
   }
 
   async function confirm() {
     if (!draft) return;
     setBusy(true);
-    const result = await run({ action: "send_pix", key: draft.key, amount: draft.amount, description: draft.description });
+    const result = await run({ action: "send_pix", key: draft.key, amount: draft.amount, description: draft.description, recipientName: draft.recipientName });
     setBusy(false);
     setDraft(null);
+    setPartner(null);
     if (!result.ok) return setError(result.error);
+    if (result.reward) {
+      showToast("success", `Você comprou em ${result.reward.partnerName} e ganhou +${result.reward.coins.toLocaleString("pt-BR")} PRX Coins e +${result.reward.xp.toLocaleString("pt-BR")} XP!`);
+    } else {
+      showToast("success", "Pix enviado.");
+    }
     setKey("");
     setAmountText("");
     setDescription("");
@@ -343,6 +436,21 @@ function PixPanel({ account, run }: { account: BankAccountView; run: Run }) {
                 )}
               </dd>
             </div>
+            {partner && (
+              <div className="flex items-start justify-between gap-4 py-3.5">
+                <dt className="text-muted-foreground">Parceiro PRX</dt>
+                <dd className="text-right">
+                  <span className="block font-medium text-ink">
+                    {partner.partnerName} · {partner.categoryName}
+                  </span>
+                  {(partner.coins > 0 || partner.xp > 0) && (
+                    <span className="mt-0.5 block text-[13px] font-medium text-primary">
+                      +{partner.coins.toLocaleString("pt-BR")} PRX Coins · +{partner.xp.toLocaleString("pt-BR")} XP
+                    </span>
+                  )}
+                </dd>
+              </div>
+            )}
           </dl>
         )}
       </Sheet>

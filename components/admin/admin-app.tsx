@@ -11,18 +11,23 @@ import { AdminPartnersTab } from "@/components/admin/admin-partners-tab";
 import { AdminEventsTab } from "@/components/admin/admin-events-tab";
 import { AdminFoundersTab } from "@/components/admin/admin-founders-tab";
 import { AdminStaffTab } from "@/components/admin/admin-staff-tab";
+import { AdminFinanceTab } from "@/components/admin/admin-finance-tab";
+import { AdminPointsTab } from "@/components/admin/admin-points-tab";
+import { AdminReelsTab } from "@/components/admin/admin-reels-tab";
 import type { PartnerOverview } from "@/lib/partners/service";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { Button, IconButton, Segmented } from "@/components/app/ui";
 import { DashboardHeader, roundLinkClass } from "@/components/app/dashboard-header";
-import { IconExternal, IconLogout, IconRefresh } from "@/components/icons/prx-icons";
+import { IconExternal, IconGlobe, IconLogout, IconRefresh } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
 import type { Benefit, PassMission } from "@/lib/pass-data";
 import type { SystemVoucher } from "@/lib/pass-store";
 import { useMainSiteUrl } from "@/lib/site";
+import type { PointRule } from "@/lib/points/types";
+import { behaviorCoinsPerMonth, coinsPerRealFromRules } from "@/lib/points/economics";
 
-type TabKey = "members" | "partners" | "benefits" | "missions" | "vouchers" | "events" | "founders" | "staff";
+type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "founders" | "staff";
 
 export interface AdminIdentity {
   name?: string;
@@ -35,6 +40,7 @@ interface AdminData {
   missions?: PassMission[];
   vouchers?: SystemVoucher[];
   partners?: PartnerOverview[];
+  rules?: PointRule[];
 }
 
 async function fetchAdminIdentity(): Promise<AdminIdentity | null> {
@@ -49,8 +55,8 @@ async function fetchAdminIdentity(): Promise<AdminIdentity | null> {
 
 async function fetchAdminData(): Promise<AdminData> {
   try {
-    const [u, b, m, v, p] = await Promise.all(
-      ["/api/admin/users", "/api/admin/benefits", "/api/admin/missions", "/api/admin/vouchers", "/api/admin/partners"].map((url) =>
+    const [u, b, m, v, p, r] = await Promise.all(
+      ["/api/admin/users", "/api/admin/benefits", "/api/admin/missions", "/api/admin/vouchers", "/api/admin/partners", "/api/admin/points"].map((url) =>
         fetch(url, { cache: "no-store" })
           .then((r) => r.json() as Promise<AdminData>)
           .catch((): AdminData => ({}))
@@ -62,6 +68,7 @@ async function fetchAdminData(): Promise<AdminData> {
       missions: Array.isArray(m.missions) ? m.missions : undefined,
       vouchers: Array.isArray(v.vouchers) ? v.vouchers : undefined,
       partners: Array.isArray(p.partners) ? p.partners : undefined,
+      rules: Array.isArray(r.rules) ? r.rules : undefined,
     };
   } catch {
     return {};
@@ -82,6 +89,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   const [missions, setMissions] = useState<PassMission[]>([]);
   const [vouchers, setVouchers] = useState<SystemVoucher[]>([]);
   const [partners, setPartners] = useState<PartnerOverview[]>([]);
+  const [rules, setRules] = useState<PointRule[]>([]);
   const [loading, setLoading] = useState(false);
   const homeUrl = useMainSiteUrl();
 
@@ -98,6 +106,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
     if (data.missions) setMissions(data.missions);
     if (data.vouchers) setVouchers(data.vouchers);
     if (data.partners) setPartners(data.partners);
+    if (data.rules) setRules(data.rules);
     setLoading(false);
   }, []);
 
@@ -136,6 +145,8 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   if (auth === "guest") return <AdminLogin onSuccess={checkAuth} />;
 
   const validVouchers = vouchers.filter((v) => v.status === "valid").length;
+  const economy = { coinsPerReal: coinsPerRealFromRules(rules), behaviorCoinsPerMonth: behaviorCoinsPerMonth(rules) };
+  const institutionalUrl = `${homeUrl.replace(/\/$/, "")}/institucional`;
   const kpis = [
     { label: "Membros", value: users.length },
     { label: "Parceiros ativos", value: partners.filter((p) => p.status === "ATIVO").length },
@@ -152,6 +163,25 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
         area="Admin"
         actions={
           <>
+            <a
+              href={institutionalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden min-h-11 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line md:inline-flex"
+            >
+              Ver Página Institucional (Estilo Revolut)
+              <IconExternal size={16} />
+            </a>
+            <a
+              href={institutionalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${roundLinkClass} md:hidden`}
+              aria-label="Ver Página Institucional (Estilo Revolut) em outra aba"
+              title="Página Institucional"
+            >
+              <IconGlobe size={18} />
+            </a>
             <ThemeToggle variant="app" />
             <a href={homeUrl} target="_blank" rel="noopener noreferrer" className={roundLinkClass} aria-label="Abrir o app PRX em outra aba" title="Abrir o app">
               <IconExternal size={18} />
@@ -190,6 +220,9 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             { value: "members", label: "Membros", count: users.length },
             { value: "partners", label: "Parceiros", count: partners.length },
             { value: "benefits", label: "Benefícios", count: benefits.length },
+            { value: "finance", label: "Financeiro" },
+            { value: "points", label: "Pontos", count: rules.length },
+            { value: "reels", label: "Reels" },
             { value: "missions", label: "Missões", count: missions.length },
             { value: "vouchers", label: "Vouchers", count: vouchers.length },
             { value: "events", label: "Eventos" },
@@ -202,7 +235,10 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
         {tab === "partners" && (
           <AdminPartnersTab partners={partners} benefits={benefits} users={users} onRefresh={loadData} onGoToBenefits={() => setTab("benefits")} />
         )}
-        {tab === "benefits" && <AdminBenefitsTab benefits={benefits} partners={partners} onRefresh={loadData} />}
+        {tab === "benefits" && <AdminBenefitsTab benefits={benefits} partners={partners} economy={economy} onRefresh={loadData} />}
+        {tab === "finance" && <AdminFinanceTab economy={economy} />}
+        {tab === "points" && <AdminPointsTab rules={rules} onRefresh={loadData} />}
+        {tab === "reels" && <AdminReelsTab partners={partners} benefits={benefits} />}
         {tab === "missions" && <AdminMissionsTab missions={missions} onRefresh={loadData} />}
         {tab === "vouchers" && <AdminVouchersTab vouchers={vouchers} onRefresh={loadData} />}
         {tab === "events" && <AdminEventsTab />}

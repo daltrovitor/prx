@@ -21,6 +21,8 @@ const spaceGrotesk = Space_Grotesk({
   variable: "--font-heading",
   weight: ["500", "600", "700"],
   display: "swap",
+  // Só a landing usa: sem preload nas demais páginas (Inter é a única fonte crítica).
+  preload: false,
 });
 
 /* Display editorial do app. */
@@ -29,6 +31,7 @@ const bricolage = Bricolage_Grotesque({
   variable: "--font-display",
   weight: ["500", "600", "700"],
   display: "swap",
+  preload: false,
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -36,6 +39,7 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-mono",
   weight: ["400", "500", "700"],
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {

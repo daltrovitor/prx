@@ -50,6 +50,8 @@ export const IconPass = createIcon("IconPass", ["M3 6h18v4l-2 2 2 2v4H3v-4l2-2-2
 export const IconBank = createIcon("IconBank", ["M6.5 5H22l-4.5 14H2z", "M4.8 10h15.5"], ["M5.5 14.5h4l-.6 2h-4z"]);
 export const IconLive = createIcon("IconLive", ["M7.5 7 3 12l4.5 5", "M16.5 7 21 12l-4.5 5"], ["M12 9l3 3-3 3-3-3z"]);
 export const IconProfile = createIcon("IconProfile", ["M8.5 3.5h7v7h-7z", "M4 21l3-6.5h10l3 6.5"]);
+/* Reels: tela vertical 9:16 com o losango de "play" da marca. */
+export const IconReels = createIcon("IconReels", ["M6.5 2.5h11v19h-11z"], ["M10.5 9l3.5 3-3.5 3z"]);
 
 /* Ações */
 export const IconSend = createIcon("IconSend", ["M6 18 18 6", "M8.5 6H18v9.5"]);
@@ -96,4 +98,14 @@ export const IconAlert = createIcon("IconAlert", ["M12 3 22 20H2z", "M12 10v4.5"
 export const IconEdit = createIcon("IconEdit", ["M15 4l5 5L9 20H4v-5z", "M13 6l5 5"]);
 export const IconTrash = createIcon("IconTrash", ["M3 6h18", "M9 6V3h6v3", "M5 6l1 15h12l1-15"]);
 export const IconExternal = createIcon("IconExternal", ["M14 3h7v7", "M21 3 11 13", "M18 14v7H3V6h7"]);
+/* Reels e economia */
+export const IconHeart = createIcon("IconHeart", ["M12 20.5 3 11.5V7l3-3h3l3 3 3-3h3l3 3v4.5z"]);
+export const IconHeartFilled = createIcon("IconHeartFilled", [], ["M12 20.5 3 11.5V7l3-3h3l3 3 3-3h3l3 3v4.5z"]);
+export const IconBookmark = createIcon("IconBookmark", ["M6 3h12v18l-6-5-6 5z"]);
+export const IconBookmarkFilled = createIcon("IconBookmarkFilled", [], ["M6 3h12v18l-6-5-6 5z"]);
+export const IconVolume = createIcon("IconVolume", ["M3 9h4l5-4.5v15L7 15H3z", "M16 8.5l2 3.5-2 3.5", "M19 5.5l3 6.5-3 6.5"]);
+export const IconVolumeOff = createIcon("IconVolumeOff", ["M3 9h4l5-4.5v15L7 15H3z", "M16 9l5 6", "M21 9l-5 6"]);
+export const IconPlay = createIcon("IconPlay", [], ["M7 4l13 8-13 8z"]);
+export const IconCoin = createIcon("IconCoin", ["M8.5 3h7L21 8.5v7L15.5 21h-7L3 15.5v-7z"], ["M12 8.5l3.5 3.5-3.5 3.5L8.5 12z"]);
+export const IconGlobe = createIcon("IconGlobe", ["M3 3h18v18H3z", "M3 12h18", "M12 3c-3 3-3 15 0 18", "M12 3c3 3 3 15 0 18"]);
 export const IconImage = createIcon("IconImage", ["M3 4h18v16H3z", "M3 17l6-6 5 5 3-3 4 4"], ["M15 7h2.5v2.5H15z"]);

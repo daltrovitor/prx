@@ -93,7 +93,7 @@ const partnerAId = createdA.data.partner?.id;
 // B usa uma conta PRX comum, criada pelo cadastro público e depois vinculada.
 const emailB = `burger-${stamp}@parceiro.dev`;
 const passwordB = "Burger2026!x";
-await client()("/api/auth/signup", { method: "POST", body: { fullName: "Rafael Burger", email: emailB, password: passwordB } });
+await client()("/api/auth/signup", { method: "POST", body: { fullName: "Rafael Burger", email: emailB, password: passwordB, termsAccepted: true } });
 const createdB = await admin("/api/admin/partners", {
   method: "POST",
   body: {
@@ -225,7 +225,7 @@ const burger = (await member("/api/pass/data")).data.benefits?.find((b) => b.cam
 check("plano Básico não aparece como patrocinado", burger && burger.sponsored === false);
 check("primeira unidade resgatada", (await member("/api/pass/redeem", { method: "POST", body: { benefitId: burger.id } })).status === 200);
 const member2 = client();
-await member2("/api/auth/signup", { method: "POST", body: { fullName: "Segundo Membro", email: `m2-${stamp}@prx.dev`, password: "Prx2026!x" } });
+await member2("/api/auth/signup", { method: "POST", body: { fullName: "Segundo Membro", email: `m2-${stamp}@prx.dev`, password: "Prx2026!x", termsAccepted: true } });
 const soldOut = await member2("/api/pass/redeem", { method: "POST", body: { benefitId: burger.id } });
 check("quantidade garantida esgotada trava o próximo resgate", soldOut.status === 409 && /esgotou/.test(soldOut.data.error || ""), soldOut.data.error);
 

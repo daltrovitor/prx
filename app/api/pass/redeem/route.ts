@@ -1,3 +1,4 @@
+// Hello World
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/partners/catalog";
 import { PartnerError } from "@/lib/partners/errors";
 import { getPartnerRepository } from "@/lib/partners/repository";
+import { assertCanAfford, chargeRedemption } from "@/lib/points/service";
 
 const SHORT_DATE: Intl.DateTimeFormatOptions = {
   timeZone: "America/Sao_Paulo",
@@ -124,7 +126,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Este benefício esgotou." }, { status: 409 });
     }
 
-    // 5. Código com gerador criptográfico e prazo de uso da campanha.
+    // 5. PRX Coins: o preço do benefício precisa caber no saldo antes de gerar o voucher.
+    const pointsCost = Math.max(0, Math.floor(benefit.pointsCost ?? 0));
+    await assertCanAfford(effectiveUserId, pointsCost);
+
+    // 6. Código com gerador criptográfico e prazo de uso da campanha.
     const uniqueCode = `PRX-${crypto.randomInt(1000, 10000)}-${crypto.randomInt(1000, 10000)}`;
     const qrPayload = `PRX_PASS::${uniqueCode}::${benefit.partnerName.replace(/\s+/g, "")}`;
     const now = new Date();
@@ -160,8 +166,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const voucherId = createdId ?? `vouch-${crypto.randomUUID()}`;
+
+    // 7. Débito dos coins e XP de fidelidade (idempotente pelo voucher). Se o saldo mudou
+    //    entre a checagem e o débito (duas abas), o voucher recém-criado é desfeito.
+    let points: { coins: number; xp: number; level: number } | null = null;
+    try {
+      const charged = await chargeRedemption(effectiveUserId, benefit, voucherId);
+      if (charged) points = { coins: charged.coins, xp: charged.xp, level: charged.level };
+    } catch (chargeError) {
+      if (supabaseAdmin && createdId) await supabaseAdmin.from("vouchers").delete().eq("id", createdId);
+      throw chargeError;
+    }
+
     const newVoucher = passStore.createVoucher({
-      id: createdId,
+      id: voucherId,
       code: uniqueCode,
       benefitId: benefit.id,
       benefitTitle: benefit.title,
@@ -183,6 +202,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: "Benefício resgatado com sucesso!",
       voucher: newVoucher,
+      points,
     });
   } catch (error) {
     if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status });

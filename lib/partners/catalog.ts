@@ -8,6 +8,7 @@ import { PartnerError, dbError, isMissingColumn } from "@/lib/partners/errors";
 import { getPartnerRepository } from "@/lib/partners/repository";
 import { REDEMPTION_MODES, VISIBILITY_PLAN_IDS, deriveOfferLabel, isPaidPlan, type VisibilityPlan } from "@/lib/partners/plans";
 import type { Campaign, CommercialSummary, Partner } from "@/lib/partners/types";
+import { DEFAULT_PARTNER_FEE_PCT } from "@/lib/points/economics";
 
 /**
  * Acesso a benefícios e vouchers usado pelo programa de parceiros, nos dois
@@ -46,7 +47,16 @@ export function mapBenefitRow(row: BenefitRow): Benefit {
     quantity: row.campaign_quantity ?? null,
     perUserLimit: row.campaign_per_user_limit ?? null,
     usageDays: row.campaign_usage_days ?? null,
+    pointsCost: Math.max(0, Math.trunc(Number(row.points_cost ?? 0)) || 0),
+    costPrice: moneyOrZero(row.cost_price),
+    prxRevenuePerRedemption: moneyOrZero(row.prx_revenue_per_redemption),
+    partnerFeePct: row.partner_fee_pct === null || row.partner_fee_pct === undefined ? DEFAULT_PARTNER_FEE_PCT : moneyOrZero(row.partner_fee_pct),
   };
+}
+
+function moneyOrZero(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
 }
 
 /** Motivo pelo qual o benefício não pode ser resgatado agora, ou null. */

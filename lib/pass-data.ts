@@ -1,3 +1,4 @@
+// Hello World
 import type { VisibilityPlan } from "@/lib/partners/plans";
 
 export interface Category {
@@ -33,6 +34,14 @@ export interface Benefit {
   quantity?: number | null;
   perUserLimit?: number | null;
   usageDays?: number | null;
+  /** PRX Coins debitados no resgate (0 = resgate livre). */
+  pointsCost?: number;
+  /** Custo unitário do benefício para a PRX, em R$ (subsídio). Só o admin vê. */
+  costPrice?: number;
+  /** Receita/comissão que o parceiro paga à PRX por resgate, em R$. Só o admin vê. */
+  prxRevenuePerRedemption?: number;
+  /** Comissão da PRX sobre compras no parceiro, em % (padrão 8). Só o admin vê. */
+  partnerFeePct?: number;
 }
 
 export interface UserVoucher {
@@ -456,23 +465,60 @@ export function parseMissionDescription(descWithMeta?: string): {
 }
 
 
-/** Régua do PRX SCORE: XP mínimo de cada nível (índice 0 = nível 1). */
-export const PRX_LEVEL_THRESHOLDS: ReadonlyArray<number> = [0, 500, 1000, 2000, 3500, 5500, 8000];
+/*
+ * Régua do PRX SCORE: níveis infinitos por uma curva contínua.
+ *   xpForLevel(n) = floor(250 · (n − 1)^1.65)
+ * Nível 1 começa em 0 XP, o 2 em 250, o 3 em 784, o 10 em ~9.400 e o 100 em
+ * ~490 mil. Não existe teto: qualquer XP cabe em algum nível. A mesma fórmula
+ * roda no Postgres (public.prx_level_for_xp) para o crédito atômico de XP.
+ */
+export const XP_CURVE_BASE = 250;
+/** Maior nível mínimo aceito em benefícios, campanhas e eventos (a régua em si não tem teto). */
+export const MAX_GATE_LEVEL = 999;
+const GATE_PRESETS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30, 40, 50, 75, 100];
 
+/** Opções do seletor de nível mínimo, sempre incluindo o valor atual. */
+export function levelGateOptions(current = 1): number[] {
+  return [...new Set([...GATE_PRESETS, Math.max(1, Math.min(MAX_GATE_LEVEL, Math.floor(current) || 1))])].sort((a, b) => a - b);
+}
+export const XP_CURVE_EXPONENT = 1.65;
+
+/** XP mínimo acumulado para estar no nível informado (nível 1 = 0 XP). */
+export function xpForLevel(level: number): number {
+  const n = Math.max(1, Math.floor(level));
+  return Math.floor(XP_CURVE_BASE * Math.pow(n - 1, XP_CURVE_EXPONENT));
+}
+
+/** Nível correspondente ao XP acumulado, sem limite superior. */
 export function calculatePrxLevel(score: number): number {
-  let level = 1;
-  PRX_LEVEL_THRESHOLDS.forEach((min, index) => {
-    if (score >= min) level = index + 1;
-  });
+  const xp = Number.isFinite(score) ? Math.max(0, Math.floor(score)) : 0;
+  if (xp < XP_CURVE_BASE) return 1;
+  // Inversão da curva como palpite inicial; os laços corrigem o arredondamento de ponto flutuante.
+  let level = Math.floor(Math.pow(xp / XP_CURVE_BASE, 1 / XP_CURVE_EXPONENT)) + 1;
+  while (xpForLevel(level + 1) <= xp) level += 1;
+  while (level > 1 && xpForLevel(level) > xp) level -= 1;
   return level;
 }
 
-/** Progresso dentro do nível atual, para a barra de XP. */
-export function levelProgress(score: number): { level: number; floor: number; next: number | null; pct: number; remaining: number } {
-  const level = calculatePrxLevel(score);
-  const floor = PRX_LEVEL_THRESHOLDS[level - 1] ?? 0;
-  const next = PRX_LEVEL_THRESHOLDS[level] ?? null;
-  if (next === null) return { level, floor, next, pct: 100, remaining: 0 };
-  const pct = Math.round(((score - floor) / (next - floor)) * 100);
-  return { level, floor, next, pct: Math.max(0, Math.min(100, pct)), remaining: Math.max(0, next - score) };
+export interface LevelProgress {
+  level: number;
+  /** XP em que o nível atual começa. */
+  floor: number;
+  /** XP em que o próximo nível começa (sempre existe: a régua é infinita). */
+  next: number;
+  /** Progresso dentro do nível atual, de 0 a 100. */
+  pct: number;
+  /** XP que falta para o próximo nível. */
+  remaining: number;
+}
+
+/** Progresso dentro do nível atual, para a barra de XP. Funciona para o nível 1 ou 1.000+. */
+export function levelProgress(score: number): LevelProgress {
+  const xp = Number.isFinite(score) ? Math.max(0, Math.floor(score)) : 0;
+  const level = calculatePrxLevel(xp);
+  const floor = xpForLevel(level);
+  const next = xpForLevel(level + 1);
+  const span = Math.max(1, next - floor);
+  const pct = Math.max(0, Math.min(100, Math.floor(((xp - floor) / span) * 100)));
+  return { level, floor, next, pct, remaining: Math.max(0, next - xp) };
 }

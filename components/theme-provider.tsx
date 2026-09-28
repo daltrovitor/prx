@@ -1,3 +1,4 @@
+// Hello World
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
@@ -57,7 +58,8 @@ export function ThemeScript() {
       var root = document.documentElement;
       try {
         var host = location.hostname, path = location.pathname;
-        var app = /^(adminprx|partnerprx|staffprx|adminng|partnerng)\\./.test(host) || /^\\/(admin|partner|staff)(\\/|$)/.test(path)
+        var app = /^(adminprx|partnerprx|staffprx|adminng|partnerng)\\./.test(host) || /^\\/(admin|partner|staff|institucional|termos|privacidade|em-breve)(\\/|$)/.test(path)
+          || /^(www\\.)?prx\\.app\\.br$/.test(host)
           || localStorage.getItem('prx_remember_me') === 'true' || sessionStorage.getItem('prx_tab_active') === 'true';
         var stored = localStorage.getItem(app ? '${KEYS.app}' : '${KEYS.landing}');
         var theme = stored === 'dark' || stored === 'light' ? stored : (app ? '${DEFAULTS.app}' : '${DEFAULTS.landing}');

@@ -1,11 +1,14 @@
+// Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import type { BenefitRow } from "@/lib/db-rows";
-import type { Benefit } from "@/lib/pass-data";
+import { MAX_GATE_LEVEL, type Benefit } from "@/lib/pass-data";
 import { getBenefit, mapBenefitRow } from "@/lib/partners/catalog";
-import { PartnerError, dbError } from "@/lib/partners/errors";
+import { MIGRATION_HINT, PartnerError, dbError, isMissingColumn } from "@/lib/partners/errors";
+import { DEFAULT_PARTNER_FEE_PCT, assessBenefitViability, coinsPerRealFromRules } from "@/lib/points/economics";
+import { getRulesRepository } from "@/lib/points/repository";
 import { errorResponse, readJson, requireAdmin } from "@/lib/partners/http";
 import { getPartnerRepository } from "@/lib/partners/repository";
 import { firstIssue, type Partner } from "@/lib/partners/types";
@@ -30,14 +33,54 @@ const benefitSchema = z.object({
   title: z.string().trim().min(2, "Informe o título.").max(80),
   description: z.string().trim().max(1000).default(""),
   discountLabel: z.string().trim().min(1, "Informe o rótulo da oferta.").max(24),
-  minPrxLevel: z.coerce.number().int().min(1).max(7).default(1),
+  minPrxLevel: z.coerce.number().int().min(1).max(MAX_GATE_LEVEL).default(1),
   partnerLocation: z.string().trim().max(160).optional(),
   partnerLogo: imageUrl,
   partnerBanner: imageUrl,
   terms: z.array(z.string().trim().min(1).max(200)).max(12).default([]),
+  /** Economia PRX: preço em coins e números internos da calculadora de viabilidade. */
+  pointsCost: z.coerce.number().int("Coins precisam ser inteiros.").min(0).max(1_000_000).default(0),
+  costPrice: z.coerce.number().min(0).max(100_000).default(0),
+  prxRevenuePerRedemption: z.coerce.number().min(0).max(100_000).default(0),
+  partnerFeePct: z.coerce.number().min(0).max(100).default(DEFAULT_PARTNER_FEE_PCT),
 });
 
-const updateSchema = benefitSchema.partial().extend({ id: z.string().min(1) });
+// Na edição, campo ausente fica como está: sem os defaults do cadastro (o partial do zod 4 os aplicaria).
+const updateSchema = benefitSchema.partial().extend({
+  id: z.string().min(1),
+  description: z.string().trim().max(1000).optional(),
+  minPrxLevel: z.coerce.number().int().min(1).max(MAX_GATE_LEVEL).optional(),
+  terms: z.array(z.string().trim().min(1).max(200)).max(12).optional(),
+  pointsCost: z.coerce.number().int("Coins precisam ser inteiros.").min(0).max(1_000_000).optional(),
+  costPrice: z.coerce.number().min(0).max(100_000).optional(),
+  prxRevenuePerRedemption: z.coerce.number().min(0).max(100_000).optional(),
+  partnerFeePct: z.coerce.number().min(0).max(100).optional(),
+});
+
+type Economics = Pick<Benefit, "pointsCost" | "costPrice" | "prxRevenuePerRedemption" | "partnerFeePct">;
+
+/**
+ * Blindagem do caixa: nenhum benefício é publicado ou alterado com margem
+ * projetada abaixo do mínimo (30% sobre o custo). Benefícios sem custo passam.
+ */
+async function assertViable(economics: Economics): Promise<void> {
+  const rules = await getRulesRepository().listRules();
+  const result = assessBenefitViability({
+    costPrice: economics.costPrice ?? 0,
+    revenuePerRedemption: economics.prxRevenuePerRedemption ?? 0,
+    partnerFeePct: economics.partnerFeePct ?? DEFAULT_PARTNER_FEE_PCT,
+    coinsPerReal: coinsPerRealFromRules(rules),
+    pointsCost: economics.pointsCost ?? 0,
+  });
+  if (result.status === "ok") return;
+  const hint = result.suggestedPoints === null ? " Aumente a receita por resgate ou a comissão do parceiro." : ` Preço mínimo sugerido: ${result.suggestedPoints.toLocaleString("pt-BR")} PRX Coins.`;
+  throw new PartnerError(`Benefício bloqueado pela calculadora de viabilidade. ${result.message}${hint}`, 422);
+}
+
+function writeError(error: { code?: string; message?: string }, fallback: string): PartnerError {
+  if (isMissingColumn(error)) return new PartnerError(MIGRATION_HINT, 503);
+  return dbError(error, fallback);
+}
 
 async function requirePartner(partnerId: string): Promise<Partner> {
   const partner = await getPartnerRepository().getPartner(partnerId);
@@ -64,6 +107,10 @@ function toRow(input: Partial<z.infer<typeof benefitSchema>>, partner?: Partner)
   if (input.discountLabel !== undefined) row.discount_label = input.discountLabel;
   if (input.minPrxLevel !== undefined) row.min_nxt_level = input.minPrxLevel;
   if (input.terms !== undefined) row.terms = input.terms.length > 0 ? input.terms : ["Apresente o QR Code no balcão."];
+  if (input.pointsCost !== undefined) row.points_cost = input.pointsCost;
+  if (input.costPrice !== undefined) row.cost_price = input.costPrice;
+  if (input.prxRevenuePerRedemption !== undefined) row.prx_revenue_per_redemption = input.prxRevenuePerRedemption;
+  if (input.partnerFeePct !== undefined) row.partner_fee_pct = input.partnerFeePct;
   return row;
 }
 
@@ -80,6 +127,10 @@ function rowToMemory(row: Record<string, unknown>): Partial<Benefit> {
   if ("discount_label" in row) out.discountLabel = String(row.discount_label);
   if ("min_nxt_level" in row) out.minPrxLevel = Number(row.min_nxt_level);
   if ("terms" in row) out.terms = row.terms as string[];
+  if ("points_cost" in row) out.pointsCost = Number(row.points_cost);
+  if ("cost_price" in row) out.costPrice = Number(row.cost_price);
+  if ("prx_revenue_per_redemption" in row) out.prxRevenuePerRedemption = Number(row.prx_revenue_per_redemption);
+  if ("partner_fee_pct" in row) out.partnerFeePct = Number(row.partner_fee_pct);
   return out;
 }
 
@@ -105,11 +156,12 @@ export async function POST(req: NextRequest) {
     const parsed = benefitSchema.safeParse(await readJson(req));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const partner = await requirePartner(parsed.data.partnerId);
+    await assertViable(parsed.data);
     const row = toRow(parsed.data, partner);
 
     if (supabaseAdmin) {
       const { data, error } = await supabaseAdmin.from("benefits").insert({ ...row, is_active: true }).select("*").single();
-      if (error) throw dbError(error, "Não foi possível criar o benefício");
+      if (error) throw writeError(error, "Não foi possível criar o benefício");
       const benefit = mapBenefitRow(data as BenefitRow);
       passStore.createBenefit(benefit);
       return NextResponse.json({ success: true, message: "Benefício criado.", benefit });
@@ -133,11 +185,22 @@ export async function PUT(req: NextRequest) {
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const { id, ...updates } = parsed.data;
     const partner = updates.partnerId ? await requirePartner(updates.partnerId) : undefined;
+    const touchesEconomics = (["pointsCost", "costPrice", "prxRevenuePerRedemption", "partnerFeePct"] as const).some((key) => updates[key] !== undefined);
+    if (touchesEconomics) {
+      const current = await getBenefit(id);
+      if (!current) throw new PartnerError("Benefício não encontrado.", 404);
+      await assertViable({
+        pointsCost: updates.pointsCost ?? current.pointsCost,
+        costPrice: updates.costPrice ?? current.costPrice,
+        prxRevenuePerRedemption: updates.prxRevenuePerRedemption ?? current.prxRevenuePerRedemption,
+        partnerFeePct: updates.partnerFeePct ?? current.partnerFeePct,
+      });
+    }
     const row = toRow(updates, partner);
 
     if (supabaseAdmin) {
       const { data, error } = await supabaseAdmin.from("benefits").update(row).eq("id", id).select("*").maybeSingle();
-      if (error) throw dbError(error, "Não foi possível atualizar o benefício");
+      if (error) throw writeError(error, "Não foi possível atualizar o benefício");
       if (!data) throw new PartnerError("Benefício não encontrado.", 404);
       const benefit = mapBenefitRow(data as BenefitRow);
       passStore.updateBenefit(id, benefit);

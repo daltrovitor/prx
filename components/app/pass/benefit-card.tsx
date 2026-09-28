@@ -51,6 +51,11 @@ export function BenefitCard({ benefit, redeemed, locked, onSelect }: BenefitCard
           {benefit.discountLabel}
         </span>
         {redeemed && <span className="absolute bottom-3 right-3 rounded-full bg-primary px-3 py-1 text-[12px] font-semibold text-white">Voucher ativo</span>}
+        {!redeemed && (benefit.pointsCost ?? 0) > 0 && (
+          <span className="absolute bottom-3 right-3 rounded-full bg-card px-3 py-1 text-[12px] font-semibold text-ink shadow-sm">
+            {(benefit.pointsCost ?? 0).toLocaleString("pt-BR")} coins
+          </span>
+        )}
       </div>
       <div className="flex flex-1 flex-col justify-between gap-4 px-3 pb-3 pt-3.5">
         <div>

@@ -1,3 +1,4 @@
+// Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
@@ -6,11 +7,14 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
 import { errorMessage } from "@/lib/errors";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
+import { recordConsent } from "@/lib/legal";
 
 const LoginSchema = z.object({
   email: z.string().email("E-mail inválido"),
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
   rememberMe: z.boolean().optional().default(true),
+  /** Ciência dos Termos/LGPD marcada na tela de entrada: renova o registro do aceite. */
+  termsAccepted: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -106,6 +110,7 @@ export async function POST(req: NextRequest) {
 
     // Remember me logic: 1 year (31536000s) if true, session (24h token, no cookie maxAge) if false
     const tokenExpSeconds = rememberMe ? 365 * 24 * 60 * 60 : 24 * 60 * 60;
+    if (parseResult.data.termsAccepted) await recordConsent(authenticatedUser.id);
     const token = createSessionToken(authenticatedUser, tokenExpSeconds);
 
     const response = NextResponse.json({
