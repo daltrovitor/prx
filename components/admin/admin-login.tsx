@@ -3,7 +3,6 @@
 
 import { useState, type FormEvent } from "react";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { Button, Field, Input, Notice } from "@/components/app/ui";
 import { useMainSiteUrl } from "@/lib/site";
 
@@ -111,7 +110,6 @@ export function PanelLogin({
             ← Voltar para o app PRX
           </a>
         </div>
-        <ViraWebCredit />
       </main>
     </div>
   );

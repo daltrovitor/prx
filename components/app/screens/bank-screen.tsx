@@ -152,8 +152,6 @@ export function BankScreen({ member }: { member: User }) {
         />
       </section>
 
-      <YieldSoonCard />
-
       <Segmented
         label="Seções do PRX BANK"
         value={section}
@@ -179,26 +177,6 @@ export function BankScreen({ member }: { member: User }) {
 }
 
 /* ------------------------------------------------------------------------ */
-
-/** Rentabilidade automática do saldo: anunciada com transparência, ainda sem render nada. */
-function YieldSoonCard({ className }: { className?: string }) {
-  return (
-    <section aria-labelledby="yield-soon" className={cn("flex flex-col gap-3 rounded-2xl glass p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8", className)}>
-      <div className="min-w-0 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 id="yield-soon" className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-ink sm:text-base">
-            Seu saldo rendendo 100% do CDI, todo dia útil
-          </h2>
-          <Tag>Em breve</Tag>
-        </div>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">Sem aplicar, sem resgatar: o que estiver na conta rende sozinho e continua disponível.</p>
-      </div>
-      <p className="shrink-0 text-[12px] leading-relaxed text-muted-foreground sm:max-w-[260px] sm:text-right">
-        Em fase de homologação regulatória com o banco parceiro. Nada rende até a liberação oficial.
-      </p>
-    </section>
-  );
-}
 
 function ActivationPanel({ title, onKeys }: { title: string; onKeys: () => void }) {
   return (

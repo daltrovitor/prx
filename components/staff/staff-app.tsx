@@ -6,7 +6,7 @@ import { PanelLogin } from "@/components/admin/admin-login";
 import { DashboardHeader } from "@/components/app/dashboard-header";
 import { Button, IconButton, Notice, Segmented } from "@/components/app/ui";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
+import { CircleLoader } from "@/components/ui/circle-loader";
 import { IconLogout } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
@@ -67,7 +67,6 @@ export function StaffApp({ initial }: { initial: StaffAuthResult }) {
           <p className="text-[15px] leading-relaxed text-muted-foreground">{auth.message}</p>
           <Button onClick={() => void logout()}>Trocar de conta</Button>
         </div>
-        <ViraWebCredit />
       </main>
     );
   }
@@ -79,8 +78,16 @@ type Tab = "validar" | "eventos";
 
 function StaffDashboard({ actor, onLogout }: { actor: StaffActor; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("validar");
+  const [isTabChanging, setIsTabChanging] = useState(false);
   const validation = useValidation();
   const scope = [actor.canValidateTickets ? "ingressos de eventos" : null, actor.canValidateBenefits ? "vouchers de benefícios" : null].filter(Boolean).join(" e ");
+
+  const handleTabChange = (newTab: Tab) => {
+    if (newTab === tab) return;
+    setIsTabChanging(true);
+    setTab(newTab);
+    setTimeout(() => setIsTabChanging(false), 200);
+  };
 
   return (
     <div className="prx-app isolate min-h-dvh bg-background text-foreground">
@@ -110,27 +117,32 @@ function StaffDashboard({ actor, onLogout }: { actor: StaffActor; onLogout: () =
               <Segmented
                 label="Portal da equipe"
                 value={tab}
-                onChange={setTab}
+                onChange={handleTabChange}
                 options={[
                   { value: "validar", label: "Validar" },
                   { value: "eventos", label: "Eventos" },
                 ]}
               />
             )}
-            {tab === "validar" || !actor.canValidateTickets ? (
-              <ValidatorPanel validation={validation} hint={`Leia o QR Code do app do membro ou digite o código. Você valida ${scope}.`} />
+            {isTabChanging ? (
+              <CircleLoader minHeight={320} label="Carregando janela..." />
             ) : (
-              <DoorEvents
-                endpoint="/api/staff/events"
-                refreshKey={validation.version}
-                onValidate={(code) => void validation.lookup(code)}
-                emptyBody="Eventos com “Equipe PRX valida ingressos” ligado aparecem aqui."
-              />
+              <>
+                {tab === "validar" || !actor.canValidateTickets ? (
+                  <ValidatorPanel validation={validation} hint={`Leia o QR Code do app do membro ou digite o código. Você valida ${scope}.`} />
+                ) : (
+                  <DoorEvents
+                    endpoint="/api/staff/events"
+                    refreshKey={validation.version}
+                    onValidate={(code) => void validation.lookup(code)}
+                    emptyBody="Eventos com “Equipe PRX valida ingressos” ligado aparecem aqui."
+                  />
+                )}
+                <ValidationSheet validation={validation} />
+              </>
             )}
-            <ValidationSheet validation={validation} />
           </>
         )}
-        <ViraWebCredit className="pt-6" />
       </main>
     </div>
   );

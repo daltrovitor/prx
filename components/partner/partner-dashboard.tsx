@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DashboardHeader } from "@/components/app/dashboard-header";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
+import { CircleLoader } from "@/components/ui/circle-loader";
 import { EmptyState, IconButton, Notice, Segmented } from "@/components/app/ui";
 import { IconLogout } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -53,9 +53,18 @@ async function fetchCampaigns(): Promise<PartnerCampaignView[]> {
 
 export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("validar");
+  const [isTabChanging, setIsTabChanging] = useState(false);
   const [profile, setProfile] = useState<ProfileState | null>(null);
   const [campaigns, setCampaigns] = useState<PartnerCampaignView[] | null>(null);
   const validation = useValidation();
+
+  const handleTabChange = useCallback((newTab: Tab) => {
+    if (newTab === tab) return;
+    setIsTabChanging(true);
+    setTab(newTab);
+    const timer = setTimeout(() => setIsTabChanging(false), 200);
+    return () => clearTimeout(timer);
+  }, [tab]);
 
   const refreshCampaigns = useCallback(async () => setCampaigns(await fetchCampaigns()), []);
 
@@ -106,7 +115,7 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
             <Segmented
               label="Área do parceiro"
               value={tab}
-              onChange={setTab}
+              onChange={handleTabChange}
               options={[
                 { value: "validar", label: "Validar" },
                 { value: "eventos", label: "Eventos" },
@@ -116,36 +125,41 @@ export function PartnerDashboard({ user, onLogout }: { user: PartnerUser; onLogo
               ]}
             />
 
-            {tab === "validar" && (
-              <ValidatorPanel validation={validation} hint="Leia o QR Code do app do cliente ou digite o código. Vale para vouchers dos seus benefícios e ingressos dos eventos ligados a você." />
+            {isTabChanging ? (
+              <CircleLoader minHeight={360} label="Carregando janela..." />
+            ) : (
+              <>
+                {tab === "validar" && (
+                  <ValidatorPanel validation={validation} hint="Leia o QR Code do app do cliente ou digite o código. Vale para vouchers dos seus benefícios e ingressos dos eventos ligados a você." />
+                )}
+                {tab === "eventos" && (
+                  <DoorEvents
+                    endpoint="/api/partner/events"
+                    refreshKey={validation.version}
+                    onValidate={(code) => void validation.lookup(code)}
+                    emptyBody="Quando a PRX ligar um evento ao seu estabelecimento, a portaria dele aparece aqui."
+                  />
+                )}
+                <ValidationSheet validation={validation} />
+                {tab === "contratos" && <PartnerContracts campaigns={campaigns} onChanged={refreshCampaigns} onCompleteProfile={() => handleTabChange("empresa")} />}
+                {tab === "metricas" && <MetricsPanel endpoint="/api/partner/metrics" />}
+                {tab === "empresa" &&
+                  (partner ? (
+                    <PartnerCompany
+                      profile={partner}
+                      missing={profile?.missing ?? []}
+                      onSaved={(data) => {
+                        setProfile({ partner: data.partner, missing: data.missing, error: null });
+                        void refreshCampaigns();
+                      }}
+                    />
+                  ) : (
+                    <div className="h-32 bg-surface" aria-hidden />
+                  ))}
+              </>
             )}
-            {tab === "eventos" && (
-              <DoorEvents
-                endpoint="/api/partner/events"
-                refreshKey={validation.version}
-                onValidate={(code) => void validation.lookup(code)}
-                emptyBody="Quando a PRX ligar um evento ao seu estabelecimento, a portaria dele aparece aqui."
-              />
-            )}
-            <ValidationSheet validation={validation} />
-            {tab === "contratos" && <PartnerContracts campaigns={campaigns} onChanged={refreshCampaigns} onCompleteProfile={() => setTab("empresa")} />}
-            {tab === "metricas" && <MetricsPanel endpoint="/api/partner/metrics" />}
-            {tab === "empresa" &&
-              (partner ? (
-                <PartnerCompany
-                  profile={partner}
-                  missing={profile?.missing ?? []}
-                  onSaved={(data) => {
-                    setProfile({ partner: data.partner, missing: data.missing, error: null });
-                    void refreshCampaigns();
-                  }}
-                />
-              ) : (
-                <div className="h-32 bg-surface" aria-hidden />
-              ))}
           </>
         )}
-        <ViraWebCredit className="pt-6" />
       </main>
     </div>
   );

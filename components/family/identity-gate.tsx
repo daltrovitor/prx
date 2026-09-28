@@ -5,7 +5,6 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { Button, Notice } from "@/components/app/ui";
 import { DocumentPicker } from "@/components/family/document-picker";
 import { postJson } from "@/components/family/family-client";
@@ -35,7 +34,6 @@ export function GateFrame({ title, subtitle, children, onLogout }: { title: stri
           <div className="glass mt-6 space-y-4 rounded-[28px] p-5 sm:p-6">{children}</div>
         </motion.div>
       </main>
-      <ViraWebCredit className="pb-6" />
     </div>
   );
 }

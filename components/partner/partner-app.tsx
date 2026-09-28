@@ -5,7 +5,6 @@ import { useCallback, useState } from "react";
 import { PartnerLogin } from "@/components/partner/partner-login";
 import { PartnerDashboard, type PartnerUser } from "@/components/partner/partner-dashboard";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { Button } from "@/components/app/ui";
 import { useMainSiteUrl } from "@/lib/site";
 import { useThemeScope } from "@/components/theme-provider";
@@ -88,7 +87,6 @@ export function PartnerApp({ initial }: { initial: PartnerAuthResult }) {
             </a>
           </div>
         </div>
-        <ViraWebCredit />
       </main>
     );
   }

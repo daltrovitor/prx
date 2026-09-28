@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import type { User } from "@/hooks/use-auth";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
+import { CircleLoader } from "@/components/ui/circle-loader";
 import { Avatar, BalanceFigure, Button, EmptyState, Field, IconButton, Input, Notice, Segmented, Select, Sheet, Tag, formatBRL } from "@/components/app/ui";
 import { StatCell, TransactionRow } from "@/components/app/shared";
 import { IconLogout } from "@/components/icons/prx-icons";
@@ -218,7 +218,6 @@ export function ParentShell({ user, onLogout }: { user: User; onLogout: () => vo
           <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
             A Conta Pai não guarda dinheiro nem rende. O dinheiro sai do seu banco e vai direto para a conta do seu filho.
           </p>
-          <ViraWebCredit />
         </main>
 
         {child && sheet === "pix" && <PixSheet child={child} onClose={() => setSheet(null)} onDone={refresh} />}
@@ -272,6 +271,15 @@ function ChildCard({ child, active, onSelect }: { child: ChildSummary; active: b
 }
 
 function ChildPanel({ child, tab, onTab, approved, onAction }: { child: ChildDetail; tab: ChildTab; onTab: (t: ChildTab) => void; approved: boolean; onAction: (s: SheetKind) => void }) {
+  const [isTabChanging, setIsTabChanging] = useState(false);
+
+  const handleTabChange = (t: ChildTab) => {
+    if (t === tab) return;
+    setIsTabChanging(true);
+    onTab(t);
+    setTimeout(() => setIsTabChanging(false), 200);
+  };
+
   return (
     <section aria-labelledby="child-title" className="space-y-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -297,7 +305,7 @@ function ChildPanel({ child, tab, onTab, approved, onAction }: { child: ChildDet
       <Segmented
         label="Acompanhar"
         value={tab}
-        onChange={onTab}
+        onChange={handleTabChange}
         options={[
           { value: "resumo", label: "Resumo" },
           { value: "extrato", label: "Extrato", count: child.transactions.length },
@@ -307,7 +315,11 @@ function ChildPanel({ child, tab, onTab, approved, onAction }: { child: ChildDet
         ]}
       />
 
-      {tab === "resumo" && (
+      {isTabChanging ? (
+        <CircleLoader minHeight={320} label="Carregando janela..." />
+      ) : (
+        <>
+          {tab === "resumo" && (
         <div className="grid gap-4 lg:grid-cols-12">
           <div className="glass rounded-3xl p-5 sm:p-6 lg:col-span-7">
             <BalanceFigure label="Saldo do filho" value={child.balance} />
@@ -391,6 +403,8 @@ function ChildPanel({ child, tab, onTab, approved, onAction }: { child: ChildDet
             <Row key={p.id} title={p.title} meta={fmt(p.createdAt)} tag={p.status} />
           ))}
         </ListCard>
+      )}
+        </>
       )}
     </section>
   );

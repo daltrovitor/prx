@@ -18,7 +18,7 @@ import { AdminLandingTab } from "@/components/admin/admin-landing-tab";
 import { AdminFamilyTab } from "@/components/admin/admin-family-tab";
 import type { PartnerOverview } from "@/lib/partners/service";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
+import { CircleLoader } from "@/components/ui/circle-loader";
 import { Button, IconButton, Segmented } from "@/components/app/ui";
 import { DashboardHeader, roundLinkClass } from "@/components/app/dashboard-header";
 import { IconExternal, IconLogout, IconRefresh } from "@/components/icons/prx-icons";
@@ -88,6 +88,15 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   const [auth, setAuth] = useState<"checking" | "guest" | "admin">(initialAdmin ? "admin" : "guest");
   const [admin, setAdmin] = useState<AdminIdentity | null>(initialAdmin);
   const [tab, setTab] = useState<TabKey>("members");
+  const [isTabChanging, setIsTabChanging] = useState(false);
+
+  const handleTabChange = useCallback((newTab: TabKey) => {
+    if (newTab === tab) return;
+    setIsTabChanging(true);
+    setTab(newTab);
+    const timer = setTimeout(() => setIsTabChanging(false), 200);
+    return () => clearTimeout(timer);
+  }, [tab]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [benefits, setBenefits] = useState<Benefit[]>([]);
   const [missions, setMissions] = useState<PassMission[]>([]);
@@ -201,7 +210,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
         <Segmented
           label="Seções do painel"
           value={tab}
-          onChange={setTab}
+          onChange={handleTabChange}
           options={[
             { value: "members", label: "Membros", count: users.length },
             { value: "partners", label: "Parceiros", count: partners.length },
@@ -219,39 +228,44 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
           ]}
         />
 
-        {tab === "members" && <AdminMembersTab users={users} onRefresh={loadData} />}
-        {tab === "partners" && (
-          <AdminPartnersTab partners={partners} benefits={benefits} users={users} onRefresh={loadData} onGoToBenefits={() => setTab("benefits")} />
+        {isTabChanging ? (
+          <CircleLoader minHeight={420} label="Carregando janela..." />
+        ) : (
+          <>
+            {tab === "members" && <AdminMembersTab users={users} onRefresh={loadData} />}
+            {tab === "partners" && (
+              <AdminPartnersTab partners={partners} benefits={benefits} users={users} onRefresh={loadData} onGoToBenefits={() => handleTabChange("benefits")} />
+            )}
+            {tab === "benefits" && (
+              <AdminBenefitsTab
+                benefits={benefits}
+                partners={partners}
+                economy={economy}
+                onRefresh={loadData}
+                draftEconomics={benefitDraft}
+                onDraftConsumed={() => setBenefitDraft(null)}
+              />
+            )}
+            {tab === "finance" && (
+              <AdminFinanceTab
+                economy={economy}
+                onUseInBenefit={(values) => {
+                  setBenefitDraft(values);
+                  handleTabChange("benefits");
+                }}
+              />
+            )}
+            {tab === "points" && <AdminPointsTab rules={rules} onRefresh={loadData} />}
+            {tab === "reels" && <AdminReelsTab partners={partners} benefits={benefits} />}
+            {tab === "missions" && <AdminMissionsTab missions={missions} onRefresh={loadData} />}
+            {tab === "vouchers" && <AdminVouchersTab vouchers={vouchers} onRefresh={loadData} />}
+            {tab === "events" && <AdminEventsTab />}
+            {tab === "founders" && <AdminFoundersTab />}
+            {tab === "staff" && <AdminStaffTab />}
+            {tab === "family" && <AdminFamilyTab />}
+            {tab === "landing" && <AdminLandingTab />}
+          </>
         )}
-        {tab === "benefits" && (
-          <AdminBenefitsTab
-            benefits={benefits}
-            partners={partners}
-            economy={economy}
-            onRefresh={loadData}
-            draftEconomics={benefitDraft}
-            onDraftConsumed={() => setBenefitDraft(null)}
-          />
-        )}
-        {tab === "finance" && (
-          <AdminFinanceTab
-            economy={economy}
-            onUseInBenefit={(values) => {
-              setBenefitDraft(values);
-              setTab("benefits");
-            }}
-          />
-        )}
-        {tab === "points" && <AdminPointsTab rules={rules} onRefresh={loadData} />}
-        {tab === "reels" && <AdminReelsTab partners={partners} benefits={benefits} />}
-        {tab === "missions" && <AdminMissionsTab missions={missions} onRefresh={loadData} />}
-        {tab === "vouchers" && <AdminVouchersTab vouchers={vouchers} onRefresh={loadData} />}
-        {tab === "events" && <AdminEventsTab />}
-        {tab === "founders" && <AdminFoundersTab />}
-        {tab === "staff" && <AdminStaffTab />}
-        {tab === "family" && <AdminFamilyTab />}
-        {tab === "landing" && <AdminLandingTab />}
-        <ViraWebCredit className="pt-10" />
       </main>
     </div>
   );

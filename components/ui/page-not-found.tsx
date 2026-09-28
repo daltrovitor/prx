@@ -1,7 +1,6 @@
 // Hello World
 import Link from "next/link";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 
 /**
  * 404 na perspectiva central: o número monumental ocupa o eixo da página e
@@ -34,7 +33,6 @@ export default function NotFoundPage() {
           Voltar para o PRX
         </Link>
       </section>
-      <ViraWebCredit className="relative pb-6" />
     </main>
   );
 }

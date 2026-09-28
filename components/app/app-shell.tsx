@@ -14,7 +14,7 @@ import { useLiveData, usePointsWallet } from "@/components/app/use-prx-stores";
 import { NoticesSheet, useNotices } from "@/components/app/notifications";
 import { Avatar, IconButton, initialsOf } from "@/components/app/ui";
 import { ReelsScreen } from "@/components/app/screens/reels-screen";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
+import { CircleLoader } from "@/components/ui/circle-loader";
 import { HomeScreen } from "@/components/app/screens/home-screen";
 import { PassScreen } from "@/components/app/screens/pass-screen";
 import { BankScreen } from "@/components/app/screens/bank-screen";
@@ -69,14 +69,20 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
   const { wallet: points } = usePointsWallet(user.id);
   const notices = useNotices(pass, live?.wallet ?? null, points);
   const [noticesOpen, setNoticesOpen] = useState(false);
+  const [isTabLoading, setIsTabLoading] = useState(false);
   const lenis = useLenis();
   const previousTab = useRef(tab);
 
   useEffect(() => {
     if (previousTab.current === tab) return;
     previousTab.current = tab;
+    setIsTabLoading(true);
     if (lenis) lenis.scrollTo(0, { immediate: true });
     else window.scrollTo({ top: 0 });
+    const timer = setTimeout(() => {
+      setIsTabLoading(false);
+    }, 200);
+    return () => clearTimeout(timer);
   }, [tab, lenis]);
 
   const member = pass.member;
@@ -193,23 +199,26 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
             )}
           >
             {notice && !immersive && <div className="mb-6">{notice}</div>}
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={tab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              >
-                {tab === "home" && <HomeScreen pass={pass} />}
-                {tab === "pass" && <PassScreen pass={pass} />}
-                {tab === "reels" && <ReelsScreen member={member} />}
-                {tab === "bank" && <BankScreen member={member} />}
-                {tab === "live" && <LiveScreen member={member} />}
-                {tab === "profile" && <ProfileScreen pass={pass} onLogout={onLogout} onViewShowcase={onViewShowcase} initials={initialsOf(name)} />}
-              </motion.div>
-            </AnimatePresence>
-            {!immersive && <ViraWebCredit className="mt-14" />}
+            {isTabLoading ? (
+              <CircleLoader minHeight={380} label="Carregando janela..." />
+            ) : (
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={tab}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                >
+                  {tab === "home" && <HomeScreen pass={pass} />}
+                  {tab === "pass" && <PassScreen pass={pass} />}
+                  {tab === "reels" && <ReelsScreen member={member} />}
+                  {tab === "bank" && <BankScreen member={member} />}
+                  {tab === "live" && <LiveScreen member={member} />}
+                  {tab === "profile" && <ProfileScreen pass={pass} onLogout={onLogout} onViewShowcase={onViewShowcase} initials={initialsOf(name)} />}
+                </motion.div>
+              </AnimatePresence>
+            )}
           </div>
         </main>
       </div>

@@ -4,7 +4,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { Avatar, Button, Input, Notice } from "@/components/app/ui";
 import { useThemeScope } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
@@ -206,8 +205,6 @@ export function QuickLogin({ account }: { account: KnownAccount }) {
           </button>
         </motion.div>
       </main>
-
-      <ViraWebCredit className="pb-6" />
     </div>
   );
 }
