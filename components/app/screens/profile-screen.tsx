@@ -13,7 +13,6 @@ import { IconCard, IconChevronRight, IconExternal, IconPix, IconTicket, IconUser
 import { ThemeToggle } from "@/components/theme-toggle";
 import { levelProgress } from "@/lib/pass-data";
 import { usePointsWallet } from "@/components/app/use-prx-stores";
-import { PhoneVerifyCard } from "@/components/app/phone-verify-card";
 
 interface ProfileScreenProps {
   pass: PassData;
@@ -88,8 +87,6 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenP
         </ul>
       </section>
 
-      <PhoneVerifyCard />
-
       <BiometricsCard />
 
       <section aria-labelledby="profile-appearance" className="flex items-center justify-between gap-4 rounded-3xl glass p-4 pl-5">
@@ -158,6 +155,9 @@ function BiometricsCard() {
     const result = await registerPasskey();
     setBusy(null);
     if (!result.ok) return setError(result.error);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("prx_bank_biometrics_accepted", "true");
+    }
     showToast("success", "Biometria ativada. Na próxima visita, entre com o rosto ou a digital.");
     await load();
   }
@@ -175,6 +175,15 @@ function BiometricsCard() {
     } finally {
       setBusy(null);
     }
+  }
+
+  const isAccepted =
+    (passkeys !== null && passkeys.length > 0) ||
+    readKnownAccount()?.passkey === true ||
+    (typeof window !== "undefined" && localStorage.getItem("prx_bank_biometrics_accepted") === "true");
+
+  if (isAccepted) {
+    return null;
   }
 
   return (
