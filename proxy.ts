@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
  *   adminprx.<domínio>   → /admin   (painel administrativo)
  *   partnerprx.<domínio> → /partner (portal do parceiro)
  *   staffprx.<domínio>   → /staff   (Equipe PRX: portaria de eventos e balcão)
+ *   show.<domínio>       → /apresentacao (apresentação do ecossistema, show.viraweb.online)
  * Os prefixos adminng./partnerng. são os domínios anteriores ao rebrand e
  * continuam aceitos enquanto o DNS é migrado.
  *
@@ -13,10 +14,11 @@ import { NextRequest, NextResponse } from "next/server";
  * /teste (e o atalho /showcase) é a vitrine aberta da identidade Obsidian.
  * Outros hosts de teaser podem ser adicionados em PRX_TEASER_HOSTS (vírgula).
  */
-const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/admin" | "/partner" | "/staff" }> = [
+const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/admin" | "/partner" | "/staff" | "/apresentacao" }> = [
   { prefixes: ["adminprx.", "adminng."], path: "/admin" },
   { prefixes: ["partnerprx.", "partnerng."], path: "/partner" },
   { prefixes: ["staffprx."], path: "/staff" },
+  { prefixes: ["show."], path: "/apresentacao" },
 ];
 
 /** Páginas públicas com rota própria no domínio principal (o app continua sendo só "/"). */

@@ -13,6 +13,7 @@ npm run dev
 - App: <http://localhost:3000>
 - Painel admin: <http://adminprx.localhost:3000>
 - Portal do parceiro: <http://partnerprx.localhost:3000>
+- Apresentação do ecossistema: <http://show.localhost:3000> (em produção, `show.viraweb.online`)
 
 Sem variáveis do Supabase o app roda com contas de demonstração, que só existem em desenvolvimento:
 
@@ -40,6 +41,10 @@ Sem variáveis do Supabase o app roda com contas de demonstração, que só exis
 | `PRX_TEASER_HOSTS` | Hosts extras que abrem o teaser `/em-breve` na raiz (além de `prx.app.br`) |
 | `CRON_SECRET` | Protege `GET /api/cron/allowances` (mesada automática, agendada no `vercel.json` para 09:05 de Brasília) |
 | `PRX_WEBAUTHN_RP_ID` / `PRX_WEBAUTHN_ORIGINS` | Domínio e origens da biometria (passkeys). Padrão: o host da requisição |
+| `RESEND_API_KEY` / `PRX_EMAIL_FROM` / `PRX_EMAIL_REPLY_TO` | E-mail de boas-vindas pelo Resend (remetente com domínio verificado). Ver [docs/NOTIFICACOES.md](docs/NOTIFICACOES.md) |
+| `PRX_EMAIL_ASSETS_URL` | De onde o e-mail carrega as imagens de `/email` (padrão: `NEXT_PUBLIC_SITE_URL`) |
+| `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | Código de confirmação do celular pelo WhatsApp Cloud API (Meta) |
+| `WHATSAPP_OTP_TEMPLATE` / `WHATSAPP_TEMPLATE_LANG` / `WHATSAPP_API_VERSION` | Template de autenticação aprovado (padrão `prx_codigo_verificacao`, `pt_BR`, `v23.0`) |
 
 ## Estrutura
 
@@ -52,6 +57,8 @@ Sem variáveis do Supabase o app roda com contas de demonstração, que só exis
 - `lib/prx/`: domínio do PRX BANK (Pix EMV, cartões, extrato) e do PRX LIVE.
 - `lib/points/`: economia PRX: PRX Coins, régua infinita de níveis, regras de bom comportamento, calculadora de viabilidade e motor de compras em parceiros via Pix.
 - `lib/reels/`: Reels de parceiros (feed, curtidas, salvos e métricas).
+- `lib/notifications/` e `lib/phone/`: notificações. E-mail de boas-vindas "Você entrou. Welcome to PRX." (Resend) no cadastro e no primeiro login com Google, e confirmação do celular por código no WhatsApp (card **WhatsApp** no Perfil). Imagens do e-mail em `public/email/` (`node scripts/build-email-assets.mjs`). Ver [docs/NOTIFICACOES.md](docs/NOTIFICACOES.md).
+- `components/show/`: apresentação "PRX — The ecosystem for the next generation" (19 páginas na identidade da landing), servida na raiz de `show.viraweb.online` (`proxy.ts` reescreve para `/apresentacao`). Setas, PageUp/PageDown, Espaço, Home e End navegam; o endereço guarda a página (`#live`); imprimir gera uma página por folha.
 - `lib/partners/`: programa de parceiros: Termo e Resumo Comercial, aceite eletrônico, planos de mídia e métricas agregadas. Ver [docs/PARCEIROS.md](docs/PARCEIROS.md), que inclui a ordem de implantação.
 - `docs/`: [relatório](docs/RELATORIO_PRX.md), [plano de BaaS](docs/PLANO_BAAS.md), [infraestrutura para escala](docs/INFRA_ESCALA.md) e [programa de parceiros](docs/PARCEIROS.md).
 
@@ -60,6 +67,8 @@ Sem variáveis do Supabase o app roda com contas de demonstração, que só exis
 Aplique as migrações de `supabase/migrations` em ordem. A `20260927_prx_points_reels_finance.sql` cria PRX Coins, extrato de pontos, regras de comportamento, Reels, compras em parceiros (BACEN) e lista VIP, com crédito atômico por `prx_apply_point_transaction` (só a service role executa). A `20260928_prx_family_passkeys.sql` zera os coins iniciais, cria a fila de análise de bom comportamento, as biometrias (passkeys), as contas de família (CPF único, Conta Pai, emancipação, vínculos, mesada e limites) e o bucket privado `family-docs`.
 
 A `20260929_prx_bank_kyc_consent.sql` cria a abertura do PRX BANK (`bank_kyc_applications`) e grava parentesco e consentimento parental (versão, data e IP) em cada vínculo com menor.
+
+A `20260930_prx_notifications.sql` guarda o celular confirmado pelo WhatsApp no perfil (um número por conta), os códigos de confirmação (só o HMAC) e o registro de envios de e-mail e WhatsApp (`notification_log`).
 
 Onboarding condicional:
 - **Cadastro do ecossistema, sem fricção:** nome, e-mail, senha e aceite dos Termos. Nada de documentos.

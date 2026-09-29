@@ -19,6 +19,11 @@ const DDDS = new Set([
   77, 79, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99,
 ]);
 
+/** Celular brasileiro só com dígitos: DDD válido + 9 + 8 dígitos. */
+export function isBrMobile(digits: string): boolean {
+  return /^\d{11}$/.test(digits) && DDDS.has(Number(digits.slice(0, 2))) && digits[2] === "9";
+}
+
 /** Nome civil: pelo menos nome e sobrenome, só letras (com acentos), espaços, hífen e apóstrofo. */
 const personName = (label: string) =>
   z
@@ -58,7 +63,7 @@ export const bankKycSchema = z
       .string()
       .trim()
       .transform(onlyDigits)
-      .refine((d) => d.length === 11 && DDDS.has(Number(d.slice(0, 2))) && d[2] === "9", "Informe um celular válido com DDD."),
+      .refine(isBrMobile, "Informe um celular válido com DDD."),
     occupation: z.string().trim().min(2, "Informe a ocupação.").max(80),
     incomeRange: z.enum(INCOME_RANGES, { error: "Escolha a faixa de renda." }),
     /** Pessoa politicamente exposta (Resolução COAF 40/2021): exige diligência reforçada, não bloqueia. */

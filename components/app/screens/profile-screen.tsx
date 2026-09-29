@@ -13,6 +13,7 @@ import { IconCard, IconChevronRight, IconExternal, IconPix, IconTicket, IconUser
 import { ThemeToggle } from "@/components/theme-toggle";
 import { levelProgress } from "@/lib/pass-data";
 import { usePointsWallet } from "@/components/app/use-prx-stores";
+import { PhoneVerifyCard } from "@/components/app/phone-verify-card";
 
 interface ProfileScreenProps {
   pass: PassData;
@@ -86,6 +87,8 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenP
           </Row>
         </ul>
       </section>
+
+      <PhoneVerifyCard />
 
       <BiometricsCard />
 

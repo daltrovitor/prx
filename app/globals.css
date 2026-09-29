@@ -743,3 +743,74 @@ html:has(.prx-rv) body {
     animation: none;
   }
 }
+
+/* Apresentação (show.viraweb.online): o documento é obsidiana, como na landing. */
+html:has(.prx-show),
+html:has(.prx-show) body {
+  background-color: #050508;
+}
+
+.prx-show :focus-visible {
+  outline: 2px solid #9468fa;
+  outline-offset: 2px;
+}
+
+/* Imprimir / salvar em PDF: uma página da apresentação por folha, sem a cápsula. */
+@media print {
+  .prx-show header,
+  .prx-show > div.fixed {
+    display: none !important;
+  }
+  .prx-show .show-slide {
+    break-after: page;
+    min-height: 100vh;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/* Capa da apresentação: entrada só com CSS (mola aproximada), pintada antes da hidratação. */
+.prx-show .show-line {
+  animation: show-line 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.prx-show .show-fade {
+  animation: show-fade 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes show-line {
+  from {
+    transform: translateY(108%);
+  }
+}
+
+@keyframes show-fade {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prx-show .show-line,
+  .prx-show .show-fade {
+    animation: none;
+  }
+}
+
+/* O cristal da capa acende depois do título (a luz chega por último). */
+.prx-show .show-crystal {
+  animation: show-crystal 1.4s ease-out 0.25s both;
+}
+
+@keyframes show-crystal {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prx-show .show-crystal {
+    animation: none;
+  }
+}

@@ -1,11 +1,12 @@
 // Hello World
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
 import { CONSENT_COOKIE, TERMS_VERSION, recordConsent } from "@/lib/legal";
+import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
@@ -86,6 +87,9 @@ export async function GET(req: NextRequest) {
                 })
                 .select("*")
                 .maybeSingle();
+
+          // Primeiro login com Google = conta nova: manda o "Welcome to PRX." depois do redirect.
+          if (!existing && profile && email) after(() => sendWelcomeEmail({ id: authUser.id, email, fullName: String(fullName) }));
 
           if (profile) {
             role = profile.role || "user";

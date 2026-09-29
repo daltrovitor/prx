@@ -1,11 +1,12 @@
 // Hello World
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, sanitizeInput } from "@/lib/security";
 import { CONSENT_REQUIRED_MESSAGE } from "@/lib/legal";
 import { attachSession, createAccount, publicUser } from "@/lib/accounts";
 import { PartnerError } from "@/lib/partners/errors";
 import { clientIp } from "@/lib/partners/http";
+import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 
 const SignupSchema = z.object({
   fullName: z.string().trim().min(2, "Nome completo é obrigatório").max(120, "Nome muito longo"),
@@ -31,6 +32,8 @@ export async function POST(req: NextRequest) {
     const data = parsed.data;
 
     const user = await createAccount({ email: sanitizeInput(data.email), fullName: sanitizeInput(data.fullName), password: data.password });
+    // "Você entrou. Welcome to PRX." depois da resposta: o cadastro não espera o provedor de e-mail.
+    after(() => sendWelcomeEmail({ id: user.id, email: user.email, fullName: user.fullName }));
     return attachSession(NextResponse.json({ success: true, message: "Conta criada. Bem-vindo ao PRX!", user: publicUser(user) }), user);
   } catch (error) {
     if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status === 409 ? 400 : error.status });
