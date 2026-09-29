@@ -11,8 +11,6 @@ import { NextRequest, NextResponse } from "next/server";
  *
  * prx.app.br (e www.) → /em-breve (teaser de lançamento com a Lista VIP).
  * /teste (e o atalho /showcase) é a vitrine aberta da identidade Obsidian.
- * /nova-landing é a prévia da nova página inicial: abre no domínio principal e no
- * subdomínio do admin, mas a própria página exige sessão de administrador.
  * Outros hosts de teaser podem ser adicionados em PRX_TEASER_HOSTS (vírgula).
  */
 const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/admin" | "/partner" | "/staff" }> = [
@@ -22,9 +20,7 @@ const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/adm
 ];
 
 /** Páginas públicas com rota própria no domínio principal (o app continua sendo só "/"). */
-const PUBLIC_PAGES = new Set(["/termos", "/privacidade", "/em-breve", "/sou-pai", "/nova-landing", "/teste", "/showcase"]);
-/** Prévia da nova landing, aberta dentro do painel admin (mesma origem do iframe). */
-const ADMIN_PAGES = new Set(["/nova-landing"]);
+const PUBLIC_PAGES = new Set(["/termos", "/privacidade", "/em-breve", "/sou-pai", "/teste", "/showcase"]);
 /** No domínio de teaser, só o teaser e os documentos legais. */
 const TEASER_PAGES = new Set(["/termos", "/privacidade"]);
 
@@ -65,7 +61,6 @@ export function proxy(req: NextRequest) {
   }
 
   if (match) {
-    if (match.path === "/admin" && ADMIN_PAGES.has(pathname)) return NextResponse.next();
     if (pathname === "/" || pathname === "") {
       url.pathname = match.path;
       return NextResponse.rewrite(url);
@@ -75,7 +70,7 @@ export function proxy(req: NextRequest) {
   }
 
   // Domínio principal: o app é uma única rota; qualquer caminho digitado volta para "/".
-  // Exceção: páginas públicas (legais, teaser, Sou Pai e a prévia protegida da nova landing).
+  // Exceção: páginas públicas (legais, teaser, Sou Pai e a vitrine /teste).
   if (PUBLIC_PAGES.has(pathname)) return NextResponse.next();
   if (pathname !== "/" && pathname !== "") {
     url.pathname = "/";

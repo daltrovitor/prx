@@ -217,8 +217,7 @@ for (const path of ["/termos", "/privacidade", "/em-breve", "/sou-pai"]) {
   check(`rota ${path} abre`, (await anon(path)).status === 200);
 }
 check("página institucional antiga removida", (await anon("/institucional")).status === 307);
-check("prévia da nova landing não existe para visitantes", (await anon("/nova-landing")).status === 404);
-check("prévia da nova landing abre para o admin", (await admin("/nova-landing")).status === 200);
+check("antiga prévia /nova-landing volta para / (a landing nova já é a página inicial)", (await anon("/nova-landing")).status === 307);
 check("rota desconhecida volta para /", (await anon("/qualquer-coisa")).status === 307);
 
 console.log(results.join("\n"));

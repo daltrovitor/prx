@@ -43,7 +43,7 @@ Sem variáveis do Supabase o app roda com contas de demonstração, que só exis
 
 ## Estrutura
 
-- `app/`: rotas (App Router). `/` é a landing e o app; `/admin` e `/partner` são servidas pelos subdomínios (`proxy.ts`). Páginas públicas: `/termos`, `/privacidade`, `/sou-pai` (cadastro da Conta Pai) e `/em-breve` (raiz do domínio `prx.app.br`). `/nova-landing` é a prévia da nova página inicial, só para administradores (aba "Nova landing" do painel).
+- `app/`: rotas (App Router). `/` é a landing e o app; `/admin` e `/partner` são servidas pelos subdomínios (`proxy.ts`). Páginas públicas: `/termos`, `/privacidade`, `/sou-pai` (cadastro da Conta Pai) e `/em-breve` (raiz do domínio `prx.app.br`). A landing (identidade Obsidian, com Entrar e Criar conta em `#entrar` / `#criar-conta`) fica em `components/marketing/revolut-landing.tsx` e `components/marketing/landing/`.
 - `components/app/`: shell do app, telas (Início, Pass, Destaques, Bank, Live e Perfil no cabeçalho) e UI do Modelo Padrão em Liquid Glass (classes `.glass*`, `.prx-holo` e `.prx-metal` em `app/globals.css`).
 - `components/auth/` e `lib/passkeys/`: "Lembrar de mim" com tela de login dedicada (foto, nome, senha ou biometria via WebAuthn) e cadastro com verificação de idade e CPF.
 - `components/family/` e `lib/family/`: contas de família — Conta Pai (`/sou-pai`), Conta Filho, emancipação, mesada, limites de gasto e acompanhamento; análise na aba "Famílias" do admin.

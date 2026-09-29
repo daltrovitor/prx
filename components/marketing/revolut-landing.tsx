@@ -23,7 +23,6 @@ import { PrxLogo } from "@/components/brand/prx-logo";
 import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { OBSIDIAN_IMAGES } from "@/components/obsidian/obsidian-ui";
 import { useTheme } from "@/components/theme-provider";
-import { useMainSiteUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { IN_VIEW, LIQUID, LuxuryButton, Specular, brl, rise, type Tone } from "@/components/marketing/landing/landing-kit";
 import {
@@ -38,15 +37,18 @@ import {
   SecuritySection,
   type LandingLinks,
 } from "@/components/marketing/landing/landing-sections";
+import { AuthSection } from "@/components/marketing/landing/landing-auth";
 
 /*
- * Nova landing PRX na identidade Cyber-Luxury Obsidian, em três momentos guiados pela rolagem:
+ * Landing da página inicial (rota "/") na identidade Cyber-Luxury Obsidian. Abre com três momentos guiados pela rolagem:
  *   1. Palco Obsidian: breu com haze violeta e cobalto, o cristal 3D PRX ao fundo,
  *      o manifesto monumental à esquerda e, no centro, o cartão de metal com o saldo.
  *   2. A página fixa: o breu se dissolve no branco, o cartão encolhe, PRX LIVE e
  *      PRX PASS entram pelas bordas e "Descontos reais. Vantagens exclusivas." surge.
  *   3. Fundo branco: "As bets lucram com a perda.", os destaques Bank, Coins & Level
  *      e Pass em Liquid Glass e os quatro pilares com as fotos originais da marca.
+ * Depois vêm as seções aprofundadas (landing/landing-sections.tsx) e, no fim, o acesso
+ * com Entrar e Criar conta (landing/landing-auth.tsx).
  * Tudo é ligado à rolagem (nada se move sozinho) com molas stiffness 300 / damping 28,
  * e o Lenis roda dentro do loop de quadros do Motion para os dois nunca descompassarem.
  */
@@ -282,7 +284,7 @@ function MenuLink({ item, tone, onNavigate }: { item: NavItem; tone: Tone; onNav
   );
 }
 
-function MenuPanel({ open, onOpenChange, panelId, tone, login }: MenuControlProps & { login: string }) {
+function MenuPanel({ open, onOpenChange, panelId, tone, login }: MenuControlProps & { login?: string }) {
   const close = () => onOpenChange(false);
   return (
     <AnimatePresence>
@@ -318,9 +320,11 @@ function MenuPanel({ open, onOpenChange, panelId, tone, login }: MenuControlProp
             ))}
           </ul>
           <div className={cn("relative mt-2 flex items-center justify-between gap-2 border-t px-2 pt-2", tone === "dark" ? "border-white/10" : "border-black/[0.07]")}>
-            <a href={login} className={cn("inline-flex min-h-12 cursor-pointer items-center rounded-[14px] px-2 text-[16px] font-medium transition-colors min-[400px]:hidden", NAV_LINK[tone])}>
-              Entrar
-            </a>
+            {login && (
+              <a href={login} onClick={close} className={cn("inline-flex min-h-12 cursor-pointer items-center rounded-[14px] px-2 text-[16px] font-medium transition-colors min-[400px]:hidden", NAV_LINK[tone])}>
+                Entrar
+              </a>
+            )}
             <span className="hidden text-[14px] opacity-80 min-[400px]:inline">Tema</span>
             <ThemeSwitch tone={tone} />
           </div>
@@ -334,7 +338,7 @@ function MenuPanel({ open, onOpenChange, panelId, tone, login }: MenuControlProp
  * Cápsula de vidro líquido flutuante; fumê sobre o palco Obsidian, leitosa sobre o branco
  * (no tema escuro ela fica sempre fumê). Entrar e Criar conta levam aos fluxos do app.
  */
-function Header({ links, tone }: { links: LandingLinks; tone: Tone }) {
+function Header({ links, tone, onBackToApp }: { links: LandingLinks; tone: Tone; onBackToApp?: () => void }) {
   const { open, setOpen, panelId, root, button } = useMobileMenu();
   return (
     <header ref={root} className="fixed inset-x-0 top-0 z-50 px-2 pt-2 sm:px-4 sm:pt-3">
@@ -365,19 +369,31 @@ function Header({ links, tone }: { links: LandingLinks; tone: Tone }) {
 
         <div className="flex items-center gap-0.5 sm:gap-1">
           <ThemeSwitch tone={tone} className="hidden md:inline-flex" />
-          <a
-            href={links.login}
-            className={cn("hidden min-h-12 cursor-pointer items-center whitespace-nowrap rounded-full px-3 text-[14px] font-semibold transition-colors min-[400px]:inline-flex sm:px-4", NAV_LINK[tone])}
-          >
-            Entrar
-          </a>
-          <LuxuryButton href={links.signup} className="px-4 min-[360px]:px-5">
-            Criar conta
-          </LuxuryButton>
+          {onBackToApp ? (
+            <button
+              type="button"
+              onClick={onBackToApp}
+              className="inline-flex min-h-12 cursor-pointer items-center justify-center whitespace-nowrap rounded-full bg-[#7c3aed] px-4 text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_28px_-10px_rgba(124,58,237,0.8)] transition-[background-color,transform] duration-200 hover:bg-[#6d28d9] active:scale-[0.98] min-[360px]:px-5"
+            >
+              Voltar ao app
+            </button>
+          ) : (
+            <>
+              <a
+                href={links.login}
+                className={cn("hidden min-h-12 cursor-pointer items-center whitespace-nowrap rounded-full px-3 text-[14px] font-semibold transition-colors min-[400px]:inline-flex sm:px-4", NAV_LINK[tone])}
+              >
+                Entrar
+              </a>
+              <LuxuryButton href={links.signup} className="px-4 min-[360px]:px-5">
+                Criar conta
+              </LuxuryButton>
+            </>
+          )}
           <MenuButton ref={button} open={open} onOpenChange={setOpen} panelId={panelId} tone={tone} />
         </div>
       </div>
-      <MenuPanel open={open} onOpenChange={setOpen} panelId={panelId} tone={tone} login={links.login} />
+      <MenuPanel open={open} onOpenChange={setOpen} panelId={panelId} tone={tone} login={onBackToApp ? undefined : links.login} />
     </header>
   );
 }
@@ -904,15 +920,20 @@ function Footer({ links }: { links: LandingLinks }) {
 /* Página                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** Destinos dos fluxos reais: login e cadastro abrem na seção de acesso da página inicial. */
-function useLandingLinks(): LandingLinks {
-  const appUrl = useMainSiteUrl();
-  const base = appUrl.replace(/\/$/, "");
-  return { appUrl, login: `${base}/#entrar`, signup: `${base}/#criar-conta`, parent: `${base}/sou-pai` };
+/**
+ * A landing é a página inicial: Entrar e Criar conta rolam até a seção de acesso
+ * da própria página (#entrar / #criar-conta), que troca a aba do formulário.
+ */
+const LINKS: LandingLinks = { appUrl: "/", login: "#entrar", signup: "#criar-conta", parent: "/sou-pai" };
+
+export interface RevolutLandingProps {
+  /** Chamado depois de entrar ou criar a conta (a página inicial troca para o app). */
+  onEnterApp?: () => void;
+  /** Membro logado revendo a apresentação: o topo mostra "Voltar ao app". */
+  onBackToApp?: () => void;
 }
 
-export function RevolutLanding({ preview = false }: { preview?: boolean }) {
-  const links = useLandingLinks();
+export function RevolutLanding({ onEnterApp, onBackToApp }: RevolutLandingProps) {
   const reduceMotion = useMedia(REDUCE, false);
   const { theme, mounted } = useTheme();
   const [stageTone, setStageTone] = useState<Tone>("dark");
@@ -931,26 +952,22 @@ export function RevolutLanding({ preview = false }: { preview?: boolean }) {
     <MotionConfig reducedMotion="user">
       <ReactLenis root ref={lenisRef} options={LENIS_OPTIONS}>
         <div className="prx-rv min-h-dvh overflow-x-clip selection:bg-[#7c3aed] selection:text-white">
-          <Header links={links} tone={tone} />
+          <Header links={LINKS} tone={tone} onBackToApp={onBackToApp} />
           <main>
-            <PinnedStory appUrl={links.appUrl} reduceMotion={reduceMotion} onTone={setStageTone} />
-            <AchievementsSection appUrl={links.signup} />
+            <PinnedStory appUrl={LINKS.signup} reduceMotion={reduceMotion} onTone={setStageTone} />
+            <AchievementsSection appUrl={LINKS.signup} />
             <AppShowcaseSection />
             <HowItWorksSection />
             <DifferentialsSection />
             <SecuritySection />
-            <ParentSection links={links} />
+            <ParentSection links={LINKS} />
             <AudiencesSection />
-            <PlansSection links={links} />
+            <PlansSection links={LINKS} />
             <FaqSection />
-            <FinalCtaSection links={links} />
+            <FinalCtaSection links={LINKS} />
+            <AuthSection onAuthenticated={onEnterApp ?? onBackToApp} />
           </main>
-          <Footer links={links} />
-          {preview && (
-            <p className="fixed bottom-3 right-3 z-50 rounded-full border border-white/10 bg-[#0b0b12]/80 px-3.5 py-1.5 text-[12px] font-medium text-white/85 shadow-[0_12px_32px_-12px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-              Prévia para aprovação · visível só para o admin
-            </p>
-          )}
+          <Footer links={LINKS} />
         </div>
       </ReactLenis>
     </MotionConfig>

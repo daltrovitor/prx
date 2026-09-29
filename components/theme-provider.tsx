@@ -60,7 +60,7 @@ export function ThemeScript() {
       var root = document.documentElement;
       try {
         var host = location.hostname, path = location.pathname;
-        var app = /^(adminprx|partnerprx|staffprx|adminng|partnerng)\\./.test(host) || /^\\/(admin|partner|staff|termos|privacidade|em-breve|sou-pai|nova-landing|teste|showcase)(\\/|$)/.test(path)
+        var app = /^(adminprx|partnerprx|staffprx|adminng|partnerng)\\./.test(host) || /^\\/(admin|partner|staff|termos|privacidade|em-breve|sou-pai|teste|showcase)(\\/|$)/.test(path)
           || /^(www\\.)?prx\\.app\\.br$/.test(host)
           || localStorage.getItem('prx_remember_me') === 'true' || sessionStorage.getItem('prx_tab_active') === 'true';
         // ?tema=obsidian (atalhos do /teste): liga o tema Obsidian dos dashboards nesta origem.

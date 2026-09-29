@@ -14,7 +14,6 @@ import { AdminStaffTab } from "@/components/admin/admin-staff-tab";
 import { AdminFinanceTab } from "@/components/admin/admin-finance-tab";
 import { AdminPointsTab } from "@/components/admin/admin-points-tab";
 import { AdminReelsTab } from "@/components/admin/admin-reels-tab";
-import { AdminLandingTab } from "@/components/admin/admin-landing-tab";
 import { AdminFamilyTab } from "@/components/admin/admin-family-tab";
 import type { PartnerOverview } from "@/lib/partners/service";
 import { PrxLogo } from "@/components/brand/prx-logo";
@@ -31,7 +30,7 @@ import type { PointRule } from "@/lib/points/types";
 import type { ViabilityValues } from "@/components/admin/viability-calculator";
 import { behaviorCoinsPerMonth, coinsPerRealFromRules } from "@/lib/points/economics";
 
-type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "founders" | "staff" | "family" | "landing";
+type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "founders" | "staff" | "family";
 
 export interface AdminIdentity {
   name?: string;
@@ -225,7 +224,6 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             { value: "founders", label: "Founders" },
             { value: "staff", label: "Equipe" },
             { value: "family", label: "Verificações" },
-            { value: "landing", label: "Nova landing" },
           ]}
         />
 
@@ -264,7 +262,6 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             {tab === "founders" && <AdminFoundersTab />}
             {tab === "staff" && <AdminStaffTab />}
             {tab === "family" && <AdminFamilyTab />}
-            {tab === "landing" && <AdminLandingTab />}
           </>
         )}
       </main>
