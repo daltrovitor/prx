@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { errorMessage } from "@/lib/errors";
 import type { SessionCookieOptions } from "@/lib/db-rows";
+import { PENDING_GOOGLE_COOKIE, createPendingGoogleToken } from "@/lib/google-pending";
 
 /**
  * Login Google simulado — SOMENTE para desenvolvimento local.
@@ -38,14 +39,16 @@ export async function POST(req: NextRequest) {
 
     if (supabaseAdmin) {
       try {
-        // Check if user already exists in profiles
+        // Check if user already exists in profiles and is complete
         const { data: existingProfile } = await supabaseAdmin
           .from("profiles")
           .select("*")
           .eq("email", email)
           .maybeSingle();
 
-        if (existingProfile) {
+        const isComplete = Boolean(existingProfile && existingProfile.cpf && existingProfile.phone);
+
+        if (existingProfile && isComplete) {
           authenticatedUser = {
             id: existingProfile.id,
             email: existingProfile.email,
@@ -58,57 +61,38 @@ export async function POST(req: NextRequest) {
             avatarUrl: existingProfile.avatar_url || avatarUrl,
             walletBalance: Number(existingProfile.wallet_balance ?? 0),
             emailConfirmed: true,
+            cpf: existingProfile.cpf,
+            phone: existingProfile.phone,
             createdAt: existingProfile.created_at || new Date().toISOString(),
           };
         } else {
-          // Create in auth.users
-          const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+          // Usuário novo ou sem CPF/celular: não salva agora.
+          // Emite token pendente e pede os dados no /cadastro/completar.
+          const pendingToken = createPendingGoogleToken({
+            authUserId: existingProfile?.id,
             email,
-            // Senha aleatória criptográfica (a conta entra só pelo Google; ninguém conhece esta senha).
-            password: `G_${crypto.randomBytes(32).toString("base64url")}!`,
-            email_confirm: true,
-            user_metadata: {
-              full_name: name,
-              role: "user",
-              avatar_url: avatarUrl,
-              nxt_score: 300,
-              nxt_level: 1,
-              wallet_balance: 0,
-            },
+            fullName: name,
+            avatarUrl,
           });
 
-          if (!authError && authData?.user) {
-            const uid = authData.user.id;
-            await supabaseAdmin.from("profiles").upsert(
-              {
-                id: uid,
-                email,
-                full_name: name,
-                avatar_url: avatarUrl,
-                role: "user",
-                nxt_score: 300,
-                nxt_level: 1,
-                wallet_balance: 0.0,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: "id" }
-            );
+          const response = NextResponse.json({
+            success: true,
+            pendingRegistration: true,
+            redirectTo: "/cadastro/completar",
+            user: { email, name, avatarUrl },
+          });
 
-            authenticatedUser = {
-              id: uid,
-              email,
-              fullName: name,
-              passwordHash: "",
-              salt: "",
-              role: "user",
-              prxScore: 300,
-              prxLevel: 1,
-              avatarUrl,
-              walletBalance: 0,
-              emailConfirmed: true,
-              createdAt: new Date().toISOString(),
-            };
-          }
+          response.cookies.set({
+            name: PENDING_GOOGLE_COOKIE,
+            value: pendingToken,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 15 * 60,
+          });
+
+          return response;
         }
       } catch (sbErr) {
         console.warn("Supabase Google auth fallback:", sbErr);

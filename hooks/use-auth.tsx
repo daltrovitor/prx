@@ -15,6 +15,8 @@ export interface User {
   prxLevel: number;
   walletBalance: number;
   avatarUrl: string;
+  cpf?: string;
+  phone?: string;
 }
 
 type AuthResult = { success: boolean; error?: string; code?: string | null };
@@ -37,8 +39,8 @@ interface AuthContextType {
   loginWithPasskey: (userId: string) => Promise<AuthResult & { missing?: boolean }>;
   /** "Entrar com outra conta": encerra a sessão e esquece a conta lembrada neste aparelho. */
   forgetAccount: () => Promise<void>;
-  /** Cadastro sem fricção: nome, e-mail, senha e aceite dos Termos. */
-  signup: (fullName: string, email: string, pass: string, termsAccepted?: boolean) => Promise<AuthResult>;
+  /** Cadastro com CPF e celular obrigatórios: só salva o usuário com dados completos. */
+  signup: (fullName: string, email: string, pass: string, cpf: string, phone: string, termsAccepted?: boolean) => Promise<AuthResult>;
   loginWithGoogle: (rememberMe?: boolean, termsAccepted?: boolean) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -190,24 +192,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [markUnlocked]
   );
 
-  const signup = useCallback(async (fullName: string, email: string, pass: string, termsAccepted = false): Promise<AuthResult> => {
-    try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, email, password: pass, termsAccepted }),
-      });
-      const data = (await res.json()) as { user?: User; error?: string; code?: string | null };
-      if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta", code: data.code ?? null };
-      storage.mark(true);
-      rememberAccount(data.user, true, "password");
-      setUser(data.user);
-      markUnlocked();
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: errorMessage(err, "Erro de conexão") };
-    }
-  }, [markUnlocked]);
+  const signup = useCallback(
+    async (fullName: string, email: string, pass: string, cpf: string, phone: string, termsAccepted = false): Promise<AuthResult> => {
+      try {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fullName, email, password: pass, cpf, phone, termsAccepted }),
+        });
+        const data = (await res.json()) as { user?: User; error?: string; code?: string | null };
+        if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta", code: data.code ?? null };
+        storage.mark(true);
+        rememberAccount(data.user, true, "password");
+        setUser(data.user);
+        markUnlocked();
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: errorMessage(err, "Erro de conexão") };
+      }
+    },
+    [markUnlocked]
+  );
 
   const loginWithGoogle = useCallback(async (rememberMe = true, termsAccepted = false): Promise<AuthResult> => {
     try {
@@ -238,7 +243,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rememberMe }),
       });
-      const data = (await res.json()) as { user?: User; error?: string };
+      const data = (await res.json()) as { user?: User; error?: string; pendingRegistration?: boolean; redirectTo?: string };
+      if (data.pendingRegistration && data.redirectTo) {
+        window.location.href = data.redirectTo;
+        return { success: true };
+      }
       if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao autenticar com o Google" };
       unlock.takePending();
       rememberAccount(data.user, rememberMe, "google");

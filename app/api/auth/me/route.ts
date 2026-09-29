@@ -23,6 +23,8 @@ export async function GET() {
       prxLevel: user.prxLevel,
       walletBalance: user.walletBalance,
       avatarUrl: user.avatarUrl,
+      cpf: user.cpf,
+      phone: user.phone,
     },
     rememberMe,
   }, { headers: { "Cache-Control": "no-store" } });

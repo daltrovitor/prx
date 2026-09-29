@@ -41,6 +41,8 @@ export interface StoredUser {
   avatarUrl: string;
   walletBalance: number;
   emailConfirmed: boolean;
+  cpf?: string;
+  phone?: string;
   createdAt: string;
 }
 
@@ -183,7 +185,7 @@ class UserStore {
     return user;
   }
 
-  createUser(email: string, fullName: string, plainPassword: string): StoredUser {
+  createUser(email: string, fullName: string, plainPassword: string, cpf?: string, phone?: string): StoredUser {
     const normalizedEmail = email.toLowerCase().trim();
     if (this.users.has(normalizedEmail)) {
       throw new Error("Este e-mail já está cadastrado.");
@@ -206,6 +208,8 @@ class UserStore {
       avatarUrl: "",
       walletBalance: 0,
       emailConfirmed: true, // Auto-confirm without email confirmation!
+      cpf,
+      phone,
       createdAt: new Date().toISOString(),
     };
 
@@ -213,13 +217,15 @@ class UserStore {
     return newUser;
   }
 
-  findOrCreateGoogleUser(email: string, fullName: string, avatarUrl?: string): StoredUser {
+  findOrCreateGoogleUser(email: string, fullName: string, avatarUrl?: string, cpf?: string, phone?: string): StoredUser {
     const normalizedEmail = email.toLowerCase().trim();
     const existing = this.users.get(normalizedEmail);
     if (existing) {
       if (avatarUrl && (!existing.avatarUrl || existing.avatarUrl.includes("unsplash"))) {
         existing.avatarUrl = avatarUrl;
       }
+      if (cpf && !existing.cpf) existing.cpf = cpf;
+      if (phone && !existing.phone) existing.phone = phone;
       return existing;
     }
 
@@ -239,6 +245,8 @@ class UserStore {
       avatarUrl: avatarUrl || "",
       walletBalance: 0,
       emailConfirmed: true,
+      cpf,
+      phone,
       createdAt: new Date().toISOString(),
     };
 
@@ -401,6 +409,8 @@ export async function loadSessionUser(userId: string, hint: { email?: string; ro
             avatarUrl: profile.avatar_url || "",
             walletBalance: Number(profile.wallet_balance ?? 0),
             emailConfirmed: true,
+            cpf: profile.cpf || undefined,
+            phone: profile.phone || undefined,
             createdAt: profile.created_at || new Date().toISOString(),
           };
         }

@@ -153,6 +153,8 @@ export interface ProfileRow {
   wallet_balance?: number | string | null;
   avatar_url?: string | null;
   birth_date?: string | null;
+  cpf?: string | null;
+  phone?: string | null;
   created_at?: string | null;
 }
 

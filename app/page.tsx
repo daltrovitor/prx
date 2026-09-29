@@ -1,7 +1,7 @@
 // Hello World
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { RevolutLanding } from "@/components/marketing/revolut-landing";
 import { AppShell } from "@/components/app/app-shell";
 import { QuickLogin } from "@/components/auth/quick-login";
@@ -20,6 +20,12 @@ export default function HomePage() {
   const { state: family, unavailable: familyUnavailable } = useFamilyState(member?.id ?? null);
   const [viewMode, setViewMode] = useState<"app" | "showcase">("app");
   const [introDone, setIntroDone] = useState(false);
+
+  useEffect(() => {
+    if (!loading && member && (!member.cpf || !member.phone)) {
+      window.location.href = "/cadastro/completar";
+    }
+  }, [loading, member]);
 
   let content: ReactNode = null;
 

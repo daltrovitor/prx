@@ -3,13 +3,22 @@
 
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, CreditCard, Eye, EyeOff, Loader2, Lock, Mail, Smartphone, User } from "lucide-react";
 import { TermsConsent } from "@/components/auth/terms-consent";
 import { useAuth } from "@/hooks/use-auth";
 import { CONSENT_REQUIRED_MESSAGE } from "@/lib/legal-version";
 import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
+import { maskCpfInput } from "@/lib/cpf-mask";
+import { isValidCpf } from "@/lib/partners/documents";
 import { LIQUID, Reveal, SectionHeading, Specular } from "./landing-kit";
+
+const maskPhone = (raw: string) => {
+  const d = raw.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}`;
+};
 
 /*
  * Acesso à plataforma dentro da própria landing (rota principal "/"): Entrar e
@@ -71,6 +80,9 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [signupStep, setSignupStep] = useState<1 | 2>(1);
+  const [cpf, setCpf] = useState("");
+  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -78,23 +90,55 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
   const [googleLoading, setGoogleLoading] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [forgotOpen, setForgotOpen] = useState(false);
-  const ids = { name: useId(), email: useId(), password: useId(), status: useId() };
+  const ids = { name: useId(), email: useId(), password: useId(), cpf: useId(), phone: useId(), status: useId() };
 
   useModeFromLinks(setMode);
 
   const switchMode = (next: AuthMode) => {
     setMode(next);
+    setSignupStep(1);
     setFeedback(null);
   };
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!termsAccepted) return setFeedback({ kind: "error", text: CONSENT_REQUIRED_MESSAGE });
+
+    if (mode === "signup" && signupStep === 1) {
+      if (name.trim().split(/\s+/).length < 2) {
+        return setFeedback({ kind: "error", text: "Informe seu nome completo, com sobrenome." });
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return setFeedback({ kind: "error", text: "Informe um e-mail válido." });
+      }
+      if (password.length < 6) {
+        return setFeedback({ kind: "error", text: "A senha deve ter no mínimo 6 caracteres." });
+      }
+      setFeedback(null);
+      setSignupStep(2);
+      return;
+    }
+
+    if (mode === "signup" && signupStep === 2) {
+      const cleanCpf = cpf.replace(/\D/g, "");
+      const cleanPhone = phone.replace(/\D/g, "");
+      if (!isValidCpf(cleanCpf)) {
+        return setFeedback({ kind: "error", text: "CPF inválido. Confira os 11 números digitados." });
+      }
+      if (cleanPhone.length !== 10 && cleanPhone.length !== 11) {
+        return setFeedback({ kind: "error", text: "Celular inválido. Informe o número com DDD." });
+      }
+    }
+
     setFeedback(null);
     setLoading(true);
     try {
-      // Cadastro sem fricção: nome, e-mail, senha e aceite. Documentos só no PRX Bank e na Conta Pai.
-      const res = mode === "login" ? await login(email, password, rememberMe, termsAccepted) : await signup(name, email, password, termsAccepted);
+      const cleanCpf = cpf.replace(/\D/g, "");
+      const cleanPhone = phone.replace(/\D/g, "");
+      const res =
+        mode === "login"
+          ? await login(email, password, rememberMe, termsAccepted)
+          : await signup(name, email, password, cleanCpf, cleanPhone, termsAccepted);
       if (res.success) {
         setFeedback({ kind: "success", text: mode === "login" ? "Login realizado. Bem-vindo de volta!" : "Conta criada. Bem-vindo ao PRX!" });
         window.setTimeout(() => onAuthenticated?.(), 400);
@@ -202,165 +246,252 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                 </div>
 
                 <form onSubmit={submit} className="mt-6 space-y-3" noValidate>
-                  <AnimatePresence initial={false}>
-                    {mode === "signup" && (
-                      <motion.div
-                        key="name"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ type: "spring", stiffness: 300, damping: 34 }}
-                        className="overflow-hidden"
+                  {mode === "signup" && signupStep === 2 ? (
+                    <div className="space-y-3">
+                      <div className="pb-1">
+                        <p className="text-[14px] font-semibold text-[var(--rv-ink)]">Finalizar cadastro</p>
+                        <p className="text-[12px] text-[var(--rv-muted)]">Informe seu CPF e celular para ativar sua conta.</p>
+                      </div>
+
+                      <label htmlFor={ids.cpf} className="sr-only">
+                        CPF
+                      </label>
+                      <Field icon={<CreditCard className="h-4 w-4" />}>
+                        <input
+                          id={ids.cpf}
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          required
+                          value={cpf}
+                          onChange={(e) => setCpf(maskCpfInput(e.target.value))}
+                          placeholder="000.000.000-00 (CPF)"
+                          suppressHydrationWarning
+                          className={FIELD}
+                        />
+                      </Field>
+
+                      <label htmlFor={ids.phone} className="sr-only">
+                        Celular com DDD
+                      </label>
+                      <Field icon={<Smartphone className="h-4 w-4" />}>
+                        <input
+                          id={ids.phone}
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          required
+                          value={phone}
+                          onChange={(e) => setPhone(maskPhone(e.target.value))}
+                          placeholder="(11) 98888-7777 (Celular)"
+                          suppressHydrationWarning
+                          className={FIELD}
+                        />
+                      </Field>
+
+                      <p
+                        id={ids.status}
+                        role="status"
+                        aria-live="polite"
+                        className={cn("min-h-5 text-[13px]", feedback?.kind === "error" ? "text-[#dc2626] dark:text-[#f87171]" : "text-[#047857] dark:text-[#34d399]")}
                       >
-                        <label htmlFor={ids.name} className="sr-only">
-                          Nome completo
-                        </label>
-                        <Field icon={<User className="h-4 w-4" />}>
-                          <input
-                            id={ids.name}
-                            type="text"
-                            autoComplete="name"
-                            required
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Nome completo"
-                            suppressHydrationWarning
-                            className={FIELD}
-                          />
-                        </Field>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                        {feedback?.text}
+                      </p>
 
-                  <label htmlFor={ids.email} className="sr-only">
-                    E-mail
-                  </label>
-                  <Field icon={<Mail className="h-4 w-4" />}>
-                    <input
-                      id={ids.email}
-                      type="email"
-                      inputMode="email"
-                      autoComplete="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Seu e-mail"
-                      suppressHydrationWarning
-                      className={FIELD}
-                    />
-                  </Field>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setSignupStep(1)}
+                          disabled={loading}
+                          className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[var(--rv-line)] bg-[var(--rv-soft)] px-5 text-[14px] font-medium text-[var(--rv-ink)] transition-colors hover:bg-[var(--rv-line)]/50 disabled:opacity-50"
+                        >
+                          <ArrowLeft className="h-4 w-4" /> Voltar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="group/lux relative inline-flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full bg-[#7c3aed] px-6 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_28px_-10px_rgba(124,58,237,0.8)] transition-[background-color,transform] hover:bg-[#6d28d9] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" /> Concluindo…
+                            </>
+                          ) : (
+                            <>
+                              Concluir cadastro PRX
+                              <ArrowRight className="h-4 w-4 transition-transform group-hover/lux:translate-x-0.5" />
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <AnimatePresence initial={false}>
+                        {mode === "signup" && (
+                          <motion.div
+                            key="name"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 34 }}
+                            className="overflow-hidden"
+                          >
+                            <label htmlFor={ids.name} className="sr-only">
+                              Nome completo
+                            </label>
+                            <Field icon={<User className="h-4 w-4" />}>
+                              <input
+                                id={ids.name}
+                                type="text"
+                                autoComplete="name"
+                                required
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Nome completo"
+                                suppressHydrationWarning
+                                className={FIELD}
+                              />
+                            </Field>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
-                  <label htmlFor={ids.password} className="sr-only">
-                    Senha
-                  </label>
-                  <Field icon={<Lock className="h-4 w-4" />}>
-                    <input
-                      id={ids.password}
-                      type={showPassword ? "text" : "password"}
-                      autoComplete={mode === "login" ? "current-password" : "new-password"}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Senha"
-                      suppressHydrationWarning
-                      className={cn(FIELD, "pr-12")}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                      className="absolute right-0 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-[var(--rv-muted)] transition-colors hover:text-[var(--rv-ink)]"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </Field>
+                      <label htmlFor={ids.email} className="sr-only">
+                        E-mail
+                      </label>
+                      <Field icon={<Mail className="h-4 w-4" />}>
+                        <input
+                          id={ids.email}
+                          type="email"
+                          inputMode="email"
+                          autoComplete="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="Seu e-mail"
+                          suppressHydrationWarning
+                          className={FIELD}
+                        />
+                      </Field>
 
-                  <div className="flex items-center justify-between gap-3 pt-1">
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={rememberMe}
-                      onClick={() => setRememberMe((v) => !v)}
-                      className="inline-flex min-h-12 cursor-pointer items-center gap-2.5 text-[13px] text-[var(--rv-body)]"
-                    >
-                      <span aria-hidden className={cn("flex h-5 w-9 items-center rounded-full p-0.5 transition-colors", rememberMe ? "bg-[#7c3aed]" : "bg-[var(--rv-line)]")}>
-                        <motion.span layout transition={{ type: "spring", stiffness: 300, damping: 28 }} className={cn("h-4 w-4 rounded-full bg-white shadow-sm", rememberMe && "ml-auto")} />
-                      </span>
-                      Lembrar de mim
-                    </button>
-                    {mode === "login" && (
+                      <label htmlFor={ids.password} className="sr-only">
+                        Senha
+                      </label>
+                      <Field icon={<Lock className="h-4 w-4" />}>
+                        <input
+                          id={ids.password}
+                          type={showPassword ? "text" : "password"}
+                          autoComplete={mode === "login" ? "current-password" : "new-password"}
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Senha"
+                          suppressHydrationWarning
+                          className={cn(FIELD, "pr-12")}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                          className="absolute right-0 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-[var(--rv-muted)] transition-colors hover:text-[var(--rv-ink)]"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </Field>
+
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={rememberMe}
+                          onClick={() => setRememberMe((v) => !v)}
+                          className="inline-flex min-h-12 cursor-pointer items-center gap-2.5 text-[13px] text-[var(--rv-body)]"
+                        >
+                          <span aria-hidden className={cn("flex h-5 w-9 items-center rounded-full p-0.5 transition-colors", rememberMe ? "bg-[#7c3aed]" : "bg-[var(--rv-line)]")}>
+                            <motion.span layout transition={{ type: "spring", stiffness: 300, damping: 28 }} className={cn("h-4 w-4 rounded-full bg-white shadow-sm", rememberMe && "ml-auto")} />
+                          </span>
+                          Lembrar de mim
+                        </button>
+                        {mode === "login" && (
+                          <button
+                            type="button"
+                            onClick={() => setForgotOpen((v) => !v)}
+                            aria-expanded={forgotOpen}
+                            className="inline-flex min-h-12 cursor-pointer items-center text-[13px] text-[var(--rv-muted)] transition-colors hover:text-[#7c3aed] dark:hover:text-[#b69cfb]"
+                          >
+                            Esqueceu a senha?
+                          </button>
+                        )}
+                      </div>
+                      {forgotOpen && mode === "login" && (
+                        <p className="rounded-[14px] bg-[var(--rv-soft)] px-4 py-3 text-[13px] leading-relaxed text-[var(--rv-body)]">
+                          A redefinição de senha é feita pelo suporte PRX. Se o aparelho já tem biometria cadastrada, entre com ela na próxima tela de acesso.
+                        </p>
+                      )}
+
+                      <TermsConsent
+                        checked={termsAccepted}
+                        onChange={(value) => {
+                          setTermsAccepted(value);
+                          if (value) setFeedback(null);
+                        }}
+                      />
+
+                      <p
+                        id={ids.status}
+                        role="status"
+                        aria-live="polite"
+                        className={cn("min-h-5 text-[13px]", feedback?.kind === "error" ? "text-[#dc2626] dark:text-[#f87171]" : "text-[#047857] dark:text-[#34d399]")}
+                      >
+                        {feedback?.text}
+                      </p>
+
                       <button
-                        type="button"
-                        onClick={() => setForgotOpen((v) => !v)}
-                        aria-expanded={forgotOpen}
-                        className="inline-flex min-h-12 cursor-pointer items-center text-[13px] text-[var(--rv-muted)] transition-colors hover:text-[#7c3aed] dark:hover:text-[#b69cfb]"
+                        type="submit"
+                        disabled={loading || !termsAccepted}
+                        className="group/lux relative inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full bg-[#7c3aed] px-6 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_28px_-10px_rgba(124,58,237,0.8)] transition-[background-color,transform] hover:bg-[#6d28d9] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
                       >
-                        Esqueceu a senha?
+                        {loading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" /> Processando…
+                          </>
+                        ) : (
+                          <>
+                            {mode === "login" ? "Entrar no PRX" : "Continuar"}
+                            <ArrowRight className="h-4 w-4 transition-transform group-hover/lux:translate-x-0.5" />
+                          </>
+                        )}
                       </button>
-                    )}
-                  </div>
-                  {forgotOpen && mode === "login" && (
-                    <p className="rounded-[14px] bg-[var(--rv-soft)] px-4 py-3 text-[13px] leading-relaxed text-[var(--rv-body)]">
-                      A redefinição de senha é feita pelo suporte PRX. Se o aparelho já tem biometria cadastrada, entre com ela na próxima tela de acesso.
-                    </p>
+                    </>
                   )}
-
-                  <TermsConsent
-                    checked={termsAccepted}
-                    onChange={(value) => {
-                      setTermsAccepted(value);
-                      if (value) setFeedback(null);
-                    }}
-                  />
-
-                  <p
-                    id={ids.status}
-                    role="status"
-                    aria-live="polite"
-                    className={cn("min-h-5 text-[13px]", feedback?.kind === "error" ? "text-[#dc2626] dark:text-[#f87171]" : "text-[#047857] dark:text-[#34d399]")}
-                  >
-                    {feedback?.text}
-                  </p>
-
-                  <button
-                    type="submit"
-                    disabled={loading || !termsAccepted}
-                    className="group/lux relative inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full bg-[#7c3aed] px-6 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_28px_-10px_rgba(124,58,237,0.8)] transition-[background-color,transform] hover:bg-[#6d28d9] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" /> Processando…
-                      </>
-                    ) : (
-                      <>
-                        {mode === "login" ? "Entrar no PRX" : "Criar conta PRX"}
-                        <ArrowRight className="h-4 w-4 transition-transform group-hover/lux:translate-x-0.5" />
-                      </>
-                    )}
-                  </button>
                 </form>
 
-                <div className="my-5 flex items-center gap-3 text-[12px] text-[var(--rv-muted)]">
-                  <span className="h-px flex-1 bg-[var(--rv-line)]" />
-                  ou continue com
-                  <span className="h-px flex-1 bg-[var(--rv-line)]" />
-                </div>
+                {signupStep === 1 && (
+                  <>
+                    <div className="my-5 flex items-center gap-3 text-[12px] text-[var(--rv-muted)]">
+                      <span className="h-px flex-1 bg-[var(--rv-line)]" />
+                      ou continue com
+                      <span className="h-px flex-1 bg-[var(--rv-line)]" />
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() => void google()}
-                  disabled={loading || googleLoading || !termsAccepted}
-                  className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-[var(--rv-line)] bg-[var(--rv-soft)] px-6 text-[14px] font-semibold text-[var(--rv-ink)] transition-colors hover:border-[#7c3aed]/40 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {googleLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <svg aria-hidden className="h-4 w-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M12.24 10.285V13.4h6.887C18.2 16.14 15.645 18 12.24 18c-3.315 0-6-2.685-6-6s2.685-6 6-6c1.455 0 2.785.525 3.82 1.39l2.405-2.405C16.92 3.55 14.73 2.6 12.24 2.6 7.07 2.6 2.88 6.79 2.88 12s4.19 9.4 9.36 9.4c5.4 0 8.98-3.79 8.98-9.14 0-.61-.06-1.22-.17-1.975H12.24z" />
-                    </svg>
-                  )}
-                  {googleLoading ? "Redirecionando para o Google…" : mode === "login" ? "Continuar com o Google" : "Cadastrar com o Google"}
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => void google()}
+                      disabled={loading || googleLoading || !termsAccepted}
+                      className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-[var(--rv-line)] bg-[var(--rv-soft)] px-6 text-[14px] font-semibold text-[var(--rv-ink)] transition-colors hover:border-[#7c3aed]/40 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {googleLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <svg aria-hidden className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                          <path d="M12.24 10.285V13.4h6.887C18.2 16.14 15.645 18 12.24 18c-3.315 0-6-2.685-6-6s2.685-6 6-6c1.455 0 2.785.525 3.82 1.39l2.405-2.405C16.92 3.55 14.73 2.6 12.24 2.6 7.07 2.6 2.88 6.79 2.88 12s4.19 9.4 9.36 9.4c5.4 0 8.98-3.79 8.98-9.14 0-.61-.06-1.22-.17-1.975H12.24z" />
+                        </svg>
+                      )}
+                      {googleLoading ? "Redirecionando para o Google…" : mode === "login" ? "Continuar com o Google" : "Cadastrar com o Google"}
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>

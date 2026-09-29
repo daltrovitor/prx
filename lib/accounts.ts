@@ -13,9 +13,12 @@ import { TERMS_VERSION } from "@/lib/legal";
  */
 export const DUPLICATE_EMAIL = "Este e-mail já está cadastrado no sistema.";
 
-export async function createAccount(input: { email: string; fullName: string; password: string }): Promise<StoredUser> {
+export async function createAccount(input: { email: string; fullName: string; password: string; cpf?: string; phone?: string }): Promise<StoredUser> {
   const email = input.email.toLowerCase().trim();
   const fullName = input.fullName.trim();
+  const cpfDigits = input.cpf ? input.cpf.replace(/\D/g, "") : undefined;
+  const phoneDigits = input.phone ? input.phone.replace(/\D/g, "") : undefined;
+
   // E-mails da lista de administradores não podem nascer pelo cadastro público.
   if (isReservedAdminEmail(email)) throw new PartnerError(DUPLICATE_EMAIL, 409);
 
@@ -23,6 +26,11 @@ export async function createAccount(input: { email: string; fullName: string; pa
   let userId: string;
 
   if (supabaseAdmin) {
+    if (cpfDigits) {
+      const { data: existingCpf } = await supabaseAdmin.from("profiles").select("id").eq("cpf", cpfDigits).maybeSingle();
+      if (existingCpf) throw new PartnerError("Este CPF já está cadastrado no PRX.", 409);
+    }
+
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: input.password,
@@ -46,6 +54,8 @@ export async function createAccount(input: { email: string; fullName: string; pa
         nxt_level: base.prxLevel,
         wallet_balance: base.walletBalance,
         avatar_url: base.avatarUrl,
+        cpf: cpfDigits || null,
+        phone: phoneDigits || null,
         terms_accepted_at: new Date().toISOString(),
         terms_version: TERMS_VERSION,
         updated_at: new Date().toISOString(),
@@ -55,7 +65,7 @@ export async function createAccount(input: { email: string; fullName: string; pa
     if (profileError) console.warn("Notice: public.profiles upsert warning:", profileError.message);
   } else {
     try {
-      userId = userStore.createUser(email, fullName, input.password).id;
+      userId = userStore.createUser(email, fullName, input.password, cpfDigits, phoneDigits).id;
     } catch {
       throw new PartnerError(DUPLICATE_EMAIL, 409);
     }
@@ -69,6 +79,8 @@ export async function createAccount(input: { email: string; fullName: string; pa
     salt: "",
     role: "user",
     ...base,
+    cpf: cpfDigits,
+    phone: phoneDigits,
     emailConfirmed: true,
     createdAt: new Date().toISOString(),
   };
@@ -111,5 +123,7 @@ export function publicUser(user: StoredUser) {
     prxLevel: user.prxLevel,
     walletBalance: user.walletBalance,
     avatarUrl: user.avatarUrl,
+    cpf: user.cpf,
+    phone: user.phone,
   };
 }
