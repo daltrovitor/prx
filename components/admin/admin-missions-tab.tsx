@@ -139,7 +139,7 @@ export function AdminMissionsTab({ missions, onRefresh }: AdminMissionsTabProps)
               key={template.title}
               type="button"
               onClick={() => openWith(null, template)}
-              className="flex min-h-10 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line"
+              className="flex min-h-12 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line"
             >
               {template.title}
               <span className="font-mono text-[12px] text-primary">+{template.xpReward}</span>

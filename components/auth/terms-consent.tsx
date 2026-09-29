@@ -13,16 +13,19 @@ export function TermsConsent({ checked, onChange, className }: { checked: boolea
   const id = useId();
   return (
     <div className={cn("flex min-h-12 items-start gap-3 rounded-xl py-1 text-left", className)}>
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        required
-        aria-describedby={`${id}-hint`}
-        suppressHydrationWarning
-        className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded-md accent-[#6c0cf0]"
-      />
+      {/* Área de toque de 48px em volta da caixa de 20px (as margens negativas não mudam o layout). */}
+      <label className="-mx-3.5 -my-3 flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center">
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          required
+          aria-describedby={`${id}-hint`}
+          suppressHydrationWarning
+          className="h-5 w-5 shrink-0 cursor-pointer rounded-md accent-[#6c0cf0]"
+        />
+      </label>
       <div className="min-w-0">
         <label htmlFor={id} className="block cursor-pointer text-[12px] leading-relaxed text-foreground sm:text-[13px]">
           Li e concordo com os{" "}

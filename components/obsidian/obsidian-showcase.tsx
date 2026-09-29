@@ -263,7 +263,7 @@ export function ObsidianShowcase() {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`Abrir o original de ${asset.title} em outra aba`}
-                      className="glass-chip inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink"
+                      className="glass-chip inline-flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink"
                     >
                       <IconExternal size={16} />
                     </a>

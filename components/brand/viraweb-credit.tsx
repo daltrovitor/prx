@@ -19,7 +19,7 @@ export function ViraWebCredit({ className, onDark = false }: { className?: strin
         rel="noopener noreferrer"
         aria-label="ViraWeb (abre em nova aba)"
         title="ViraWeb"
-        className={cn("inline-flex min-h-10 cursor-pointer items-center rounded-md transition-opacity hover:opacity-80", onDark ? "bg-white/95 px-2" : "dark:bg-white/95 dark:px-2")}
+        className={cn("inline-flex min-h-12 min-w-12 cursor-pointer items-center justify-center rounded-md transition-opacity hover:opacity-80", onDark ? "bg-white/95 px-2" : "dark:bg-white/95 dark:px-2")}
       >
         {/* Logo servida pela própria ViraWeb (sem otimização de imagem do Next). */}
         {/* eslint-disable-next-line @next/next/no-img-element */}

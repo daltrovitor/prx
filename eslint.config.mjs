@@ -14,7 +14,11 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Casos de teste das regras Semgrep (código vulnerável de propósito).
     ".semgrep/**",
+    // Biblioteca de terceiros já minificada (servida pela página offline).
+    "public/vendor/**",
   ]),
+  // Scripts Node em CommonJS (.js) usam require de propósito.
+  { files: ["scripts/**/*.js"], rules: { "@typescript-eslint/no-require-imports": "off" } },
 ]);
 
 export default eslintConfig;

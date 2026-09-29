@@ -28,8 +28,8 @@ export function ThemeToggle({ variant = "header", className, showLabel = false }
         aria-label={label}
         title={label}
         className={cn(
-          "glass-chip inline-flex h-11 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full text-ink",
-          showLabel ? "px-4 text-sm font-medium" : "w-11",
+          "glass-chip inline-flex h-12 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full text-ink",
+          showLabel ? "px-4 text-sm font-medium" : "w-12",
           className
         )}
       >

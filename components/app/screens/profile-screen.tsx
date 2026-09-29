@@ -201,7 +201,7 @@ function BiometricsCard() {
                 <p className="truncate text-[15px] font-medium text-ink">{p.deviceName || "Aparelho"}</p>
                 <p className="text-[13px] text-muted-foreground">Desde {since.format(new Date(p.createdAt)).replace(".", "")}</p>
               </div>
-              <Button size="sm" variant="danger" className="min-h-11" onClick={() => void remove(p.id)} disabled={busy !== null}>
+              <Button size="sm" variant="danger" onClick={() => void remove(p.id)} disabled={busy !== null}>
                 {busy === p.id ? "Removendo…" : "Remover"}
               </Button>
             </li>

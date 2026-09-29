@@ -12,6 +12,11 @@
       "sourceType": "github",
       "skillPath": "plugins/spec-to-code-compliance/skills/spec-to-code-compliance/SKILL.md",
       "computedHash": "92b36a27ccaf00b20fa1682131b42b43c5df329f0c638180eeb0bdc13c5111ce"
+    },
+    "vibe-coding-toolkit": {
+      "source": "soumatheusgomes/vibe-coding-toolkit",
+      "sourceType": "github",
+      "skillPath": "skills/vibe-coding-toolkit/SKILL.md"
     }
   }
 }

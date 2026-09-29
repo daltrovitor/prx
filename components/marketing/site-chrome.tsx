@@ -29,7 +29,7 @@ export function SiteHeader({ cta = true }: { cta?: boolean }) {
         </Link>
         <nav aria-label="Produtos PRX" className="hidden items-center gap-1 md:flex">
           {NAV.map((item) => (
-            <a key={item.href} href={item.href} className="inline-flex min-h-11 cursor-pointer items-center rounded-lg px-3.5 text-[15px] font-medium text-muted-foreground transition-colors hover:bg-surface hover:text-ink">
+            <a key={item.href} href={item.href} className="inline-flex min-h-12 cursor-pointer items-center rounded-lg px-3.5 text-[15px] font-medium text-muted-foreground transition-colors hover:bg-surface hover:text-ink">
               {item.label}
             </a>
           ))}
@@ -92,7 +92,7 @@ export function SiteFooter() {
               <ul className="mt-3 space-y-1">
                 {column.links.map((link) => (
                   <li key={link.href}>
-                    <a href={link.href} className="inline-flex min-h-10 cursor-pointer items-center text-sm text-muted-foreground transition-colors hover:text-ink">
+                    <a href={link.href} className="inline-flex min-h-12 cursor-pointer items-center text-sm text-muted-foreground transition-colors hover:text-ink">
                       {link.label}
                     </a>
                   </li>

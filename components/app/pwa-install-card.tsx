@@ -124,16 +124,16 @@ export function PwaInstallCard() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:pl-[62px]">
-            <Button size="sm" className="min-h-11 flex-1 sm:flex-none" onClick={() => void install()} disabled={busy}>
+            <Button size="sm" className="flex-1 sm:flex-none" onClick={() => void install()} disabled={busy}>
               {busy ? "Abrindo…" : cta}
             </Button>
-            <Button size="sm" variant="ghost" className="min-h-11" onClick={() => dismissInstallCard("dismissed")}>
+            <Button size="sm" variant="ghost" onClick={() => dismissInstallCard("dismissed")}>
               Agora não
             </Button>
             <button
               type="button"
               onClick={() => dismissInstallCard("installed")}
-              className="inline-flex min-h-11 cursor-pointer items-center rounded-full px-2 text-[13px] text-muted-foreground underline-offset-4 transition-colors hover:text-ink hover:underline"
+              className="inline-flex min-h-12 cursor-pointer items-center rounded-full px-2 text-[13px] text-muted-foreground underline-offset-4 transition-colors hover:text-ink hover:underline"
             >
               Já instalado
             </button>

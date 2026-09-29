@@ -125,7 +125,7 @@ export function QrScanner({ onScan, active = true }: QrScannerProps) {
           <IconRefresh size={16} />
           Trocar câmera
         </Button>
-        <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
+        <label className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
           <IconUpload size={16} />
           Enviar foto
           <input type="file" accept="image/*" className="sr-only" onChange={scanFile} />

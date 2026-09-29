@@ -236,7 +236,7 @@ function HourHistogram({ values }: { values: number[] }) {
             ))}
           </div>
           <details className="mt-3 text-sm">
-            <summary className="inline-flex min-h-10 cursor-pointer items-center text-muted-foreground hover:text-ink">Ver em tabela</summary>
+            <summary className="inline-flex min-h-12 cursor-pointer items-center text-muted-foreground hover:text-ink">Ver em tabela</summary>
             <table className="mt-2 w-full max-w-sm text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-[13px] text-muted-foreground">

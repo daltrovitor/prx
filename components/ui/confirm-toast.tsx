@@ -138,7 +138,7 @@ export function ConfirmToastProvider({ children }: { children: React.ReactNode }
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
                 transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                className="pointer-events-auto relative flex gap-3 rounded-2xl border border-[#e9e9ee] bg-white p-4 pr-12 text-[#0b0b10] shadow-[0_16px_40px_-16px_rgba(11,11,16,0.3)]"
+                className="pointer-events-auto relative flex gap-3 rounded-2xl border border-[#e9e9ee] bg-white p-4 pr-14 text-[#0b0b10] shadow-[0_16px_40px_-16px_rgba(11,11,16,0.3)]"
               >
                 <span
                   aria-hidden
@@ -153,14 +153,14 @@ export function ConfirmToastProvider({ children }: { children: React.ReactNode }
                       <button
                         type="button"
                         onClick={() => handleUserDecision(toast, false)}
-                        className="min-h-10 flex-1 cursor-pointer rounded-full bg-[#f2f2f5] px-4 text-sm font-medium transition-colors hover:bg-[#e9e9ee]"
+                        className="min-h-12 flex-1 cursor-pointer rounded-full bg-[#f2f2f5] px-4 text-sm font-medium transition-colors hover:bg-[#e9e9ee]"
                       >
                         {toast.cancelText}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleUserDecision(toast, true)}
-                        className="min-h-10 flex-1 cursor-pointer rounded-full bg-[#c8102e] px-4 text-sm font-medium text-white transition-colors hover:bg-[#a50d26]"
+                        className="min-h-12 flex-1 cursor-pointer rounded-full bg-[#c8102e] px-4 text-sm font-medium text-white transition-colors hover:bg-[#a50d26]"
                       >
                         {toast.confirmText}
                       </button>
@@ -172,7 +172,7 @@ export function ConfirmToastProvider({ children }: { children: React.ReactNode }
                   type="button"
                   onClick={() => handleUserDecision(toast, false)}
                   aria-label="Fechar notificação"
-                  className="absolute right-1.5 top-1.5 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[#5b5b66] transition-colors hover:bg-[#f2f2f5] hover:text-[#0b0b10]"
+                  className="absolute right-1 top-1 flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-[#5b5b66] transition-colors hover:bg-[#f2f2f5] hover:text-[#0b0b10]"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" aria-hidden="true">
                     <path d="M5 5l14 14M19 5 5 19" />

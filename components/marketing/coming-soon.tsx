@@ -132,14 +132,16 @@ export function ComingSoon() {
                 </button>
               </div>
               <div className="relative mt-3 flex min-h-12 items-start gap-3">
-                <input
-                  id={consentId}
-                  type="checkbox"
-                  checked={consent}
-                  onChange={(e) => setConsent(e.target.checked)}
-                  suppressHydrationWarning
-                  className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-[#7c3aed]"
-                />
+                <label className="-mx-3.5 -my-3 flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center">
+                  <input
+                    id={consentId}
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    suppressHydrationWarning
+                    className="h-5 w-5 shrink-0 cursor-pointer accent-[#7c3aed]"
+                  />
+                </label>
                 <label htmlFor={consentId} className="cursor-pointer text-[13px] leading-relaxed text-white/75">
                   Autorizo a PRX a me avisar do lançamento por e-mail, conforme a{" "}
                   <a href="/privacidade" target="_blank" rel="noopener" className="cursor-pointer font-medium text-[#c4b1fd] underline underline-offset-2">

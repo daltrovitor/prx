@@ -45,16 +45,16 @@ export function DashboardHeader({
   );
 }
 
-/** Escultura de cristal no canto superior direito dos painéis (só no tema escuro). */
+/** Escultura de cristal no canto superior direito dos painéis (adaptada em cores claras no plano branco e obsidian no escuro). */
 export function DashboardBackdrop() {
   return (
     <ObsidianCrystal
       sizes="(min-width: 1024px) 40vw, 80vw"
-      className="absolute right-0 top-0 z-0 hidden h-[360px] w-[82vw] opacity-60 dark:block sm:h-[460px] sm:w-[56vw] lg:w-[40vw]"
+      className="absolute right-0 top-0 z-0 h-[360px] w-[82vw] opacity-80 dark:opacity-60 sm:h-[460px] sm:w-[56vw] lg:w-[40vw]"
     />
   );
 }
 
 /** Link com aparência de botão redondo (ex.: abrir o app em outra aba). */
 export const roundLinkClass =
-  "glass-chip inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink cursor-pointer";
+  "glass-chip inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-ink cursor-pointer";

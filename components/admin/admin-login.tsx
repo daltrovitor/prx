@@ -106,7 +106,7 @@ export function PanelLogin({
             </Button>
           </form>
 
-          <a href={homeUrl} className="inline-flex min-h-10 items-center text-sm text-muted-foreground underline-offset-4 hover:text-ink hover:underline">
+          <a href={homeUrl} className="inline-flex min-h-12 cursor-pointer items-center text-sm text-muted-foreground underline-offset-4 hover:text-ink hover:underline">
             ← Voltar para o app PRX
           </a>
         </div>

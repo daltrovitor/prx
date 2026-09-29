@@ -199,7 +199,7 @@ export function QuickLogin({ account }: { account: KnownAccount }) {
               setBusy("switch");
               void forgetAccount();
             }}
-            className="mt-6 inline-flex min-h-11 cursor-pointer items-center rounded-full px-4 text-[14px] font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-ink hover:underline disabled:cursor-not-allowed"
+            className="mt-6 inline-flex min-h-12 cursor-pointer items-center rounded-full px-4 text-[14px] font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-ink hover:underline disabled:cursor-not-allowed"
           >
             Entrar com outra conta
           </button>

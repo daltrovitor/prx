@@ -241,7 +241,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
   const category = PRX_CATEGORIES.find((c) => c.id === partner.categoryId)?.name ?? partner.categoryId;
   const docLink = (c: Campaign, kind: "contract" | "certificate") => `/api/partners/document?campaignId=${encodeURIComponent(c.id)}&kind=${kind}`;
   const linkClass =
-    "inline-flex min-h-10 items-center gap-1.5 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line cursor-pointer in-[.bg-surface]:bg-card";
+    "inline-flex min-h-12 items-center gap-1.5 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line cursor-pointer in-[.bg-surface]:bg-card";
 
   return (
     <section aria-labelledby="partner-detail-title" className="space-y-8">

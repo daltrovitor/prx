@@ -156,7 +156,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
                     aria-pressed={active}
                     onClick={() => setCategory(cat.id)}
                     className={cn(
-                      "min-h-10 shrink-0 cursor-pointer whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors",
+                      "min-h-12 shrink-0 cursor-pointer whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors",
                       active ? "bg-ink text-background" : "bg-surface text-muted-foreground hover:bg-line hover:text-ink"
                     )}
                   >

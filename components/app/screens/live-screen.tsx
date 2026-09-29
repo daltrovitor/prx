@@ -129,7 +129,7 @@ function EventsPanel({ events, member, reserve, onDone }: { events: PublicEvent[
               aria-pressed={series === value}
               onClick={() => setSeries(value)}
               className={cn(
-                "min-h-10 shrink-0 cursor-pointer whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors",
+                "min-h-12 shrink-0 cursor-pointer whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors",
                 series === value ? "bg-ink text-background" : "bg-surface text-muted-foreground hover:bg-line hover:text-ink"
               )}
             >

@@ -179,10 +179,10 @@ export function ParentShell({ user, onLogout }: { user: User; onLogout: () => vo
                       <strong className="font-semibold">{link.childName || "Seu filho"}</strong> pediu para vincular a Conta Filho a você.
                     </p>
                     <div className="flex gap-2">
-                      <Button size="sm" className="min-h-11" onClick={() => setApproving(link)} disabled={!approved}>
+                      <Button size="sm" onClick={() => setApproving(link)} disabled={!approved}>
                         Aceitar
                       </Button>
-                      <Button size="sm" variant="danger" className="min-h-11" onClick={() => void reject(link.id)} disabled={!approved}>
+                      <Button size="sm" variant="danger" onClick={() => void reject(link.id)} disabled={!approved}>
                         Recusar
                       </Button>
                     </div>

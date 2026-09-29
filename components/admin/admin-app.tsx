@@ -15,6 +15,9 @@ import { AdminFinanceTab } from "@/components/admin/admin-finance-tab";
 import { AdminPointsTab } from "@/components/admin/admin-points-tab";
 import { AdminReelsTab } from "@/components/admin/admin-reels-tab";
 import { AdminFamilyTab } from "@/components/admin/admin-family-tab";
+import { AdminWaitlistTab } from "@/components/admin/admin-waitlist-tab";
+import { AdminLegalTab } from "@/components/admin/admin-legal-tab";
+import type { LegalMetrics } from "@/lib/legal/checklist-store";
 import type { PartnerOverview } from "@/lib/partners/service";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { CircleLoader } from "@/components/ui/circle-loader";
@@ -30,7 +33,7 @@ import type { PointRule } from "@/lib/points/types";
 import type { ViabilityValues } from "@/components/admin/viability-calculator";
 import { behaviorCoinsPerMonth, coinsPerRealFromRules } from "@/lib/points/economics";
 
-type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "founders" | "staff" | "family";
+type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "founders" | "staff" | "family" | "waitlist" | "legal";
 
 export interface AdminIdentity {
   name?: string;
@@ -44,7 +47,13 @@ interface AdminData {
   vouchers?: SystemVoucher[];
   partners?: PartnerOverview[];
   rules?: PointRule[];
+  /** Leads da Lista de Espera. */
+  waitlistCount?: number;
+  /** Itens do checklist jurídico ainda não concluídos. */
+  legalOpen?: number;
 }
+
+type AdminResponse = AdminData & { count?: number; metrics?: LegalMetrics };
 
 async function fetchAdminIdentity(): Promise<AdminIdentity | null> {
   try {
@@ -58,11 +67,20 @@ async function fetchAdminIdentity(): Promise<AdminIdentity | null> {
 
 async function fetchAdminData(): Promise<AdminData> {
   try {
-    const [u, b, m, v, p, r] = await Promise.all(
-      ["/api/admin/users", "/api/admin/benefits", "/api/admin/missions", "/api/admin/vouchers", "/api/admin/partners", "/api/admin/points"].map((url) =>
+    const [u, b, m, v, p, r, w, l] = await Promise.all(
+      [
+        "/api/admin/users",
+        "/api/admin/benefits",
+        "/api/admin/missions",
+        "/api/admin/vouchers",
+        "/api/admin/partners",
+        "/api/admin/points",
+        "/api/admin/waitlist",
+        "/api/admin/legal",
+      ].map((url) =>
         fetch(url, { cache: "no-store" })
-          .then((r) => r.json() as Promise<AdminData>)
-          .catch((): AdminData => ({}))
+          .then((r) => r.json() as Promise<AdminResponse>)
+          .catch((): AdminResponse => ({}))
       )
     );
     return {
@@ -72,6 +90,8 @@ async function fetchAdminData(): Promise<AdminData> {
       vouchers: Array.isArray(v.vouchers) ? v.vouchers : undefined,
       partners: Array.isArray(p.partners) ? p.partners : undefined,
       rules: Array.isArray(r.rules) ? r.rules : undefined,
+      waitlistCount: typeof w.count === "number" ? w.count : undefined,
+      legalOpen: l.metrics ? l.metrics.total - l.metrics.done : undefined,
     };
   } catch {
     return {};
@@ -103,6 +123,9 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   const [partners, setPartners] = useState<PartnerOverview[]>([]);
   const [rules, setRules] = useState<PointRule[]>([]);
   const [benefitDraft, setBenefitDraft] = useState<ViabilityValues | null>(null);
+  const [waitlistCount, setWaitlistCount] = useState<number | undefined>(undefined);
+  const [legalOpen, setLegalOpen] = useState<number | undefined>(undefined);
+  const onLegalMetrics = useCallback((m: LegalMetrics) => setLegalOpen(m.total - m.done), []);
   const [loading, setLoading] = useState(false);
   const homeUrl = useMainSiteUrl();
 
@@ -120,6 +143,8 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
     if (data.vouchers) setVouchers(data.vouchers);
     if (data.partners) setPartners(data.partners);
     if (data.rules) setRules(data.rules);
+    if (data.waitlistCount !== undefined) setWaitlistCount(data.waitlistCount);
+    if (data.legalOpen !== undefined) setLegalOpen(data.legalOpen);
     setLoading(false);
   }, []);
 
@@ -224,6 +249,8 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             { value: "founders", label: "Founders" },
             { value: "staff", label: "Equipe" },
             { value: "family", label: "Verificações" },
+            { value: "waitlist", label: "Lista de Espera", count: waitlistCount },
+            { value: "legal", label: "Jurídico", count: legalOpen },
           ]}
         />
 
@@ -262,6 +289,8 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             {tab === "founders" && <AdminFoundersTab />}
             {tab === "staff" && <AdminStaffTab />}
             {tab === "family" && <AdminFamilyTab />}
+            {tab === "waitlist" && <AdminWaitlistTab onCount={setWaitlistCount} />}
+            {tab === "legal" && <AdminLegalTab onMetrics={onLegalMetrics} />}
           </>
         )}
       </main>

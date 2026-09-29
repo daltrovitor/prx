@@ -57,7 +57,7 @@ export function DocumentPicker({
             <button
               type="button"
               onClick={() => onChange(null)}
-              className="inline-flex min-h-11 cursor-pointer items-center rounded-full px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-ink"
+              className="inline-flex min-h-12 cursor-pointer items-center rounded-full px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-ink"
             >
               Remover
             </button>
@@ -66,7 +66,7 @@ export function DocumentPicker({
             type="button"
             onClick={() => input.current?.click()}
             disabled={busy}
-            className="glass-chip inline-flex min-h-11 cursor-pointer items-center rounded-full px-4 text-[14px] font-medium text-ink disabled:cursor-wait disabled:opacity-60"
+            className="glass-chip inline-flex min-h-12 cursor-pointer items-center rounded-full px-4 text-[14px] font-medium text-ink disabled:cursor-wait disabled:opacity-60"
           >
             {busy ? "Enviando…" : value ? "Trocar" : "Enviar"}
           </button>

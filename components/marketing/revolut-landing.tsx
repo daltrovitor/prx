@@ -349,7 +349,7 @@ function Header({ links, tone, onBackToApp }: { links: LandingLinks; tone: Tone;
           BAR_TEXT[tone],
         )}
       >
-        <a href="#topo" className="flex min-h-12 shrink-0 cursor-pointer items-center" aria-label="PRX — início">
+        <a href="#topo" className="flex min-h-12 min-w-12 shrink-0 cursor-pointer items-center" aria-label="PRX — início">
           <PrxLogo variant="symbol" title="" className="h-6 w-auto min-[420px]:hidden" />
           <PrxLogo variant="compact" title="" className="hidden h-[22px] w-auto min-[420px]:block sm:h-6 xl:h-7" />
         </a>
@@ -359,7 +359,7 @@ function Header({ links, tone, onBackToApp }: { links: LandingLinks; tone: Tone;
             <a
               key={item.href}
               href={item.href}
-              className={cn("inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-[14px] font-medium transition-colors xl:px-3.5 xl:text-[15px]", NAV_LINK[tone])}
+              className={cn("inline-flex min-h-12 min-w-12 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2.5 text-[14px] font-medium transition-colors xl:px-3.5 xl:text-[15px]", NAV_LINK[tone])}
             >
               {item.label}
               {item.soon && <SoonPill tone={tone} />}
@@ -860,7 +860,7 @@ const FOOTER_SECTIONS: ReadonlyArray<{ href: `#${string}`; label: string }> = [
 /** Rodapé Obsidian: a página termina no mesmo breu em que começou. */
 function Footer({ links }: { links: LandingLinks }) {
   const base = links.appUrl.replace(/\/$/, "");
-  const link = "inline-flex min-h-12 cursor-pointer items-center transition-colors hover:text-white";
+  const link = "inline-flex min-h-12 min-w-12 cursor-pointer items-center transition-colors hover:text-white";
   return (
     <footer className="relative isolate overflow-hidden border-t border-white/[0.06] bg-[#050508] px-5 py-12 text-[13px] text-white/75 sm:px-8">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(44rem_18rem_at_50%_130%,rgba(124,58,237,0.24),transparent_70%)]" />

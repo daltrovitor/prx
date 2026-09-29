@@ -268,7 +268,8 @@ function ParentPanel() {
         </div>
         <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[12px] font-medium text-emerald-300">Vinculada</span>
       </div>
-      <div className="relative mt-6 grid grid-cols-2 gap-3">
+      {/* Abaixo de 400px os dois valores empilham: lado a lado "R$ 312,40" não cabe no cartão. */}
+      <div className="relative mt-6 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
         <div className="rounded-[18px] bg-white/[0.05] p-4">
           <p className="text-[12px] text-white/70">Saldo</p>
           <p className="mt-1 text-[22px] font-light tabular-nums">{brl.format(312.4)}</p>

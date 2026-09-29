@@ -110,12 +110,12 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
     <div className="prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground">
       {/* Luz volumétrica (cobalto e violeta) atrás do vidro fumê. */}
       <div aria-hidden className="prx-ambient" />
-      {/* Escultura de cristal no canto superior direito da Início, fundida ao breu. */}
+      {/* Escultura de cristal no canto superior direito da Início (em cores claras no plano branco e obsidian no escuro). */}
       {tab === "home" && (
         <ObsidianCrystal
           priority
           sizes="(min-width: 1024px) 50vw, 88vw"
-          className="absolute -right-[22%] top-0 z-0 hidden h-[430px] w-[88vw] dark:block sm:-right-[8%] sm:h-[560px] sm:w-[62vw] lg:right-0 lg:h-[700px] lg:w-[46vw] lg:opacity-90"
+          className="absolute -right-[22%] top-0 z-0 h-[430px] w-[88vw] sm:-right-[8%] sm:h-[560px] sm:w-[62vw] lg:right-0 lg:h-[700px] lg:w-[46vw] lg:opacity-90"
         />
       )}
       <a
@@ -130,7 +130,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
         <button
           type="button"
           onClick={() => go("home")}
-          className="cursor-pointer self-start px-3"
+          className="flex min-h-12 cursor-pointer items-center self-start px-3"
           aria-label="PRX — ir para o início"
         >
           <PrxLogo variant="compact" title="" className="h-7 w-auto text-ink" />
@@ -177,7 +177,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
           <button
             type="button"
             onClick={onLogout}
-            className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface hover:text-ink"
+            className="flex min-h-12 w-full cursor-pointer items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface hover:text-ink"
           >
             <IconLogout size={18} />
             Sair
@@ -213,14 +213,14 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
                 onClick={() => go("pass", "vouchers")}
                 aria-label="Meus Vouchers e QR Codes"
                 title="Meus Vouchers"
-                className="glass-chip flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-ink transition-transform hover:scale-[1.03] active:scale-95 lg:h-12 lg:w-12"
+                className="glass-chip flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink transition-transform hover:scale-[1.03] active:scale-95"
               >
                 <IconQr size={19} />
               </button>
               <ObsidianBell
                 count={notices.length}
                 onClick={() => setNoticesOpen(true)}
-                className="h-11 w-11 lg:h-12 lg:w-12"
+                className="h-12 w-12"
               />
               <button
                 type="button"
@@ -228,7 +228,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
                 aria-current={tab === "profile" ? "page" : undefined}
                 aria-label={`Perfil de ${name}, nível ${level}`}
                 className={cn(
-                  "glass-chip flex h-11 min-w-11 max-w-[200px] shrink cursor-pointer items-center gap-2.5 rounded-full p-1 text-left transition-[box-shadow,transform] hover:scale-[1.02] active:scale-95 min-[380px]:pr-4 lg:h-12",
+                  "glass-chip flex h-12 min-w-12 max-w-[200px] shrink cursor-pointer items-center gap-2.5 rounded-full p-1 text-left transition-[box-shadow,transform] hover:scale-[1.02] active:scale-95 min-[380px]:pr-4 lg:h-12",
                   tab === "profile" && "ring-2 ring-primary/60"
                 )}
               >

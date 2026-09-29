@@ -189,7 +189,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                       aria-selected={mode === m.id}
                       onClick={() => switchMode(m.id)}
                       className={cn(
-                        "relative min-h-11 cursor-pointer rounded-full text-[14px] font-semibold transition-colors",
+                        "relative min-h-12 cursor-pointer rounded-full text-[14px] font-semibold transition-colors",
                         mode === m.id ? "text-white" : "text-[var(--rv-body)] hover:text-[var(--rv-ink)]",
                       )}
                     >
@@ -269,7 +269,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
                       aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                      className="absolute right-1 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-[var(--rv-muted)] transition-colors hover:text-[var(--rv-ink)]"
+                      className="absolute right-0 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-[var(--rv-muted)] transition-colors hover:text-[var(--rv-ink)]"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -281,7 +281,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                       role="switch"
                       aria-checked={rememberMe}
                       onClick={() => setRememberMe((v) => !v)}
-                      className="inline-flex min-h-11 cursor-pointer items-center gap-2.5 text-[13px] text-[var(--rv-body)]"
+                      className="inline-flex min-h-12 cursor-pointer items-center gap-2.5 text-[13px] text-[var(--rv-body)]"
                     >
                       <span aria-hidden className={cn("flex h-5 w-9 items-center rounded-full p-0.5 transition-colors", rememberMe ? "bg-[#7c3aed]" : "bg-[var(--rv-line)]")}>
                         <motion.span layout transition={{ type: "spring", stiffness: 300, damping: 28 }} className={cn("h-4 w-4 rounded-full bg-white shadow-sm", rememberMe && "ml-auto")} />
@@ -293,7 +293,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                         type="button"
                         onClick={() => setForgotOpen((v) => !v)}
                         aria-expanded={forgotOpen}
-                        className="inline-flex min-h-11 cursor-pointer items-center text-[13px] text-[var(--rv-muted)] transition-colors hover:text-[#7c3aed] dark:hover:text-[#b69cfb]"
+                        className="inline-flex min-h-12 cursor-pointer items-center text-[13px] text-[var(--rv-muted)] transition-colors hover:text-[#7c3aed] dark:hover:text-[#b69cfb]"
                       >
                         Esqueceu a senha?
                       </button>

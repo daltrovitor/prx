@@ -68,7 +68,7 @@ export function TextLink({ children, onClick, className }: { children: ReactNode
       type="button"
       onClick={onClick}
       className={cn(
-        "glass-chip inline-flex min-h-10 shrink-0 cursor-pointer items-center rounded-full px-4 text-sm font-medium text-ink transition-transform active:scale-[0.98]",
+        "glass-chip inline-flex min-h-12 shrink-0 cursor-pointer items-center rounded-full px-4 text-sm font-medium text-ink transition-transform active:scale-[0.98]",
         className
       )}
     >

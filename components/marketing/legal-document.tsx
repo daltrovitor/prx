@@ -31,7 +31,7 @@ export function LegalDocument({ title, intro, sections }: { title: string; intro
               <li key={section.id}>
                 <a
                   href={`#${section.id}`}
-                  className="-ml-px flex min-h-10 cursor-pointer items-center border-l border-transparent pl-4 text-[14px] text-muted-foreground transition-colors hover:border-ink hover:text-ink"
+                  className="-ml-px flex min-h-12 cursor-pointer items-center border-l border-transparent pl-4 text-[14px] text-muted-foreground transition-colors hover:border-ink hover:text-ink"
                 >
                   {index + 1}. {section.title}
                 </a>

@@ -104,7 +104,7 @@ export function AdminStaffTab() {
               href={portalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full bg-card px-4 text-sm font-medium text-ink transition-colors hover:bg-background"
+              className="inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full bg-card px-4 text-sm font-medium text-ink transition-colors hover:bg-background"
             >
               Abrir <IconExternal size={14} />
             </a>

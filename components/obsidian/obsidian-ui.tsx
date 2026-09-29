@@ -35,12 +35,19 @@ type IconComponent = ComponentType<{ size?: number; strokeWidth?: number; classN
 /* -------------------------------------------------------------------------- */
 
 /**
- * Escultura de cristal PRX fundida ao breu: modo de mesclagem "screen" (o preto
- * da foto some) e máscara radial para as bordas desaparecerem no fundo.
+ * Escultura de cristal PRX:
+ * - No plano branco (modo claro): renderizado em cores claras e prismáticas (violeta, cobalto e prata translúcidos) com halo de luz suave e mesclagem que se integra perfeitamente ao fundo branco.
+ * - No modo escuro: cristal fundido ao breu com mix-blend-screen.
  */
 export function ObsidianCrystal({ className, priority = false, sizes = "(min-width: 1024px) 560px, 70vw" }: { className?: string; priority?: boolean; sizes?: string }) {
   return (
     <div aria-hidden className={cn("pointer-events-none select-none", className)}>
+      {/* Halo de luz claro suave para o plano branco */}
+      <span
+        aria-hidden
+        className="absolute inset-0 -z-10 rounded-full bg-[radial-gradient(55%_55%_at_60%_40%,rgba(148,104,250,0.18),rgba(0,102,255,0.08)_50%,transparent_75%)] blur-2xl dark:hidden"
+      />
+      {/* Modo claro / Plano branco: escultura de cristal em cores claras sobre fundo branco */}
       <Image
         src={crystalImg}
         alt=""
@@ -48,7 +55,17 @@ export function ObsidianCrystal({ className, priority = false, sizes = "(min-wid
         sizes={sizes}
         priority={priority}
         placeholder="blur"
-        className="object-cover opacity-90 mix-blend-screen [mask-image:radial-gradient(68%_62%_at_62%_42%,#000_38%,transparent_100%)]"
+        className="block object-cover opacity-45 mix-blend-multiply invert hue-rotate-180 brightness-115 contrast-125 saturate-125 [mask-image:radial-gradient(68%_62%_at_62%_42%,#000_38%,transparent_100%)] dark:hidden"
+      />
+      {/* Modo escuro: escultura de cristal Obsidian fundida ao breu */}
+      <Image
+        src={crystalImg}
+        alt=""
+        fill
+        sizes={sizes}
+        priority={priority}
+        placeholder="blur"
+        className="hidden object-cover opacity-90 mix-blend-screen [mask-image:radial-gradient(68%_62%_at_62%_42%,#000_38%,transparent_100%)] dark:block"
       />
     </div>
   );
@@ -108,7 +125,7 @@ export function ObsidianRoundButton({
   className?: string;
   size?: "sm" | "md" | "lg";
 }) {
-  const box = size === "lg" ? "h-14 w-14" : size === "sm" ? "h-11 w-11" : "h-12 w-12";
+  const box = size === "lg" ? "h-14 w-14" : "h-12 w-12";
   return (
     <button
       type="button"
@@ -212,7 +229,7 @@ export function ObsidianBalanceCard({
                 onClick={onToggleHidden}
                 aria-pressed={hidden}
                 aria-label={hidden ? "Mostrar saldo" : "Ocultar saldo"}
-                className="-my-3 inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-ink"
+                className="-my-3 inline-flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-ink"
               >
                 {hidden ? <IconEyeOff size={15} strokeWidth={1.6} /> : <IconEye size={15} strokeWidth={1.6} />}
               </button>
@@ -365,7 +382,7 @@ export function ObsidianSectionHeader({
         <button
           type="button"
           onClick={onAction}
-          className="ob-label -mr-2 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-2 text-[11px] text-primary transition-opacity hover:opacity-80"
+          className="ob-label -mr-2 inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full px-2 text-[11px] text-primary transition-opacity hover:opacity-80"
         >
           {actionLabel}
           <IconArrowRight size={13} strokeWidth={1.7} />

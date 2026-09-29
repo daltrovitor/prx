@@ -14,7 +14,7 @@ const TONE = { draft: "neutral", sent: "warning", accepted: "success", cancelled
 
 const docLink = (id: string, kind: "contract" | "certificate") => `/api/partners/document?campaignId=${encodeURIComponent(id)}&kind=${kind}`;
 const linkClass =
-  "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line in-[.bg-surface]:bg-card";
+  "inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line in-[.bg-surface]:bg-card";
 
 interface AcceptResponse {
   success?: boolean;

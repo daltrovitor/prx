@@ -68,6 +68,8 @@ Aplique as migrações de `supabase/migrations` em ordem. A `20260927_prx_points
 
 A `20260929_prx_bank_kyc_consent.sql` cria a abertura do PRX BANK (`bank_kyc_applications`) e grava parentesco e consentimento parental (versão, data e IP) em cada vínculo com menor.
 
+A `20261001_prx_admin_legal_checklist.sql` guarda o andamento do "PRX — Checklist Jurídico e Regulatório" (status, responsável e parecer de cada item) mostrado na aba **Jurídico** do admin; o texto dos itens mora em `lib/legal/checklist-data.ts`. A aba **Lista de Espera** lê os leads do /em-breve (`waitlist_signups`) e exporta CSV.
+
 A `20260930_prx_notifications.sql` guarda o celular confirmado pelo WhatsApp no perfil (um número por conta), os códigos de confirmação (só o HMAC) e o registro de envios de e-mail e WhatsApp (`notification_log`).
 
 Onboarding condicional:

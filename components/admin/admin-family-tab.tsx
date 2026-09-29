@@ -231,7 +231,7 @@ function Documents({ documents }: { documents: DocumentRef[] }) {
             href={`/api/admin/family/documents?path=${encodeURIComponent(doc.path)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="glass-chip inline-flex min-h-10 cursor-pointer items-center rounded-full px-4 text-[13px] font-medium text-ink"
+            className="glass-chip inline-flex min-h-12 cursor-pointer items-center rounded-full px-4 text-[13px] font-medium text-ink"
           >
             {DOCUMENT_LABEL[doc.kind]}
           </a>

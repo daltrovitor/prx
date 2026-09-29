@@ -672,6 +672,7 @@ export function ObsidianPhone3D({ rotationX, rotationY, rotationZ, pointerTilt =
   return (
     <div
       ref={stage}
+      data-device-mockup
       className={cn("relative select-none [perspective:1800px]", draggable && "cursor-grab touch-none active:cursor-grabbing", className)}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

@@ -48,7 +48,7 @@ const buttonVariants: Record<ButtonVariant, string> = {
 
 const buttonSizes: Record<ButtonSize, string> = {
   md: "min-h-12 px-6 text-[15px]",
-  sm: "min-h-10 px-4 text-sm",
+  sm: "min-h-12 px-4 text-sm",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -87,7 +87,7 @@ export function IconButton({
       aria-label={count ? `${label} (${count})` : label}
       title={label}
       className={cn(
-        "relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink cursor-pointer transition-colors",
+        "relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-ink cursor-pointer transition-colors",
         tone === "surface" ? "glass-chip" : "hover:bg-surface",
         className
       )}
@@ -344,7 +344,7 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
                 </h2>
                 {description && <p className="mt-1 text-[13px] text-muted-foreground sm:text-sm">{description}</p>}
               </div>
-              <IconButton label="Fechar" onClick={onClose} className="-mr-1 h-10 w-10">
+              <IconButton label="Fechar" onClick={onClose} className="-mr-1">
                 <IconClose size={18} />
               </IconButton>
             </div>
@@ -398,7 +398,7 @@ export function Segmented<T extends string>({ value, onChange, options, label, c
               if (!equal) (e.currentTarget as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
             }}
             className={cn(
-              "relative min-h-10 cursor-pointer select-none whitespace-nowrap rounded-full text-[13px] font-medium transition-colors sm:text-sm",
+              "relative min-h-12 cursor-pointer select-none whitespace-nowrap rounded-full text-[13px] font-medium transition-colors sm:text-sm",
               equal ? "flex-auto px-2.5" : "shrink-0 px-4",
               active ? "font-semibold text-ink" : "text-muted-foreground hover:text-ink"
             )}
@@ -528,16 +528,19 @@ export function Checkbox({
   const id = useId();
   return (
     <div className={cn("flex min-h-12 items-start gap-3 py-1", className)}>
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        aria-describedby={hint ? `${id}-hint` : undefined}
-        suppressHydrationWarning
-        className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded-md border-input accent-primary disabled:cursor-not-allowed"
-      />
+      {/* Área de toque de 48px em volta da caixa de 20px (as margens negativas não mudam o layout). */}
+      <label className={cn("-mx-3.5 -my-3 flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center", disabled && "cursor-not-allowed")}>
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked)}
+          aria-describedby={hint ? `${id}-hint` : undefined}
+          suppressHydrationWarning
+          className="h-5 w-5 shrink-0 cursor-pointer rounded-md border-input accent-primary disabled:cursor-not-allowed"
+        />
+      </label>
       <div className="min-w-0">
         <label htmlFor={id} className={cn("block cursor-pointer text-[15px] leading-snug text-ink", disabled && "cursor-not-allowed text-muted-foreground")}>
           {label}
