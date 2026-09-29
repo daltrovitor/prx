@@ -15,7 +15,7 @@ const WIDTH: Record<Device, string> = {
 };
 
 /**
- * Prévia da nova landing (estilo Revolut) para teste e aprovação. A página
+ * Prévia da nova landing (Cyber-Luxury Obsidian) para teste e aprovação. A página
  * inicial atual continua no ar; esta versão só abre para administradores.
  */
 export function AdminLandingTab() {
@@ -28,8 +28,9 @@ export function AdminLandingTab() {
             Nova landing · prévia
           </h2>
           <p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">
-            Três momentos guiados pela rolagem: céu azul com &ldquo;Banking &amp; Beyond&rdquo;, cartões que se reorganizam e &ldquo;Your salary, reimagined&rdquo;. Role dentro
-            da janela para testar. A página inicial atual segue no ar até a aprovação.
+            Três momentos guiados pela rolagem: o palco Obsidian com o manifesto &ldquo;O futuro não se assiste. Se constrói.&rdquo;, os cartões PRX Live e PRX Pass que
+            convergem enquanto o breu se dissolve no branco e &ldquo;As bets lucram com a perda.&rdquo; com os pilares. Role dentro da janela para testar. A página
+            inicial atual segue no ar até a aprovação.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -56,7 +57,8 @@ export function AdminLandingTab() {
       </div>
 
       <div className="glass overflow-hidden rounded-[28px] p-2 sm:p-3">
-        <div className={cn("mx-auto overflow-hidden rounded-[20px] bg-white transition-[max-width] duration-300", WIDTH[device])}>
+        {/* Fundo obsidiana: a prévia abre no palco escuro, sem clarão branco enquanto carrega. */}
+        <div className={cn("mx-auto overflow-hidden rounded-[20px] bg-[#050508] transition-[max-width] duration-300", WIDTH[device])}>
           <iframe src="/nova-landing" title="Prévia da nova landing" className="block h-[78dvh] min-h-[560px] w-full border-0" loading="lazy" />
         </div>
       </div>

@@ -540,8 +540,9 @@ nextjs-portal > *,
   }
 }
 
-/* Nova landing (prévia no Admin): sempre clara, com os tokens do vidro do tema claro,
-   independentemente do tema salvo pelo visitante. */
+/* Nova landing (prévia no Admin): abre no palco Obsidian e se dissolve no branco.
+   Os tokens de base são os do vidro claro (Momentos 2 e 3); os trechos escuros
+   pintam as próprias cores, independentemente do tema salvo pelo visitante. */
 .prx-rv {
   --background: #ffffff;
   --foreground: #0b0b10;
@@ -564,14 +565,16 @@ nextjs-portal > *,
   font-feature-settings: "cv11", "ss01";
 }
 
+/* O documento é obsidiana: a página começa e termina no breu (inclusive no overscroll). */
 html:has(.prx-rv),
 html:has(.prx-rv) body {
-  background-color: #ffffff;
+  background-color: #050508;
   color-scheme: light;
 }
 
+/* Violeta claro: passa 3:1 tanto sobre o branco quanto sobre o breu. */
 .prx-rv :focus-visible {
-  outline: 2px solid #6c0cf0;
+  outline: 2px solid #9468fa;
   outline-offset: 2px;
 }
 

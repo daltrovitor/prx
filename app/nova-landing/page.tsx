@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * Prévia da nova landing (estilo Revolut). A página inicial atual continua no ar;
+ * Prévia da nova landing (Cyber-Luxury Obsidian). A página inicial atual continua no ar;
  * esta rota só abre com sessão de administrador — para o resto do mundo ela não existe.
  */
 export default async function NovaLandingPage() {
