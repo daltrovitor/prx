@@ -19,7 +19,11 @@ import {
   IconArrowRight,
   IconBank,
   IconBarcode,
+  IconCard,
+  IconCheck,
   IconChevronRight,
+  IconCoin,
+  IconCopy,
   IconHome,
   IconLive,
   IconPaperPlane,
@@ -29,6 +33,7 @@ import {
   IconReceive,
   IconReels,
   IconSend,
+  IconTicket,
 } from "@/components/icons/prx-icons";
 import {
   OBSIDIAN_IMAGES,
@@ -79,34 +84,78 @@ const PHONE_DOCK: ReadonlyArray<ObsidianDockItem<PhoneTab>> = [
 const DEMO = {
   name: "Rafael",
   balance: 12430.25,
+  coins: 2840,
+  level: { current: 3, next: 4, xp: 680, goal: 1000, title: "Membro Black" },
   friends: [
     { initials: "MA", tone: "linear-gradient(135deg,#7c3aed,#2563eb)" },
     { initials: "LU", tone: "linear-gradient(135deg,#334155,#0f172a)" },
     { initials: "JO", tone: "linear-gradient(135deg,#9333ea,#be185d)" },
   ],
+  month: { incoming: 4820, outgoing: 1936.4, cashback: 86.3 },
   transactions: [
-    { id: "t1", label: "Pix recebido", who: "Marina", value: 250, incoming: true },
-    { id: "t2", label: "Compra no parceiro", who: "Café Central", value: 18.9, incoming: false },
-    { id: "t3", label: "Cashback PRX PASS", who: "PRX", value: 12.4, incoming: true },
-    { id: "t4", label: "Pix enviado", who: "Lucas", value: 60, incoming: false },
+    { id: "t1", label: "Pix recebido", who: "Marina · hoje, 10:14", value: 250, incoming: true },
+    { id: "t2", label: "Café Central", who: "Parceiro PRX · +19 coins", value: 18.9, incoming: false },
+    { id: "t3", label: "Cashback PRX Pass", who: "Academia Move · −30%", value: 12.4, incoming: true },
+    { id: "t4", label: "Pix enviado", who: "Lucas · ontem", value: 60, incoming: false },
+    { id: "t5", label: "Ingresso Resenha", who: "PRX Live · setor VIP", value: 180, incoming: false },
+    { id: "t6", label: "Mesada", who: "Conta Pai · automática", value: 400, incoming: true },
+    { id: "t7", label: "Streaming", who: "Débito no cartão", value: 39.9, incoming: false },
+  ],
+  pixKeys: [
+    { id: "k1", type: "Celular", value: "(62) 9•••• -4821" },
+    { id: "k2", type: "E-mail", value: "rafa•••@prx.app" },
+    { id: "k3", type: "Aleatória", value: "7f3c••••-••••-9a1e" },
   ],
   benefits: [
     { id: "b1", discount: "2 por 1", partner: "Cinema", title: "Ingressos de quarta a domingo" },
     { id: "b2", discount: "−30%", partner: "Academia", title: "Primeiro mês com desconto" },
     { id: "b3", discount: "−25%", partner: "Delivery", title: "Pedidos acima de R$ 40" },
+    { id: "b4", discount: "−20%", partner: "Cafeteria", title: "Todo dia, no balcão via QR" },
+    { id: "b5", discount: "−15%", partner: "Streetwear", title: "Coleção nova da loja parceira" },
+  ],
+  missions: [
+    { id: "m1", title: "Guardar R$ 100 este mês", reward: 150, progress: 0.7 },
+    { id: "m2", title: "3 compras em parceiros", reward: 90, progress: 0.66 },
+    { id: "m3", title: "Ir a um evento PRX Live", reward: 200, progress: 0 },
+  ],
+  reels: [
+    { id: "r1", who: "@marina", what: "Pré da Resenha", likes: "1,2 mil", image: OBSIDIAN_IMAGES.liveConcert },
+    { id: "r2", who: "@lucas", what: "Treino com −30%", likes: "842", image: OBSIDIAN_IMAGES.meHorizon },
+    { id: "r3", who: "@jo", what: "Meta batida!", likes: "610", image: OBSIDIAN_IMAGES.investCopper },
+    { id: "r4", who: "@rafa", what: "Cartão chegou", likes: "2,4 mil", image: OBSIDIAN_IMAGES.cardMetal },
   ],
 } as const;
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
+/** Atalhos do perfil; sem aba, o item aparece desativado (ainda não existe na demonstração). */
+const PROFILE_LINKS: ReadonlyArray<{ label: string; tab?: PhoneTab }> = [
+  { label: "Meus vouchers e ingressos", tab: "pass" },
+  { label: "Extrato e chaves Pix", tab: "bank" },
+  { label: "Meus eventos", tab: "live" },
+  { label: "Segurança e biometria" },
+  { label: "PRX Invest · em breve" },
+];
+
+/** Progresso em barra fina violeta (0–1). */
+function Progress({ value, label }: { value: number; label: string }) {
+  const pct = Math.round(value * 100);
+  return (
+    <span role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="mt-2 block h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+      <span className="block h-full rounded-full bg-[#9468fa]" style={{ width: `${pct}%` }} />
+    </span>
+  );
+}
+
 /**
  * Interface viva do PRX na identidade Obsidian, em 390pt de largura. Botões
  * funcionam de verdade: o dock troca de tela, o olho oculta o saldo, os
- * pilares e atalhos navegam. Dados de demonstração (não há conta por trás).
+ * pilares e atalhos navegam, as chaves Pix copiam. Dados de demonstração (não há conta por trás).
  */
 export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className?: string; height?: number }) {
   const [tab, setTab] = useState<PhoneTab>("home");
   const [hidden, setHidden] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
   const go = (next: PhoneTab) => {
@@ -118,12 +167,14 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
     else if (id === "live") go("live");
     else go("profile");
   };
+  const show = (value: number, sign: "+" | "−" | "" = "") => (hidden ? "••••" : `${sign}${sign ? " " : ""}${money.format(value)}`);
 
   const actions: ReadonlyArray<ObsidianAction> = [
     { key: "pix", label: "Pix", Icon: IconPixDiamonds, onClick: () => go("bank") },
     { key: "pagar", label: "Pagar", Icon: IconBarcode, onClick: () => go("bank") },
     { key: "transferir", label: "Transferir", Icon: IconPaperPlane, onClick: () => go("bank") },
   ];
+  const pages = { onHome: () => go("home"), onProfile: () => go("profile"), onVouchers: () => go("pass") };
 
   return (
     <div
@@ -143,7 +194,7 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
         {tab === "home" && (
           <div className="relative px-5 pb-[104px]">
             <ObsidianCrystal sizes="320px" className="absolute -right-[92px] -top-[46px] -z-10 h-[400px] w-[340px]" />
-            <PhoneHeader onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")} />
+            <PhoneHeader {...pages} />
             <ObsidianGreeting name={DEMO.name} as="p" density="phone" className="mt-2" />
             <ObsidianBalanceCard
               density="phone"
@@ -154,6 +205,18 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
               onOpen={() => go("bank")}
               actions={actions}
             />
+            <button type="button" onClick={() => go("profile")} className="glass mt-3 flex w-full cursor-pointer items-center gap-3 rounded-[18px] p-3.5 text-left">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary">
+                <IconCoin size={16} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center justify-between text-[13px] font-medium text-ink">
+                  <span>{DEMO.coins.toLocaleString("pt-BR")} PRX Coins</span>
+                  <span className="text-[11px] text-muted-foreground">Nível {DEMO.level.current}</span>
+                </span>
+                <Progress value={DEMO.level.xp / DEMO.level.goal} label="Progresso até o próximo nível" />
+              </span>
+            </button>
             <ul aria-label="Ecossistema PRX" className="-mx-5 mt-3 flex gap-2.5 overflow-x-auto px-5 scrollbar-none">
               {OBSIDIAN_PILLARS.map((pillar) => (
                 <li key={pillar.id} className="w-[120px] shrink-0">
@@ -173,19 +236,35 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
         )}
 
         {tab === "pass" && (
-          <PhonePage title="PRX Pass" onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")}>
+          <PhonePage title="PRX Pass" {...pages}>
             <Banner image={OBSIDIAN_IMAGES.cardMetal} title="PRX Pass" caption="Benefícios exclusivos" />
-            <div className="glass mt-3 flex items-center justify-between rounded-[20px] p-4">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
-                  <IconQr size={18} />
-                </span>
-                <div>
-                  <p className="text-[13.5px] font-medium text-ink">Voucher Ativo</p>
-                  <p className="text-[11.5px] text-muted-foreground">Ingresso Cinemark VIP</p>
+            <div className="glass mt-3 rounded-[20px] p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
+                    <IconQr size={18} />
+                  </span>
+                  <div>
+                    <p className="text-[13.5px] font-medium text-ink">Voucher ativo</p>
+                    <p className="text-[11.5px] text-muted-foreground">Cinema · 2 por 1 · vale até domingo</p>
+                  </div>
                 </div>
+                <span className="ob-label text-[10px] tracking-wider text-primary">Pronto</span>
               </div>
-              <span className="ob-label text-[10px] tracking-wider text-primary">PRONTO</span>
+              <div className="mt-3 flex items-center justify-between rounded-[14px] bg-white/[0.04] px-3 py-2.5">
+                <span className="font-mono text-[15px] tracking-[0.3em] text-ink">PRX-7K2Q</span>
+                <span className="text-[11px] text-muted-foreground">QR protegido · 60s</span>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="glass rounded-[18px] p-3.5">
+                <p className="text-[11px] text-muted-foreground">Economia no mês</p>
+                <p className="mt-1 text-[19px] font-light text-ink">{show(DEMO.month.cashback)}</p>
+              </div>
+              <div className="glass rounded-[18px] p-3.5">
+                <p className="text-[11px] text-muted-foreground">Cupons usados</p>
+                <p className="mt-1 text-[19px] font-light text-ink">7 de 10</p>
+              </div>
             </div>
             <ObsidianSectionHeader title="Vantagens do seu plano" className="mt-4" />
             <ul className="mt-2 space-y-2">
@@ -204,33 +283,80 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
         )}
 
         {tab === "reels" && (
-          <PhonePage title="Destaques" onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")}>
+          <PhonePage title="Destaques" {...pages}>
             <Banner image={OBSIDIAN_IMAGES.liveConcert} title="Momentos PRX" caption="Experiências em alta" />
-            <div className="glass mt-3 rounded-[22px] p-5">
-              <p className="ob-label text-[10px] text-muted-foreground">Comunidade e Moedas</p>
-              <p className="mt-2 text-[19px] font-light leading-snug text-ink">
-                Compartilhe seus melhores momentos no ecossistema e acumule PRX Coins.
-              </p>
+            <ul className="mt-3 grid grid-cols-2 gap-2">
+              {DEMO.reels.map((r) => (
+                <li key={r.id} className="relative isolate flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-[16px] border border-white/[0.1] p-2.5 text-[#fff]">
+                  <Image src={r.image} alt="" fill sizes="180px" placeholder="blur" className="-z-10 object-cover" />
+                  <span aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,transparent_40%,rgba(5,5,8,0.85))]" />
+                  <span className="text-[12px] font-medium">{r.what}</span>
+                  <span className="text-[10.5px] text-[#cbd5e1]">
+                    {r.who} · ♥ {r.likes}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="glass mt-3 rounded-[22px] p-4">
+              <p className="ob-label text-[10px] text-muted-foreground">Comunidade e moedas</p>
+              <p className="mt-2 text-[16px] font-light leading-snug text-ink">Compartilhe seus melhores momentos no ecossistema e acumule PRX Coins.</p>
               <button
                 type="button"
                 onClick={() => go("live")}
-                className="mt-4 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-[#fff]"
+                className="mt-3 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-[#fff]"
               >
                 Ver os próximos eventos <IconArrowRight size={14} />
               </button>
-            </div>
-            <ObsidianSectionHeader title="Vão com você" className="mt-5" />
-            <div className="glass flex items-center justify-between rounded-[20px] p-4">
-              <ObsidianAvatarStack people={DEMO.friends} extra={12} />
-              <span className="text-[12px] text-muted-foreground">amigos na Resenha</span>
             </div>
           </PhonePage>
         )}
 
         {tab === "bank" && (
-          <PhonePage title="PRX Bank" onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")}>
+          <PhonePage title="PRX Bank" {...pages}>
             <ObsidianBalanceCard density="phone" value={DEMO.balance} hidden={hidden} onToggleHidden={() => setHidden((h) => !h)} actions={actions} />
-            <ObsidianSectionHeader title="Atividade" className="mt-5" />
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              {[
+                { label: "Entradas", value: show(DEMO.month.incoming), tone: "text-success" },
+                { label: "Saídas", value: show(DEMO.month.outgoing), tone: "text-ink" },
+                { label: "Cashback", value: show(DEMO.month.cashback), tone: "text-primary" },
+              ].map((m) => (
+                <div key={m.label} className="glass rounded-[16px] px-2 py-3">
+                  <p className="text-[10.5px] text-muted-foreground">{m.label}</p>
+                  <p className={cn("mt-1 truncate text-[12.5px] font-medium tabular-nums", m.tone)}>{m.value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="relative isolate mt-3 flex h-[120px] flex-col justify-between overflow-hidden rounded-[20px] border border-white/[0.12] p-4 text-[#fff]">
+              <Image src={OBSIDIAN_IMAGES.cardMetal} alt="" fill sizes="360px" placeholder="blur" className="-z-10 object-cover object-[50%_62%]" />
+              <span aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,5,8,0.85),rgba(5,5,8,0.2))]" />
+              <span className="flex items-center gap-2 text-[12px]">
+                <IconCard size={15} /> Cartão de metal · sem anuidade
+              </span>
+              <span className="flex items-end justify-between">
+                <span className="font-mono text-[14px] tracking-[0.2em]">•••• 4821</span>
+                <span className="text-[11px] text-[#cbd5e1]">Limite {show(3500)}</span>
+              </span>
+            </div>
+            <ObsidianSectionHeader title="Suas chaves Pix" className="mt-5" />
+            <ul className="glass mt-1 divide-y divide-white/[0.06] rounded-[20px] px-4">
+              {DEMO.pixKeys.map((k) => (
+                <li key={k.id} className="flex items-center gap-3 py-2">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] text-muted-foreground">{k.type}</span>
+                    <span className="block truncate text-[13.5px] text-ink">{k.value}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCopied(k.id)}
+                    aria-label={copied === k.id ? `Chave ${k.type} copiada` : `Copiar chave ${k.type}`}
+                    className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-ink"
+                  >
+                    {copied === k.id ? <IconCheck size={15} className="text-success" /> : <IconCopy size={15} />}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <ObsidianSectionHeader title="Extrato" className="mt-5" />
             <ul className="glass mt-1 divide-y divide-white/[0.06] rounded-[20px] px-4">
               {DEMO.transactions.map((tx) => (
                 <li key={tx.id} className="flex items-center gap-3 py-3">
@@ -241,9 +367,7 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
                     <span className="block truncate text-[13.5px] font-medium text-ink">{tx.label}</span>
                     <span className="block truncate text-[11.5px] text-muted-foreground">{tx.who}</span>
                   </span>
-                  <span className={cn("text-[13.5px] font-medium tabular-nums", tx.incoming ? "text-success" : "text-ink")}>
-                    {hidden ? "••••" : `${tx.incoming ? "+" : "−"} ${money.format(tx.value)}`}
-                  </span>
+                  <span className={cn("text-[13.5px] font-medium tabular-nums", tx.incoming ? "text-success" : "text-ink")}>{show(tx.value, tx.incoming ? "+" : "−")}</span>
                 </li>
               ))}
             </ul>
@@ -251,37 +375,75 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
         )}
 
         {tab === "live" && (
-          <PhonePage title="PRX Live" onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")}>
+          <PhonePage title="PRX Live" {...pages}>
             <Banner image={OBSIDIAN_IMAGES.liveConcert} title="PRX Live" caption="Eventos · festivais" />
-            <div className="mt-3 space-y-2.5">
+            <div className="glass mt-3 rounded-[20px] p-4">
+              <div className="flex items-center justify-between">
+                <p className="flex items-center gap-2 text-[13.5px] font-medium text-ink">
+                  <IconTicket size={16} className="text-primary" /> Seu ingresso
+                </p>
+                <span className="ob-label text-[10px] tracking-wider text-primary">Confirmado</span>
+              </div>
+              <p className="mt-2 text-[18px] font-light text-ink">Resenha · 25 out</p>
+              <p className="text-[11.5px] text-muted-foreground">VIP · Portão B · 22h · +36 coins no balcão</p>
+            </div>
+            <ObsidianSectionHeader title="Agenda" className="mt-4" />
+            <div className="mt-1 space-y-2.5">
               <ObsidianEventCard density="phone" title="Resenha" meta="25 out · Goiânia" trailing={<ObsidianAvatarStack people={DEMO.friends} extra={120} />} />
               <ObsidianEventCard density="phone" title="Corrida PRX" meta="12 nov · Goiânia" image={OBSIDIAN_IMAGES.meHorizon} />
+              <ObsidianEventCard density="phone" title="Founders Demo Day" meta="30 nov · São Paulo" image={OBSIDIAN_IMAGES.investCopper} />
             </div>
           </PhonePage>
         )}
 
         {tab === "profile" && (
-          <PhonePage title="Meu Perfil" onHome={() => go("home")} onProfile={() => go("profile")} onVouchers={() => go("pass")}>
+          <PhonePage title="Meu Perfil" {...pages}>
             <div className="glass flex items-center gap-4 rounded-[22px] p-4">
               <div className="flex h-13 w-13 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2a2342,#0e0f16)] text-[18px] font-semibold text-ink ring-2 ring-primary/40">
                 R
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-[16px] font-semibold text-ink">Rafael Santos</p>
-                <p className="ob-label text-[11px] text-muted-foreground">Nível 3 · Membro Black</p>
+                <p className="ob-label text-[11px] text-muted-foreground">
+                  Nível {DEMO.level.current} · {DEMO.level.title}
+                </p>
               </div>
             </div>
+            <div className="glass mt-3 rounded-[20px] p-4">
+              <div className="flex items-center justify-between text-[12px] text-muted-foreground">
+                <span>Nível {DEMO.level.current}</span>
+                <span>
+                  {DEMO.level.xp} / {DEMO.level.goal} XP
+                </span>
+                <span>Nível {DEMO.level.next}</span>
+              </div>
+              <Progress value={DEMO.level.xp / DEMO.level.goal} label="XP até o próximo nível" />
+              <p className="mt-2.5 text-[11.5px] text-muted-foreground">No nível {DEMO.level.next}: limite ampliado e acesso a lounge VIP.</p>
+            </div>
+            <ObsidianSectionHeader title="Missões da semana" className="mt-4" />
+            <ul className="mt-1 space-y-2">
+              {DEMO.missions.map((m) => (
+                <li key={m.id} className="glass rounded-[18px] p-3.5">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[13px] font-medium text-ink">{m.title}</span>
+                    <span className="shrink-0 text-[11.5px] text-primary">+{m.reward} coins</span>
+                  </span>
+                  <Progress value={m.progress} label={`Progresso: ${m.title}`} />
+                </li>
+              ))}
+            </ul>
             <ul className="glass mt-4 divide-y divide-white/[0.06] rounded-[22px] px-4">
-              {["Meus Vouchers e Ingressos", "Conta Pai e Família", "Segurança e Biometria", "Aparência", "PRX Invest · em breve"].map((item, idx) => (
-                <li
-                  key={item}
-                  onClick={() => {
-                    if (idx === 0) go("pass");
-                  }}
-                  className="flex min-h-12 cursor-pointer items-center justify-between text-[14px] text-ink transition-colors hover:text-primary"
-                >
-                  {item}
-                  <IconChevronRight size={14} className="text-muted-foreground" />
+              {PROFILE_LINKS.map((item) => (
+                <li key={item.label}>
+                  <button
+                    type="button"
+                    onClick={() => item.tab && go(item.tab)}
+                    disabled={!item.tab}
+                    className="flex min-h-12 w-full cursor-pointer items-center justify-between text-left text-[14px] text-ink transition-colors hover:text-primary disabled:cursor-default disabled:hover:text-ink"
+                  >
+                    {item.label}
+                    <IconChevronRight size={14} className="text-muted-foreground" />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -573,7 +735,9 @@ export function ObsidianPhone3D({ rotationX, rotationY, rotationZ, pointerTilt =
                 className="relative h-full w-full overflow-hidden bg-[#050508]"
                 style={{ borderRadius: PHONE.radius - PHONE.frame - PHONE.bezel + 2 }}
               >
-                <div style={{ width: APP_WIDTH, height: APP_HEIGHT, transform: `scale(${APP_SCALE})`, transformOrigin: "top left" }}>{screen ?? <ObsidianPhoneApp />}</div>
+                {/* zoom (e não transform: scale) para o app caber na tela: um transform aninhado no plano 3D
+                    quebra o hit-test do Chrome e os toques caíam na tela em vez dos botões. */}
+                <div style={{ width: APP_WIDTH, height: APP_HEIGHT, zoom: APP_SCALE }}>{screen ?? <ObsidianPhoneApp />}</div>
 
                 {/* Dynamic Island */}
                 <div aria-hidden className="absolute left-1/2 top-[10px] z-30 flex h-[31px] w-[106px] -translate-x-1/2 items-center justify-end rounded-full bg-[#000] pr-2.5">

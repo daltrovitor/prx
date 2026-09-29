@@ -17,12 +17,27 @@ import {
   type MotionValue,
 } from "motion/react";
 import { ReactLenis, type LenisRef } from "lenis/react";
+import { Moon, Sun } from "lucide-react";
 import type { LenisOptions } from "lenis";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { OBSIDIAN_IMAGES } from "@/components/obsidian/obsidian-ui";
+import { useTheme } from "@/components/theme-provider";
 import { useMainSiteUrl } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { IN_VIEW, LIQUID, LuxuryButton, Specular, brl, rise, type Tone } from "@/components/marketing/landing/landing-kit";
+import {
+  AppShowcaseSection,
+  AudiencesSection,
+  DifferentialsSection,
+  FaqSection,
+  FinalCtaSection,
+  HowItWorksSection,
+  ParentSection,
+  PlansSection,
+  SecuritySection,
+  type LandingLinks,
+} from "@/components/marketing/landing/landing-sections";
 
 /*
  * Nova landing PRX na identidade Cyber-Luxury Obsidian, em três momentos guiados pela rolagem:
@@ -35,8 +50,6 @@ import { cn } from "@/lib/utils";
  * Tudo é ligado à rolagem (nada se move sozinho) com molas stiffness 300 / damping 28,
  * e o Lenis roda dentro do loop de quadros do Motion para os dois nunca descompassarem.
  */
-
-type Tone = "dark" | "light";
 
 const SPRING = { stiffness: 300, damping: 28, mass: 0.6 } as const;
 /** Com movimento reduzido, a cena acompanha a rolagem sem o atraso elástico da mola. */
@@ -68,54 +81,8 @@ function useMedia(query: string, serverValue: boolean): boolean {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Liquid Glass                                                               */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Vidro líquido: desfoque profundo, borda especular (mais clara no topo, quase
- * apagada na base) e sombra de levitação. Fumê sobre o breu, leitoso sobre o branco.
- */
-const LIQUID: Record<Tone, string> = {
-  dark: "border border-x-white/10 border-t-white/30 border-b-white/5 bg-white/[0.06] backdrop-blur-2xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.2)]",
-  light:
-    "border border-x-black/[0.06] border-t-white border-b-black/[0.08] bg-white/70 backdrop-blur-2xl shadow-[0_24px_48px_-20px_rgba(22,12,52,0.22),inset_0_1px_1px_rgba(255,255,255,0.9)]",
-};
-
-/** Reflexo especular no canto superior esquerdo: a luz refratada no vidro curvo. Pede um pai relative + overflow-hidden. */
-function Specular({ className }: { className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={cn("pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,rgba(148,104,250,0.18),transparent)]", className)}
-    />
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 /* Botões                                                                     */
 /* -------------------------------------------------------------------------- */
-
-const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-
-/** Botão de destaque Cyber-Luxury: violeta profundo (5.7:1 com o branco) e um reflexo de luz que atravessa no hover. */
-function LuxuryButton({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
-  return (
-    <a
-      href={href}
-      className={cn(
-        "group/lux relative inline-flex min-h-12 cursor-pointer items-center justify-center overflow-hidden whitespace-nowrap rounded-full bg-[#7c3aed] px-5 text-[14px] font-semibold text-white",
-        "shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_28px_-10px_rgba(124,58,237,0.8)] transition-[background-color,transform] duration-200 hover:bg-[#6d28d9] active:scale-[0.98]",
-        className,
-      )}
-    >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 -skew-x-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.42),transparent)] opacity-0 transition-[translate,opacity] duration-700 ease-out group-hover/lux:translate-x-[300%] group-hover/lux:opacity-100 motion-reduce:hidden"
-      />
-      <span className="relative">{children}</span>
-    </a>
-  );
-}
 
 /** Botão de baixar o app: instala o PWA quando o navegador oferece; senão abre o app. */
 interface InstallPromptEvent extends Event {
@@ -180,7 +147,47 @@ const NAV: ReadonlyArray<NavItem> = [
   { href: "#live", label: "Live" },
   { href: "#invest", label: "Invest", soon: true },
   { href: "#me", label: "Me", soon: true },
+  { href: "#sou-pai", label: "Sou Pai" },
 ];
+
+/** Seções extras que só cabem no menu compacto (celular e tablet). */
+const MENU_EXTRA: ReadonlyArray<NavItem> = [
+  { href: "#app", label: "O app ao vivo" },
+  { href: "#como-funciona", label: "Como funciona" },
+  { href: "#seguranca", label: "Segurança" },
+  { href: "#planos", label: "Planos" },
+  { href: "#faq", label: "Perguntas frequentes" },
+];
+
+/** Alternador claro/escuro: o ícone gira e troca com a mesma mola do resto da página. */
+function ThemeSwitch({ tone, className }: { tone: Tone; className?: string }) {
+  const { theme, toggleTheme, mounted } = useTheme();
+  const dark = mounted ? theme === "dark" : true;
+  const label = dark ? "Ativar modo claro" : "Ativar modo escuro";
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={label}
+      title={label}
+      className={cn("relative inline-flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full transition-colors", NAV_LINK[tone], className)}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={dark ? "sun" : "moon"}
+          aria-hidden
+          initial={{ rotate: -90, opacity: 0, scale: 0.6 }}
+          animate={{ rotate: 0, opacity: 1, scale: 1 }}
+          exit={{ rotate: 90, opacity: 0, scale: 0.6 }}
+          transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          className="flex"
+        >
+          {dark ? <Sun className="h-[18px] w-[18px]" strokeWidth={1.7} /> : <Moon className="h-[18px] w-[18px]" strokeWidth={1.7} />}
+        </motion.span>
+      </AnimatePresence>
+    </button>
+  );
+}
 
 const BAR_TEXT: Record<Tone, string> = { dark: "text-white", light: "text-[#0b0b10]" };
 const NAV_LINK: Record<Tone, string> = {
@@ -252,7 +259,7 @@ function MenuButton({ open, onOpenChange, panelId, tone, ref }: MenuControlProps
       aria-controls={panelId}
       aria-label={open ? "Fechar menu" : "Abrir menu"}
       onClick={() => onOpenChange(!open)}
-      className={cn("inline-flex h-12 w-12 cursor-pointer items-center justify-center rounded-full transition-colors md:hidden", NAV_LINK[tone])}
+      className={cn("inline-flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors lg:hidden", NAV_LINK[tone])}
     >
       <span aria-hidden className="relative block h-3 w-[18px]">
         <span className={cn("absolute left-0 top-0 h-[1.5px] w-full rounded-full bg-current transition-transform duration-300", open && "translate-y-[5.25px] rotate-45")} />
@@ -262,91 +269,115 @@ function MenuButton({ open, onOpenChange, panelId, tone, ref }: MenuControlProps
   );
 }
 
-function MenuPanel({ open, onOpenChange, panelId, tone }: MenuControlProps) {
+function MenuLink({ item, tone, onNavigate }: { item: NavItem; tone: Tone; onNavigate: () => void }) {
+  return (
+    <a
+      href={item.href}
+      onClick={onNavigate}
+      className={cn("flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-[14px] px-4 text-[16px] font-medium transition-colors", NAV_LINK[tone])}
+    >
+      {item.label}
+      {item.soon && <SoonPill tone={tone} />}
+    </a>
+  );
+}
+
+function MenuPanel({ open, onOpenChange, panelId, tone, login }: MenuControlProps & { login: string }) {
+  const close = () => onOpenChange(false);
   return (
     <AnimatePresence>
       {open && (
         <motion.nav
           id={panelId}
-          aria-label="Pilares PRX"
+          aria-label="Menu do site"
           initial={{ opacity: 0, y: -8, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -8, scale: 0.98 }}
           transition={{ type: "spring", stiffness: 300, damping: 28 }}
-          className={cn("absolute inset-x-2 top-[calc(100%+8px)] origin-top overflow-hidden rounded-[22px] p-2 backdrop-blur-2xl sm:inset-x-4 md:hidden", MENU_PANEL[tone])}
+          className={cn(
+            "absolute inset-x-2 top-[calc(100%+8px)] max-h-[calc(100dvh-88px)] origin-top overflow-y-auto overscroll-contain rounded-[22px] p-2 backdrop-blur-2xl sm:inset-x-4 lg:hidden",
+            MENU_PANEL[tone],
+          )}
+          data-lenis-prevent
         >
           <Specular />
+          <p className="ob-label relative px-4 pb-1 pt-3 text-[10.5px] opacity-70">Pilares</p>
           <ul className="relative">
             {NAV.map((item) => (
               <li key={item.href}>
-                <a
-                  href={item.href}
-                  onClick={() => onOpenChange(false)}
-                  className={cn("flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-[14px] px-4 text-[16px] font-medium transition-colors", NAV_LINK[tone])}
-                >
-                  {item.label}
-                  {item.soon && <SoonPill tone={tone} />}
-                </a>
+                <MenuLink item={item} tone={tone} onNavigate={close} />
               </li>
             ))}
           </ul>
+          <p className="ob-label relative px-4 pb-1 pt-3 text-[10.5px] opacity-70">Conheça</p>
+          <ul className="relative">
+            {MENU_EXTRA.map((item) => (
+              <li key={item.href}>
+                <MenuLink item={item} tone={tone} onNavigate={close} />
+              </li>
+            ))}
+          </ul>
+          <div className={cn("relative mt-2 flex items-center justify-between gap-2 border-t px-2 pt-2", tone === "dark" ? "border-white/10" : "border-black/[0.07]")}>
+            <a href={login} className={cn("inline-flex min-h-12 cursor-pointer items-center rounded-[14px] px-2 text-[16px] font-medium transition-colors min-[400px]:hidden", NAV_LINK[tone])}>
+              Entrar
+            </a>
+            <span className="hidden text-[14px] opacity-80 min-[400px]:inline">Tema</span>
+            <ThemeSwitch tone={tone} />
+          </div>
         </motion.nav>
       )}
     </AnimatePresence>
   );
 }
 
-/** Cápsula de vidro líquido flutuante; fumê sobre o palco Obsidian, leitosa sobre o branco. */
-function Header({ appUrl, tone }: { appUrl: string; tone: Tone }) {
-  const base = appUrl.replace(/\/$/, "");
+/**
+ * Cápsula de vidro líquido flutuante; fumê sobre o palco Obsidian, leitosa sobre o branco
+ * (no tema escuro ela fica sempre fumê). Entrar e Criar conta levam aos fluxos do app.
+ */
+function Header({ links, tone }: { links: LandingLinks; tone: Tone }) {
   const { open, setOpen, panelId, root, button } = useMobileMenu();
   return (
     <header ref={root} className="fixed inset-x-0 top-0 z-50 px-2 pt-2 sm:px-4 sm:pt-3">
       <div
         className={cn(
-          "relative mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-2 rounded-full pl-4 pr-1 transition-[background-color,border-color,box-shadow,color] duration-500 sm:h-16 sm:pl-6 sm:pr-2",
+          "relative mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-1 rounded-full pl-3 pr-1 transition-[background-color,border-color,box-shadow,color] duration-500 min-[360px]:pl-4 sm:h-16 sm:gap-2 sm:pl-6 sm:pr-2",
           LIQUID[tone],
           BAR_TEXT[tone],
         )}
       >
         <a href="#topo" className="flex min-h-12 shrink-0 cursor-pointer items-center" aria-label="PRX — início">
-          <PrxLogo variant="symbol" title="" className="h-6 w-auto min-[360px]:hidden" />
-          <PrxLogo variant="compact" title="" className="hidden h-[22px] w-auto min-[360px]:block sm:h-6 lg:h-7" />
+          <PrxLogo variant="symbol" title="" className="h-6 w-auto min-[420px]:hidden" />
+          <PrxLogo variant="compact" title="" className="hidden h-[22px] w-auto min-[420px]:block sm:h-6 xl:h-7" />
         </a>
 
-        <nav aria-label="Menu principal" className="hidden items-center md:flex">
+        <nav aria-label="Menu principal" className="hidden items-center lg:flex">
           {NAV.map((item) => (
             <a
               key={item.href}
               href={item.href}
-              className={cn("inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-[14px] font-medium transition-colors lg:px-3.5 lg:text-[15px]", NAV_LINK[tone])}
+              className={cn("inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-[14px] font-medium transition-colors xl:px-3.5 xl:text-[15px]", NAV_LINK[tone])}
             >
               {item.label}
               {item.soon && <SoonPill tone={tone} />}
             </a>
           ))}
-          <a
-            href={`${base}/sou-pai`}
-            className={cn("inline-flex min-h-12 cursor-pointer items-center rounded-full px-2.5 text-[14px] font-medium transition-colors lg:px-3.5 lg:text-[15px]", NAV_LINK[tone])}
-          >
-            Sou Pai
-          </a>
         </nav>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <ThemeSwitch tone={tone} className="hidden md:inline-flex" />
           <a
-            href={`${base}/sou-pai`}
-            className={cn("inline-flex min-h-12 cursor-pointer items-center whitespace-nowrap rounded-full px-2.5 text-[14px] font-medium transition-colors min-[360px]:px-3 md:hidden", NAV_LINK[tone])}
+            href={links.login}
+            className={cn("hidden min-h-12 cursor-pointer items-center whitespace-nowrap rounded-full px-3 text-[14px] font-semibold transition-colors min-[400px]:inline-flex sm:px-4", NAV_LINK[tone])}
           >
-            Sou Pai
-          </a>
-          <LuxuryButton href={appUrl} className="px-4 min-[360px]:px-5">
             Entrar
+          </a>
+          <LuxuryButton href={links.signup} className="px-4 min-[360px]:px-5">
+            Criar conta
           </LuxuryButton>
           <MenuButton ref={button} open={open} onOpenChange={setOpen} panelId={panelId} tone={tone} />
         </div>
       </div>
-      <MenuPanel open={open} onOpenChange={setOpen} panelId={panelId} tone={tone} />
+      <MenuPanel open={open} onOpenChange={setOpen} panelId={panelId} tone={tone} login={links.login} />
     </header>
   );
 }
@@ -467,7 +498,7 @@ function PassCard() {
   ];
   return (
     <div className="@container w-full">
-      <div className={cn("relative flex aspect-[3/4] w-full flex-col justify-between overflow-hidden rounded-[11cqw] p-[7cqw] text-[#0b0b10]", LIQUID.light)}>
+      <div className={cn("relative flex aspect-[3/4] w-full flex-col justify-between overflow-hidden rounded-[11cqw] p-[7cqw] text-[var(--rv-ink)]", LIQUID.surface)}>
         <Specular className="-left-[24cqw] -top-[28cqw] h-[90cqw] w-[90cqw]" />
         <div className="relative flex items-start justify-between gap-[4cqw]">
           <div className="min-w-0">
@@ -476,9 +507,9 @@ function PassCard() {
               <br />
               Pass
             </p>
-            <p className="mt-[1.8cqw] truncate text-[clamp(9px,4.6cqw,13px)] text-[#5b5b66]">Parceiros credenciados</p>
+            <p className="mt-[1.8cqw] truncate text-[clamp(9px,4.6cqw,13px)] text-[var(--rv-muted)]">Parceiros credenciados</p>
           </div>
-          <span aria-hidden className="flex h-[15cqw] w-[15cqw] shrink-0 items-center justify-center rounded-full bg-[#7c3aed]/10 text-[#7c3aed]">
+          <span aria-hidden className="flex h-[15cqw] w-[15cqw] shrink-0 items-center justify-center rounded-full bg-[#7c3aed]/10 text-[#7c3aed] dark:text-[#a78bfa]">
             <svg viewBox="0 0 24 24" className="h-1/2 w-1/2" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
               <rect x="4" y="4" width="6" height="6" rx="1" />
               <rect x="14" y="4" width="6" height="6" rx="1" />
@@ -488,12 +519,12 @@ function PassCard() {
           </span>
         </div>
         <div className="relative">
-          <p className="whitespace-nowrap text-[14cqw] font-light leading-none tracking-[-0.04em] text-[#7c3aed]">−50%</p>
-          <p className="mt-[2cqw] truncate text-[clamp(9px,4.6cqw,13px)] text-[#3d3d48]">Cupom digital · QR protegido</p>
+          <p className="whitespace-nowrap text-[14cqw] font-light leading-none tracking-[-0.04em] text-[#7c3aed] dark:text-[#a78bfa]">−50%</p>
+          <p className="mt-[2cqw] truncate text-[clamp(9px,4.6cqw,13px)] text-[var(--rv-body)]">Cupom digital · QR protegido</p>
           <ul className="mt-[3.5cqw] space-y-[1.6cqw] text-[clamp(9px,4.6cqw,13px)]">
             {coupons.map((c) => (
-              <li key={c.label} className="flex items-center justify-between gap-[3cqw] border-t border-black/[0.07] pt-[1.6cqw]">
-                <span className="truncate text-[#3d3d48]">{c.label}</span>
+              <li key={c.label} className="flex items-center justify-between gap-[3cqw] border-t border-[var(--rv-line)] pt-[1.6cqw]">
+                <span className="truncate text-[var(--rv-body)]">{c.label}</span>
                 <span className="font-semibold tabular-nums">−{c.off}%</span>
               </li>
             ))}
@@ -553,7 +584,7 @@ function PinnedStory({ appUrl, reduceMotion, onTone }: { appUrl: string; reduceM
 
   return (
     <section ref={ref} id="topo" aria-labelledby="manifesto" className="relative h-[300dvh] lg:h-[320dvh]">
-      <div className="sticky top-0 h-dvh overflow-hidden bg-white">
+      <div className="sticky top-0 h-dvh overflow-hidden bg-[var(--rv-bg)]">
         {/* Palco Obsidian: breu, haze violeta ao centro, cobalto na base e o cristal PRX fundido ao fundo. */}
         <motion.div aria-hidden style={{ opacity: s.night }} className="absolute inset-0 bg-[#050508]">
           <div className="absolute inset-0 bg-[radial-gradient(62%_52%_at_50%_46%,rgba(124,58,237,0.28),transparent_72%),radial-gradient(90%_42%_at_50%_108%,rgba(0,102,255,0.14),transparent_72%)]" />
@@ -577,7 +608,7 @@ function PinnedStory({ appUrl, reduceMotion, onTone }: { appUrl: string; reduceM
         <motion.div
           aria-hidden
           style={{ x: s.cardX, y: s.cardY, scale: s.bloom }}
-          className="absolute left-1/2 top-[60%] aspect-square w-[100vmax] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,#ffffff_30%,rgba(248,245,255,0.92)_52%,rgba(243,238,255,0.5)_74%,rgba(243,238,255,0)_100%)] lg:top-[58%]"
+          className="absolute left-1/2 top-[60%] aspect-square w-[100vmax] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,var(--rv-bg)_30%,var(--rv-bloom)_62%,transparent_100%)] lg:top-[58%]"
         />
 
         {/* Clareza do vidro: luz ambiente mínima sobre o branco para o Liquid Glass ter o que refratar. */}
@@ -611,12 +642,12 @@ function PinnedStory({ appUrl, reduceMotion, onTone }: { appUrl: string; reduceM
           style={{ opacity: s.newTitleOpacity, y: s.newTitleY }}
           className="pointer-events-none absolute inset-x-0 top-[88px] z-20 px-5 text-center sm:top-[112px] lg:top-[11dvh]"
         >
-          <h2 className="mx-auto max-w-[860px] text-balance text-[clamp(24px,7.6vw,52px)] font-semibold leading-[1] tracking-[-0.045em] text-[#0b0b10] lg:text-[clamp(44px,4vw,64px)]">
+          <h2 className="mx-auto max-w-[860px] text-balance text-[clamp(24px,7.6vw,52px)] font-semibold leading-[1] tracking-[-0.045em] text-[var(--rv-ink)] lg:text-[clamp(44px,4vw,64px)]">
             Descontos reais.
             <br />
             Vantagens exclusivas.
           </h2>
-          <p className="mx-auto mt-3 max-w-[560px] text-pretty text-[15px] leading-relaxed text-[#5b5b66] sm:mt-4 sm:text-[17px]">
+          <p className="mx-auto mt-3 max-w-[560px] text-pretty text-[15px] leading-relaxed text-[var(--rv-muted)] sm:mt-4 sm:text-[17px]">
             Do café diário aos grandes eventos: cada pagamento via Pix é categorizado no PRX Map e devolve vantagens instantâneas.
           </p>
         </motion.div>
@@ -650,24 +681,17 @@ function PinnedStory({ appUrl, reduceMotion, onTone }: { appUrl: string; reduceM
 /* Momento 3: gamificação, destaques e os quatro pilares                      */
 /* -------------------------------------------------------------------------- */
 
-const rise = {
-  hidden: { opacity: 0, y: 36 },
-  show: (i: number) => ({ opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 28, delay: i * 0.08 } }),
-};
-
-const IN_VIEW = { once: true, amount: 0.35 } as const;
-
 function HighlightCard({ id, title, children, text, index }: { id?: string; title: string; children: ReactNode; text: string; index: number }) {
   return (
     // A âncora fica no <li> parado: a revelação anima só o conteúdo, e o Lenis mede a posição final.
     <li id={id} className="scroll-mt-28">
       <motion.div custom={index} variants={rise} initial="hidden" whileInView="show" viewport={IN_VIEW} className="h-full">
-        <article className={cn("relative flex h-full flex-col justify-between gap-10 overflow-hidden rounded-[28px] p-6 text-[#0b0b10] sm:p-7 lg:min-h-[300px]", LIQUID.light)}>
+        <article className={cn("relative flex h-full flex-col justify-between gap-10 overflow-hidden rounded-[28px] p-6 text-[var(--rv-ink)] sm:p-7 lg:min-h-[300px]", LIQUID.surface)}>
           <Specular />
-          <h3 className="ob-label relative text-[12px] text-[#3d3d48]">{title}</h3>
+          <h3 className="ob-label relative text-[12px] text-[var(--rv-body)]">{title}</h3>
           <div className="relative">
             {children}
-            <p className="mt-4 max-w-[300px] text-[15px] leading-relaxed text-[#3d3d48]">{text}</p>
+            <p className="mt-4 max-w-[300px] text-[15px] leading-relaxed text-[var(--rv-body)]">{text}</p>
           </div>
         </article>
       </motion.div>
@@ -679,11 +703,11 @@ function LevelBar() {
   return (
     <div>
       <p className="text-[40px] font-light leading-none tracking-[-0.04em] tabular-nums sm:text-[46px]">+ 120 coins</p>
-      <div className="mt-5 flex items-center justify-between text-[12px] font-semibold text-[#3d3d48]">
+      <div className="mt-5 flex items-center justify-between text-[12px] font-semibold text-[var(--rv-body)]">
         <span>Level 3</span>
         <span>Level 4</span>
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/[0.07]">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--rv-line)]">
         <motion.span
           className="block h-full origin-left rounded-full bg-[#7c3aed]"
           initial={{ scaleX: 0 }}
@@ -744,7 +768,7 @@ function PillarCard({ pillar, index }: { pillar: LandingPillar; index: number })
 
 function AchievementsSection({ appUrl }: { appUrl: string }) {
   return (
-    <section id="conquistas" aria-labelledby="conquistas-title" className="relative isolate scroll-mt-24 overflow-hidden bg-white px-5 pb-24 pt-10 sm:px-8 sm:pb-32">
+    <section id="conquistas" aria-labelledby="conquistas-title" className="relative isolate scroll-mt-24 overflow-hidden bg-[var(--rv-bg)] px-5 pb-24 pt-10 sm:px-8 sm:pb-32">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(48rem_28rem_at_12%_46%,rgba(124,58,237,0.08),transparent_70%),radial-gradient(40rem_26rem_at_90%_64%,rgba(0,102,255,0.06),transparent_70%)]"
@@ -758,11 +782,11 @@ function AchievementsSection({ appUrl }: { appUrl: string }) {
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, amount: 0.6 }}
-            className="mx-auto max-w-[1100px] text-balance text-[clamp(30px,7.6vw,52px)] font-semibold leading-[1.02] tracking-[-0.045em] text-[#0b0b10] md:text-[clamp(44px,4.8vw,72px)]"
+            className="mx-auto max-w-[1100px] text-balance text-[clamp(30px,7.6vw,52px)] font-semibold leading-[1.02] tracking-[-0.045em] text-[var(--rv-ink)] md:text-[clamp(44px,4.8vw,72px)]"
           >
             As bets lucram com a perda.
             <br />
-            <span className="text-[#7c3aed]">Nós premiamos suas conquistas.</span>
+            <span className="text-[#7c3aed] dark:text-[#a78bfa]">Nós premiamos suas conquistas.</span>
           </motion.h2>
           <motion.p
             variants={rise}
@@ -770,7 +794,7 @@ function AchievementsSection({ appUrl }: { appUrl: string }) {
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, amount: 0.6 }}
-            className="mx-auto mt-5 max-w-[620px] text-pretty text-[16px] leading-relaxed text-[#5b5b66] sm:text-[19px]"
+            className="mx-auto mt-5 max-w-[620px] text-pretty text-[16px] leading-relaxed text-[var(--rv-muted)] sm:text-[19px]"
           >
             Economizar, bater metas e viver experiências pontua no seu PRX Level. Suba de nível e desbloqueie limites ampliados, anuidade zero e acesso a lounges VIP.
           </motion.p>
@@ -784,19 +808,19 @@ function AchievementsSection({ appUrl }: { appUrl: string }) {
         <ul className="mt-12 grid gap-4 text-left sm:mt-16 lg:grid-cols-3 lg:gap-5">
           <HighlightCard id="bank" index={0} title="PRX Bank" text="Conta digital, Pix 24/7 sem tarifas e cartão de metal exclusivo.">
             <p className="text-[40px] font-light leading-none tracking-[-0.04em] tabular-nums sm:text-[46px]">
-              R$ 0<span className="ml-2 text-[15px] font-medium tracking-normal text-[#5b5b66]">de tarifa no Pix</span>
+              R$ 0<span className="ml-2 text-[15px] font-medium tracking-normal text-[var(--rv-muted)]">de tarifa no Pix</span>
             </p>
           </HighlightCard>
           <HighlightCard index={1} title="PRX Coins & Level" text="Cada compra em parceiro reconhecida na hora; pontuação acumulada para subir de nível.">
             <LevelBar />
           </HighlightCard>
           <HighlightCard index={2} title="PRX Pass" text="Descontos de 20% a 50% direto no balcão via QR Code protegido.">
-            <p className="text-[40px] font-light leading-none tracking-[-0.04em] text-[#7c3aed] tabular-nums sm:text-[46px]">20–50%</p>
+            <p className="text-[40px] font-light leading-none tracking-[-0.04em] text-[#7c3aed] tabular-nums dark:text-[#a78bfa] sm:text-[46px]">20–50%</p>
           </HighlightCard>
         </ul>
 
         <div className="mt-16 sm:mt-24">
-          <h3 className="ob-label border-b border-black/[0.07] pb-4 text-[12px] text-[#3d3d48]">Os pilares PRX</h3>
+          <h3 className="ob-label border-b border-[var(--rv-line)] pb-4 text-[12px] text-[var(--rv-body)]">Os pilares PRX</h3>
           <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
             {PILLARS.map((pillar, i) => (
               <PillarCard key={pillar.id} pillar={pillar} index={i} />
@@ -808,25 +832,68 @@ function AchievementsSection({ appUrl }: { appUrl: string }) {
   );
 }
 
+const FOOTER_SECTIONS: ReadonlyArray<{ href: `#${string}`; label: string }> = [
+  { href: "#app", label: "O app" },
+  { href: "#como-funciona", label: "Como funciona" },
+  { href: "#seguranca", label: "Segurança" },
+  { href: "#sou-pai", label: "Sou Pai" },
+  { href: "#planos", label: "Planos" },
+  { href: "#faq", label: "Perguntas frequentes" },
+];
+
 /** Rodapé Obsidian: a página termina no mesmo breu em que começou. */
-function Footer({ appUrl }: { appUrl: string }) {
-  const base = appUrl.replace(/\/$/, "");
+function Footer({ links }: { links: LandingLinks }) {
+  const base = links.appUrl.replace(/\/$/, "");
+  const link = "inline-flex min-h-12 cursor-pointer items-center transition-colors hover:text-white";
   return (
-    <footer className="relative isolate overflow-hidden bg-[#050508] px-5 py-12 text-[13px] text-white/75 sm:px-8">
+    <footer className="relative isolate overflow-hidden border-t border-white/[0.06] bg-[#050508] px-5 py-12 text-[13px] text-white/75 sm:px-8">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(44rem_18rem_at_50%_130%,rgba(124,58,237,0.24),transparent_70%)]" />
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-6 md:flex-row md:items-center md:justify-between">
+      <div className="mx-auto grid max-w-[1200px] gap-8 md:grid-cols-[auto_1fr_auto] md:items-start md:gap-12">
         <PrxLogo variant="compact" title="PRX" className="h-6 w-auto text-white" />
-        <nav aria-label="Documentos" className="flex flex-wrap gap-x-5 gap-y-1">
-          <a href={`${base}/termos`} className="inline-flex min-h-12 cursor-pointer items-center transition-colors hover:text-white">
-            Termos de Uso
-          </a>
-          <a href={`${base}/privacidade`} className="inline-flex min-h-12 cursor-pointer items-center transition-colors hover:text-white">
-            Política de Privacidade
-          </a>
-          <a href={`${base}/sou-pai`} className="inline-flex min-h-12 cursor-pointer items-center transition-colors hover:text-white">
-            Sou Pai
-          </a>
-        </nav>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <nav aria-label="Seções">
+            <p className="ob-label mb-1 text-[10.5px] text-white/60">Conheça</p>
+            <ul className="flex flex-wrap gap-x-5">
+              {FOOTER_SECTIONS.map((s) => (
+                <li key={s.href}>
+                  <a href={s.href} className={link}>
+                    {s.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <nav aria-label="Conta e documentos">
+            <p className="ob-label mb-1 text-[10.5px] text-white/60">Conta</p>
+            <ul className="flex flex-wrap gap-x-5">
+              <li>
+                <a href={links.login} className={link}>
+                  Entrar
+                </a>
+              </li>
+              <li>
+                <a href={links.signup} className={link}>
+                  Criar conta
+                </a>
+              </li>
+              <li>
+                <a href={links.parent} className={link}>
+                  Conta Pai
+                </a>
+              </li>
+              <li>
+                <a href={`${base}/termos`} className={link}>
+                  Termos de Uso
+                </a>
+              </li>
+              <li>
+                <a href={`${base}/privacidade`} className={link}>
+                  Política de Privacidade
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
         <ViraWebCredit onDark className="md:justify-end" />
       </div>
     </footer>
@@ -837,10 +904,20 @@ function Footer({ appUrl }: { appUrl: string }) {
 /* Página                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export function RevolutLanding({ preview = false }: { preview?: boolean }) {
+/** Destinos dos fluxos reais: login e cadastro abrem na seção de acesso da página inicial. */
+function useLandingLinks(): LandingLinks {
   const appUrl = useMainSiteUrl();
+  const base = appUrl.replace(/\/$/, "");
+  return { appUrl, login: `${base}/#entrar`, signup: `${base}/#criar-conta`, parent: `${base}/sou-pai` };
+}
+
+export function RevolutLanding({ preview = false }: { preview?: boolean }) {
+  const links = useLandingLinks();
   const reduceMotion = useMedia(REDUCE, false);
-  const [tone, setTone] = useState<Tone>("dark");
+  const { theme, mounted } = useTheme();
+  const [stageTone, setStageTone] = useState<Tone>("dark");
+  // No tema escuro a página inteira é obsidiana: a cápsula fica sempre fumê.
+  const tone: Tone = mounted && theme === "dark" ? "dark" : stageTone;
   const lenisRef = useRef<LenisRef>(null);
 
   // Lenis avança dentro do frame loop do Motion: rolagem e molas leem o mesmo quadro.
@@ -854,12 +931,21 @@ export function RevolutLanding({ preview = false }: { preview?: boolean }) {
     <MotionConfig reducedMotion="user">
       <ReactLenis root ref={lenisRef} options={LENIS_OPTIONS}>
         <div className="prx-rv min-h-dvh overflow-x-clip selection:bg-[#7c3aed] selection:text-white">
-          <Header appUrl={appUrl} tone={tone} />
+          <Header links={links} tone={tone} />
           <main>
-            <PinnedStory appUrl={appUrl} reduceMotion={reduceMotion} onTone={setTone} />
-            <AchievementsSection appUrl={appUrl} />
+            <PinnedStory appUrl={links.appUrl} reduceMotion={reduceMotion} onTone={setStageTone} />
+            <AchievementsSection appUrl={links.signup} />
+            <AppShowcaseSection />
+            <HowItWorksSection />
+            <DifferentialsSection />
+            <SecuritySection />
+            <ParentSection links={links} />
+            <AudiencesSection />
+            <PlansSection links={links} />
+            <FaqSection />
+            <FinalCtaSection links={links} />
           </main>
-          <Footer appUrl={appUrl} />
+          <Footer links={links} />
           {preview && (
             <p className="fixed bottom-3 right-3 z-50 rounded-full border border-white/10 bg-[#0b0b12]/80 px-3.5 py-1.5 text-[12px] font-medium text-white/85 shadow-[0_12px_32px_-12px_rgba(0,0,0,0.6)] backdrop-blur-xl">
               Prévia para aprovação · visível só para o admin

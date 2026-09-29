@@ -565,6 +565,42 @@ nextjs-portal > *,
   font-feature-settings: "cv11", "ss01";
 }
 
+/* Superfícies dos Momentos 2+ (seguem o tema): branco de alto contraste no claro,
+   obsidiana no escuro. A classe do <html> chega antes da pintura (ThemeScript). */
+.prx-rv {
+  --rv-bg: #ffffff;
+  --rv-soft: #f7f6fb;
+  --rv-ink: #0b0b10;
+  --rv-body: #3d3d48;
+  --rv-muted: #5b5b66;
+  --rv-line: rgba(11, 11, 16, 0.08);
+  --rv-bloom: rgba(243, 238, 255, 0.9);
+  --rv-glass: rgba(255, 255, 255, 0.7);
+  --rv-glass-x: rgba(0, 0, 0, 0.06);
+  --rv-glass-t: #ffffff;
+  --rv-glass-b: rgba(0, 0, 0, 0.08);
+  --rv-glass-shadow: 0 24px 48px -20px rgba(22, 12, 52, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+  --rv-haze: rgba(124, 58, 237, 0.08);
+}
+
+html.dark .prx-rv {
+  --rv-bg: #050508;
+  --rv-soft: #0a0a10;
+  --rv-ink: #ffffff;
+  --rv-body: #cbd5e1;
+  --rv-muted: #94a3b8;
+  --rv-line: rgba(255, 255, 255, 0.09);
+  --rv-bloom: rgba(76, 29, 149, 0.35);
+  --rv-glass: rgba(255, 255, 255, 0.06);
+  --rv-glass-x: rgba(255, 255, 255, 0.1);
+  --rv-glass-t: rgba(255, 255, 255, 0.3);
+  --rv-glass-b: rgba(255, 255, 255, 0.05);
+  --rv-glass-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  --rv-haze: rgba(124, 58, 237, 0.2);
+  background-color: #050508;
+  color: #ffffff;
+}
+
 /* O documento é obsidiana: a página começa e termina no breu (inclusive no overscroll). */
 html:has(.prx-rv),
 html:has(.prx-rv) body {

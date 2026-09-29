@@ -290,6 +290,17 @@ export function ScrollytellingContainer({ onGoToDashboard }: { onGoToDashboard?:
   // LGPD: sem o aceite dos Termos e da Política de Privacidade, nenhum botão de acesso funciona.
   const [termsAccepted, setTermsAccepted] = useState(false);
 
+  // Atalhos vindos da nova landing: /#entrar abre o login e /#criar-conta abre o cadastro.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash !== "#entrar" && hash !== "#criar-conta") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lê o hash só no cliente, depois da hidratação.
+    setAuthTab(hash === "#criar-conta" ? "signup" : "login");
+    const target = [document.getElementById("secao-login"), document.getElementById("mob-login")].find((el) => el && el.offsetParent !== null);
+    const timer = window.setTimeout(() => target?.scrollIntoView({ block: "start" }), 400);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const handleGoogleAuth = async () => {
     if (!termsAccepted) {
       setAuthErrorMsg(CONSENT_REQUIRED_MESSAGE);
