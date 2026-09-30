@@ -1,7 +1,7 @@
 // Hello World
 "use client";
 
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useSyncExternalStore, type ReactNode } from "react";
 import { ReactLenis, useLenis } from "lenis/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -34,6 +34,26 @@ function LenisGsapBridge() {
   return null;
 }
 
+/**
+ * Entrar no app (depois do login, da biometria ou ao reabrir) sempre começa do topo:
+ * a landing deixava a página rolada até o formulário e o navegador restaurava a posição.
+ */
+function StartAtTop() {
+  const lenis = useLenis();
+  useLayoutEffect(() => {
+    try {
+      window.history.scrollRestoration = "manual";
+    } catch {
+      // navegador sem suporte: segue só com o scrollTo
+    }
+    window.scrollTo(0, 0);
+  }, []);
+  useEffect(() => {
+    lenis?.scrollTo(0, { immediate: true, force: true });
+  }, [lenis]);
+  return null;
+}
+
 const REDUCE = "(prefers-reduced-motion: reduce)";
 const subscribeReduce = (listener: () => void) => {
   const query = window.matchMedia(REDUCE);
@@ -51,6 +71,7 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
   return (
     <ReactLenis root options={{ lerp: 0.1, duration: 1.1, autoRaf: false, smoothWheel: !reduceMotion, syncTouch: false }}>
       <LenisGsapBridge />
+      <StartAtTop />
       {children}
     </ReactLenis>
   );

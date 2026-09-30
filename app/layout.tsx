@@ -80,10 +80,12 @@ export const metadata: Metadata = {
   },
 };
 
+// Zoom bloqueado (pedido do produto): o app se comporta como app nativo, sem pinça nem duplo toque.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 5,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
   themeColor: "#050508",
 };
@@ -97,6 +99,13 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     >
       <head>
         <ThemeScript />
+        {/* nosemgrep: prx-dangerous-html — script 100% estático do próprio código; nenhum dado externo entra aqui. */}
+        <script
+          // O Safari do iPhone ignora user-scalable=no: a pinça é barrada pelos eventos de gesto e de dois dedos.
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var stop=function(e){e.preventDefault();};['gesturestart','gesturechange','gestureend'].forEach(function(t){document.addEventListener(t,stop,{passive:false});});document.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1)e.preventDefault();},{passive:false});}catch(_){}})();`,
+          }}
+        />
         {/* nosemgrep: prx-dangerous-html — script 100% estático do próprio código; nenhum dado externo entra aqui. */}
         <script
           // Guarda o convite de instalação do Chrome antes do React carregar: no celular ele chega

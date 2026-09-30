@@ -11,7 +11,8 @@ import { MissionsPanel } from "@/components/app/pass/missions-panel";
 import { ReferralPanel } from "@/components/app/pass/referral-panel";
 import { useBenefitEvents } from "@/components/app/pass/use-benefit-events";
 import { reloadPoints, usePointsWallet } from "@/components/app/use-prx-stores";
-import { Button, EmptyState, Input, Notice, ProgressBar, Segmented, Sheet, Tag } from "@/components/app/ui";
+import { WalletTriad } from "@/components/app/points/wallet-triad";
+import { Button, EmptyState, Input, Notice, Segmented, Sheet, Tag } from "@/components/app/ui";
 import { IconQr, IconSearch } from "@/components/icons/prx-icons";
 import { PRX_CATEGORIES, levelProgress, type Benefit, type UserVoucher } from "@/lib/pass-data";
 import { cn } from "@/lib/utils";
@@ -100,21 +101,19 @@ export function PassScreen({ pass }: { pass: PassData }) {
           <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX PASS</h1>
           <p className="mt-1.5 max-w-md text-sm text-muted-foreground sm:text-[15px]">Descontos reais em marcas parceiras. Resgate, mostre o QR no balcão e pronto.</p>
         </div>
-        <div className="rounded-3xl glass p-5 lg:col-span-5">
-          <div className="flex items-baseline justify-between">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink">Seu nível</p>
-            <p className="text-[13px] font-medium text-muted-foreground">
-              {xp.toLocaleString("pt-BR")} XP · {coins === null ? "—" : coins.toLocaleString("pt-BR")} coins
-            </p>
-          </div>
-          <p className="mt-1.5 text-[30px] font-light leading-none tracking-[-0.03em] text-ink">Nível {memberLevel.toLocaleString("pt-BR")}</p>
-          <div className="mt-4">
-            <ProgressBar value={progress.pct} label="Progresso até o próximo nível" />
-          </div>
-          <p className="mt-2 text-[13px] text-muted-foreground">
-            {`${progress.remaining.toLocaleString("pt-BR")} XP para o nível ${progress.level + 1}.`}
-          </p>
-        </div>
+        {/* As PRX Coins são a moeda dos resgates: ficam à vista aqui, ao lado do nível. */}
+        <WalletTriad
+          compact
+          className="lg:col-span-5"
+          balance={0}
+          balanceLabel=""
+          coins={coins}
+          xp={xp}
+          hidden={false}
+          onToggleHidden={() => undefined}
+          onOpenPoints={() => go("home", "pontos")}
+          onOpenLevel={() => go("pass", "missions")}
+        />
       </header>
 
       <Segmented

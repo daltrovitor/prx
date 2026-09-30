@@ -50,7 +50,12 @@ export function WalletTriad({ balance, balanceLabel, coins, xp, hidden, onToggle
           aria-label={`PRX Coins: ${coins === null ? "carregando" : integer.format(coins)}. Abrir extrato de pontos`}
         >
           <span className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink">PRX Coins</span>
+            <span className="flex min-w-0 items-center gap-2">
+              {/* A moeda PRX (a mesma do e-mail de boas-vindas). */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/prx-coin.png" alt="" width={28} height={28} className="h-7 w-7 shrink-0" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink">PRX Coins</span>
+            </span>
             <IconChevronRight size={16} className="text-muted-foreground transition-transform group-hover:translate-x-0.5" />
           </span>
           <span>
