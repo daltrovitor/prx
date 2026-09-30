@@ -1,12 +1,10 @@
 // Hello World
-import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { errorMessage } from "@/lib/errors";
 import type { SessionCookieOptions } from "@/lib/db-rows";
-import { PENDING_GOOGLE_COOKIE, createPendingGoogleToken } from "@/lib/google-pending";
 
 /**
  * Login Google simulado — SOMENTE para desenvolvimento local.
@@ -39,16 +37,13 @@ export async function POST(req: NextRequest) {
 
     if (supabaseAdmin) {
       try {
-        // Check if user already exists in profiles and is complete
         const { data: existingProfile } = await supabaseAdmin
           .from("profiles")
           .select("*")
           .eq("email", email)
           .maybeSingle();
 
-        const isComplete = Boolean(existingProfile && existingProfile.cpf && existingProfile.phone);
-
-        if (existingProfile && isComplete) {
+        if (existingProfile) {
           authenticatedUser = {
             id: existingProfile.id,
             email: existingProfile.email,
@@ -65,34 +60,6 @@ export async function POST(req: NextRequest) {
             phone: existingProfile.phone,
             createdAt: existingProfile.created_at || new Date().toISOString(),
           };
-        } else {
-          // Usuário novo ou sem CPF/celular: não salva agora.
-          // Emite token pendente e pede os dados no /cadastro/completar.
-          const pendingToken = createPendingGoogleToken({
-            authUserId: existingProfile?.id,
-            email,
-            fullName: name,
-            avatarUrl,
-          });
-
-          const response = NextResponse.json({
-            success: true,
-            pendingRegistration: true,
-            redirectTo: "/cadastro/completar",
-            user: { email, name, avatarUrl },
-          });
-
-          response.cookies.set({
-            name: PENDING_GOOGLE_COOKIE,
-            value: pendingToken,
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-            maxAge: 15 * 60,
-          });
-
-          return response;
         }
       } catch (sbErr) {
         console.warn("Supabase Google auth fallback:", sbErr);

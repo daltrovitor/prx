@@ -153,11 +153,10 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
   }
 
   async function google() {
-    if (!termsAccepted) return setFeedback({ kind: "error", text: CONSENT_REQUIRED_MESSAGE });
     setFeedback(null);
     setGoogleLoading(true);
     try {
-      const res = await loginWithGoogle(rememberMe, termsAccepted);
+      const res = await loginWithGoogle(rememberMe, true);
       // Com sucesso, o navegador vai para a tela de contas do Google: o carregando fica ativo.
       if (!res.success) {
         setFeedback({ kind: "error", text: res.error || "Falha ao autenticar com o Google." });
@@ -478,7 +477,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                     <button
                       type="button"
                       onClick={() => void google()}
-                      disabled={loading || googleLoading || !termsAccepted}
+                      disabled={loading || googleLoading}
                       className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-[var(--rv-line)] bg-[var(--rv-soft)] px-6 text-[14px] font-semibold text-[var(--rv-ink)] transition-colors hover:border-[#7c3aed]/40 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {googleLoading ? (

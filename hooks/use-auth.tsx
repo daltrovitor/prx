@@ -214,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [markUnlocked]
   );
 
-  const loginWithGoogle = useCallback(async (rememberMe = true, termsAccepted = false): Promise<AuthResult> => {
+  const loginWithGoogle = useCallback(async (rememberMe = true, termsAccepted = true): Promise<AuthResult> => {
     try {
       storage.mark(rememberMe);
       if (!rememberMe) forgetKnownAccount();

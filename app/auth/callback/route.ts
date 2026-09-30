@@ -7,7 +7,6 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
 import { CONSENT_COOKIE, TERMS_VERSION, recordConsent } from "@/lib/legal";
 import { sendWelcomeEmail } from "@/lib/notifications/welcome";
-import { PENDING_GOOGLE_COOKIE, createPendingGoogleToken } from "@/lib/google-pending";
 
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
@@ -57,63 +56,48 @@ export async function GET(req: NextRequest) {
         let prxScore = 300;
         let prxLevel = 1;
         let walletBalance = 0;
+        let userCpf: string | undefined;
+        let userPhone: string | undefined;
 
         if (supabaseAdmin) {
-          // Verifica se o perfil já existe e tem CPF e celular preenchidos
           const { data: existing } = await supabaseAdmin.from("profiles").select("*").eq("id", authUser.id).maybeSingle();
-          const isComplete = Boolean(existing && existing.cpf && existing.phone);
+          const { data: profile } = existing
+            ? await supabaseAdmin
+                .from("profiles")
+                .update({
+                  email,
+                  ...(existing.avatar_url && !String(existing.avatar_url).includes("unsplash.com") ? {} : { avatar_url: avatarUrl }),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", authUser.id)
+                .select("*")
+                .maybeSingle()
+            : await supabaseAdmin
+                .from("profiles")
+                .insert({
+                  id: authUser.id,
+                  email,
+                  full_name: fullName,
+                  avatar_url: avatarUrl,
+                  role: "user",
+                  nxt_score: 300,
+                  nxt_level: 1,
+                  wallet_balance: 0.0,
+                  updated_at: new Date().toISOString(),
+                })
+                .select("*")
+                .maybeSingle();
 
-          if (!isComplete) {
-            // Novo cadastro ou conta incompleta: NÃO salva perfil ainda.
-            // O usuário só é salvo quando cadastra CPF e número de telefone.
-            const pendingToken = createPendingGoogleToken({
-              authUserId: authUser.id,
-              email,
-              fullName: String(fullName),
-              avatarUrl,
-            });
-
-            const redirectResp = NextResponse.redirect(`${origin}/cadastro/completar`);
-            redirectResp.cookies.set({
-              name: PENDING_GOOGLE_COOKIE,
-              value: pendingToken,
-              httpOnly: true,
-              secure: process.env.NODE_ENV === "production",
-              sameSite: "lax",
-              path: "/",
-              maxAge: 15 * 60,
-            });
-
-            try {
-              const allCookies = cookieStore.getAll();
-              for (const c of allCookies) {
-                if (c.name.startsWith("sb-")) {
-                  redirectResp.cookies.delete(c.name);
-                  redirectResp.cookies.set({ name: c.name, value: "", path: "/", maxAge: 0, expires: new Date(0) });
-                }
-              }
-            } catch {}
-
-            return redirectResp;
-          }
-
-          // Perfil existente e completo: só atualiza e-mail e foto
-          const { data: profile } = await supabaseAdmin
-            .from("profiles")
-            .update({
-              email,
-              ...(existing.avatar_url && !String(existing.avatar_url).includes("unsplash.com") ? {} : { avatar_url: avatarUrl }),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", authUser.id)
-            .select("*")
-            .maybeSingle();
+          // Primeiro login com Google = conta nova: manda o "Welcome to PRX." depois do redirect.
+          if (!existing && profile && email) after(() => sendWelcomeEmail({ id: authUser.id, email, fullName: String(fullName) }));
 
           if (profile) {
             role = profile.role || "user";
             prxScore = profile.nxt_score ?? 300;
             prxLevel = profile.nxt_level ?? 1;
             walletBalance = Number(profile.wallet_balance ?? 0);
+            userCpf = profile.cpf || undefined;
+            userPhone = profile.phone || undefined;
           }
 
           if (cookieStore.get(CONSENT_COOKIE)?.value === TERMS_VERSION) await recordConsent(authUser.id);
@@ -131,6 +115,8 @@ export async function GET(req: NextRequest) {
           avatarUrl,
           walletBalance,
           emailConfirmed: true,
+          cpf: userCpf,
+          phone: userPhone,
           createdAt: authUser.created_at || new Date().toISOString(),
         };
 

@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ShieldCheck, UserCheck, ArrowRight, Loader2, Lock, Smartphone, CreditCard } from "lucide-react";
@@ -27,7 +28,7 @@ interface PendingUser {
 
 export default function CompletarCadastroPage() {
   const router = useRouter();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, markUnlocked } = useAuth();
   const [loading, setLoading] = useState(true);
   const [pendingUser, setPendingUser] = useState<PendingUser | null>(null);
   const [cpf, setCpf] = useState("");
@@ -98,6 +99,7 @@ export default function CompletarCadastroPage() {
         throw new Error(json.error || "Não foi possível concluir o cadastro.");
       }
 
+      markUnlocked();
       await refreshUser();
       router.replace("/");
     } catch (err) {
@@ -119,12 +121,12 @@ export default function CompletarCadastroPage() {
     <div className="flex min-h-dvh flex-col bg-[#ffffff] text-[#09090b] selection:bg-[#7c3aed] selection:text-white">
       <header className="flex h-16 items-center justify-between border-b border-zinc-200/80 px-6 sm:h-20 sm:px-10">
         <PrxLogo variant="compact" title="PRX" className="h-6 w-auto text-ink sm:h-7" />
-        <a
+        <Link
           href="/"
           className="text-[13px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors cursor-pointer"
         >
           Cancelar e voltar
-        </a>
+        </Link>
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center px-5 py-12">
