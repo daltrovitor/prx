@@ -97,6 +97,14 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     >
       <head>
         <ThemeScript />
+        {/* nosemgrep: prx-dangerous-html — script 100% estático do próprio código; nenhum dado externo entra aqui. */}
+        <script
+          // Guarda o convite de instalação do Chrome antes do React carregar: no celular ele chega
+          // cedo e, perdido, deixava o app sem botão de instalar (só o passo a passo).
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__prxInstallPrompt=e;window.dispatchEvent(new Event('prx-installprompt'));});}catch(_){}})();`,
+          }}
+        />
         {/* nosemgrep: prx-dangerous-html — script 100% estático do próprio código (silencia o console em produção); nenhum dado externo entra aqui. */}
         <script
           dangerouslySetInnerHTML={{

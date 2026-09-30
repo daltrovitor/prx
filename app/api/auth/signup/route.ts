@@ -8,6 +8,7 @@ import { PartnerError } from "@/lib/partners/errors";
 import { clientIp } from "@/lib/partners/http";
 import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 import { cpfSchema, onlyDigits } from "@/lib/family/types";
+import { PASSWORD_MISMATCH, strongPasswordSchema } from "@/lib/password-policy";
 
 const phoneSchema = z
   .string()
@@ -15,15 +16,18 @@ const phoneSchema = z
   .transform(onlyDigits)
   .refine((d) => d.length === 10 || d.length === 11, "Informe o celular com DDD.");
 
-const SignupSchema = z.object({
+const SignupSchema = z
+  .object({
   fullName: z.string().trim().min(2, "Nome completo é obrigatório").max(120, "Nome muito longo"),
   email: z.string().trim().toLowerCase().email("E-mail inválido").max(160),
-  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres").max(128, "Senha muito longa"),
+  password: strongPasswordSchema,
+  confirmPassword: z.string().max(128),
   cpf: cpfSchema,
   phone: phoneSchema,
   // LGPD: sem o aceite dos Termos e da Política de Privacidade não existe conta.
   termsAccepted: z.literal(true, { error: CONSENT_REQUIRED_MESSAGE }),
-});
+  })
+  .refine((d) => d.password === d.confirmPassword, { message: PASSWORD_MISMATCH, path: ["confirmPassword"] });
 
 /**
  * Cadastro de membro: nome, e-mail, senha, CPF, celular e aceite dos Termos.

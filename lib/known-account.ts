@@ -16,6 +16,8 @@ export interface KnownAccount {
   provider: "password" | "google";
   /** Biometria cadastrada neste aparelho. */
   passkey: boolean;
+  /** Id da credencial deste aparelho: a entrada pede só ela (sem escolher aparelho ou app). */
+  passkeyId?: string;
 }
 
 const KEY = "prx_known_account";
@@ -45,6 +47,7 @@ function parse(raw: string | null): KnownAccount | null {
       avatarUrl: typeof value.avatarUrl === "string" ? value.avatarUrl : "",
       provider: value.provider === "google" ? "google" : "password",
       passkey: value.passkey === true,
+      ...(typeof value.passkeyId === "string" && value.passkeyId ? { passkeyId: value.passkeyId } : {}),
     };
   } catch {
     return null;
@@ -69,8 +72,10 @@ function notify() {
 
 export function saveKnownAccount(account: Omit<KnownAccount, "passkey"> & { passkey?: boolean }) {
   const previous = readKnownAccount();
-  const passkey = account.passkey ?? (previous?.id === account.id ? previous.passkey : false);
-  safe(() => localStorage.setItem(KEY, JSON.stringify({ ...account, passkey })), undefined);
+  const same = previous?.id === account.id;
+  const passkey = account.passkey ?? (same ? previous.passkey : false);
+  const passkeyId = account.passkeyId ?? (same ? previous.passkeyId : undefined);
+  safe(() => localStorage.setItem(KEY, JSON.stringify({ ...account, passkey, ...(passkeyId ? { passkeyId } : {}) })), undefined);
   notify();
 }
 

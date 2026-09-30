@@ -1,12 +1,19 @@
 // Hello World
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
 import { CONSENT_COOKIE, TERMS_VERSION, recordConsent } from "@/lib/legal";
-import { sendWelcomeEmail } from "@/lib/notifications/welcome";
+import { createPendingGoogleToken, pendingGoogleCookie } from "@/lib/google-pending";
+
+/** Conta criada agora pelo próprio Google (sem senha nem outro provedor): pode ser desfeita sem perda. */
+function isFreshGoogleOnly(user: { created_at?: string; identities?: ReadonlyArray<{ provider: string }> | null }): boolean {
+  const created = user.created_at ? new Date(user.created_at).getTime() : 0;
+  const identities = user.identities ?? [];
+  return Date.now() - created < 15 * 60_000 && identities.length > 0 && identities.every((i) => i.provider === "google");
+}
 
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
@@ -61,35 +68,30 @@ export async function GET(req: NextRequest) {
 
         if (supabaseAdmin) {
           const { data: existing } = await supabaseAdmin.from("profiles").select("*").eq("id", authUser.id).maybeSingle();
-          const { data: profile } = existing
-            ? await supabaseAdmin
-                .from("profiles")
-                .update({
-                  email,
-                  ...(existing.avatar_url && !String(existing.avatar_url).includes("unsplash.com") ? {} : { avatar_url: avatarUrl }),
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", authUser.id)
-                .select("*")
-                .maybeSingle()
-            : await supabaseAdmin
-                .from("profiles")
-                .insert({
-                  id: authUser.id,
-                  email,
-                  full_name: fullName,
-                  avatar_url: avatarUrl,
-                  role: "user",
-                  nxt_score: 300,
-                  nxt_level: 1,
-                  wallet_balance: 0.0,
-                  updated_at: new Date().toISOString(),
-                })
-                .select("*")
-                .maybeSingle();
+          const complete = existing && (asMemberRole(existing.role || "user") !== "user" || (existing.cpf && existing.phone));
 
-          // Primeiro login com Google = conta nova: manda o "Welcome to PRX." depois do redirect.
-          if (!existing && profile && email) after(() => sendWelcomeEmail({ id: authUser.id, email, fullName: String(fullName) }));
+          if (!complete) {
+            // Cadastro incompleto: nada fica gravado. O app abre pedindo CPF, celular e o aceite;
+            // só a conclusão cria o perfil (e a conta de acesso, se o Google acabou de criá-la).
+            if (!existing && isFreshGoogleOnly(authUser)) await supabaseAdmin.auth.admin.deleteUser(authUser.id).catch(() => undefined);
+            const pending = createPendingGoogleToken({ authUserId: existing ? authUser.id : undefined, email, fullName: String(fullName), avatarUrl: String(avatarUrl) });
+            const pendingResponse = NextResponse.redirect(`${origin}/`);
+            pendingResponse.cookies.set(pendingGoogleCookie(pending));
+            pendingResponse.cookies.set({ name: CONSENT_COOKIE, value: "", path: "/", maxAge: 0, expires: new Date(0) });
+            for (const c of cookieStore.getAll()) if (c.name.startsWith("sb-")) pendingResponse.cookies.set({ name: c.name, value: "", path: "/", maxAge: 0, expires: new Date(0) });
+            return pendingResponse;
+          }
+
+          const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .update({
+              email,
+              ...(existing.avatar_url && !String(existing.avatar_url).includes("unsplash.com") ? {} : { avatar_url: avatarUrl }),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", authUser.id)
+            .select("*")
+            .maybeSingle();
 
           if (profile) {
             role = profile.role || "user";

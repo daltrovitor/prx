@@ -82,6 +82,9 @@ class UserStore {
       avatarUrl: DEFAULT_DEMO_USER.avatarUrl,
       walletBalance: DEFAULT_DEMO_USER.walletBalance,
       emailConfirmed: true,
+      // Cadastro completo, como o de qualquer membro (o mesmo CPF da abertura demo do PRX BANK).
+      cpf: "52998224725",
+      phone: "11988887777",
       createdAt: new Date().toISOString(),
     };
     this.users.set(initialUser.email, initialUser);

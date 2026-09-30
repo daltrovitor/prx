@@ -1,5 +1,6 @@
 // Hello World
 import { z } from "zod";
+import { strongPasswordSchema } from "@/lib/password-policy";
 import { isValidCpf } from "@/lib/prx/pix";
 
 /*
@@ -139,7 +140,7 @@ export const INCOME_LABEL: Record<IncomeRange, string> = {
 export const parentSignupSchema = z.object({
   fullName: z.string().trim().min(5, "Informe o nome completo.").max(120),
   email: z.string().trim().toLowerCase().email("E-mail inválido.").max(160),
-  password: z.string().min(8, "A senha precisa de pelo menos 8 caracteres.").max(128),
+  password: strongPasswordSchema,
   cpf: cpfSchema,
   birthDate: birthDateSchema,
   phone: z
@@ -261,7 +262,7 @@ export const childAccountSchema = z
   .object({
     fullName: z.string().trim().min(2, "Informe o nome do filho.").max(120),
     email: z.string().trim().toLowerCase().email("E-mail inválido.").max(160),
-    password: z.string().min(8, "A senha precisa de pelo menos 8 caracteres.").max(128),
+    password: strongPasswordSchema,
     cpf: cpfSchema,
     birthDate: birthDateSchema,
   })

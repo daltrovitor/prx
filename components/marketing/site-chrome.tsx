@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { AppThemeScope } from "@/components/marketing/app-theme-scope";
 import { ViraWebCredit } from "@/components/brand/viraweb-credit";
+import { CRYSTAL_HERO, ObsidianCrystal } from "@/components/obsidian/obsidian-ui";
 import { COMPANY } from "@/lib/company";
 import { cn } from "@/lib/utils";
 
@@ -120,14 +121,15 @@ export function SiteFooter() {
 /** Página pública completa: tema, cabeçalho, conteúdo e rodapé. */
 export function SitePage({ children, className, cta = true }: { children: ReactNode; className?: string; cta?: boolean }) {
   return (
-    <div className={cn("prx-app isolate flex min-h-dvh flex-col bg-background text-foreground selection:bg-[#6c0cf0] selection:text-white", className)}>
+    <div className={cn("prx-app relative isolate flex min-h-dvh flex-col overflow-x-clip bg-background text-foreground selection:bg-[#6c0cf0] selection:text-white", className)}>
       <AppThemeScope />
       <div aria-hidden className="prx-ambient" />
+      <ObsidianCrystal sizes="(min-width: 1024px) 34vw, 60vw" className={CRYSTAL_HERO} />
       <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-3 focus:text-background">
         Pular para o conteúdo
       </a>
       <SiteHeader cta={cta} />
-      <main id="conteudo" className="flex-1">
+      <main id="conteudo" className="relative z-10 flex-1">
         {children}
       </main>
       <SiteFooter />

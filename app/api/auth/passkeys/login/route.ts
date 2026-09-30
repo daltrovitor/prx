@@ -7,24 +7,35 @@ import { checkRateLimit } from "@/lib/security";
 import { PASSKEY_CHALLENGE_COOKIE, PasskeyError, authenticationOptions, challengeCookie, verifyAuthentication } from "@/lib/passkeys/service";
 
 const REMEMBER_SECONDS = 365 * 24 * 60 * 60;
-const optionsSchema = z.object({ userId: z.string().trim().min(1).max(200) });
+const optionsSchema = z.object({
+  userId: z.string().trim().min(1).max(200),
+  credentialId: z
+    .string()
+    .trim()
+    .max(512)
+    .regex(/^[A-Za-z0-9_-]+$/)
+    .optional(),
+});
 
 function clientIp(req: NextRequest) {
   return (req.headers.get("x-forwarded-for") || "127.0.0.1").split(",")[0].trim();
 }
 
 /**
- * Entrada com biometria na tela "Lembrar de mim". GET ?userId= gera o desafio
- * para as credenciais daquela conta; POST confere a assinatura do aparelho e
+ * Entrada com biometria na tela "Lembrar de mim". GET ?userId=&credentialId= gera o
+ * desafio (só da biometria deste aparelho, quando informada); POST confere a assinatura do aparelho e
  * abre a sessão, como o login com senha.
  */
 export async function GET(req: NextRequest) {
   const rate = checkRateLimit(`passkey_options_${clientIp(req)}`, 20, 60);
   if (!rate.allowed) return NextResponse.json({ error: `Muitas tentativas. Tente em ${rate.resetInSeconds}s.` }, { status: 429 });
-  const parsed = optionsSchema.safeParse({ userId: req.nextUrl.searchParams.get("userId") });
+  const parsed = optionsSchema.safeParse({
+    userId: req.nextUrl.searchParams.get("userId"),
+    credentialId: req.nextUrl.searchParams.get("credentialId") || undefined,
+  });
   if (!parsed.success) return NextResponse.json({ error: "Conta inválida." }, { status: 400 });
   try {
-    const { options, sealed } = await authenticationOptions(req, parsed.data.userId);
+    const { options, sealed } = await authenticationOptions(req, parsed.data.userId, parsed.data.credentialId);
     const res = NextResponse.json({ options });
     res.cookies.set(challengeCookie(sealed));
     return res;

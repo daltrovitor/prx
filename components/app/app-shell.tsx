@@ -28,7 +28,8 @@ import { PassScreen } from "@/components/app/screens/pass-screen";
 import { BankScreen } from "@/components/app/screens/bank-screen";
 import { LiveScreen } from "@/components/app/screens/live-screen";
 import { ProfileScreen } from "@/components/app/screens/profile-screen";
-import { ObsidianBell, ObsidianCrystal, ObsidianDock, type ObsidianDockItem } from "@/components/obsidian/obsidian-ui";
+import { CRYSTAL_CORNER, CRYSTAL_HERO, ObsidianBell, ObsidianCrystal, ObsidianDock, type ObsidianDockItem } from "@/components/obsidian/obsidian-ui";
+import { PwaInstallPrompt } from "@/components/app/pwa-install-prompt";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
@@ -110,12 +111,16 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
     <div className="prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground">
       {/* Luz volumétrica (cobalto e violeta) atrás do vidro fumê. */}
       <div aria-hidden className="prx-ambient" />
-      {/* Escultura de cristal no canto superior direito da Início (em cores claras no plano branco e obsidian no escuro). */}
-      {tab === "home" && (
+      {/* Escultura de cristal obsidiana no canto superior direito, em todas as abas (Destaques é vídeo em tela cheia). */}
+      {!immersive && (
         <ObsidianCrystal
           priority
-          sizes="(min-width: 1024px) 50vw, 88vw"
-          className="absolute -right-[22%] top-0 z-0 h-[430px] w-[88vw] sm:-right-[8%] sm:h-[560px] sm:w-[62vw] lg:right-0 lg:h-[700px] lg:w-[46vw] lg:opacity-90"
+          sizes="(min-width: 1024px) 46vw, 88vw"
+          className={cn(
+            tab === "home" ? CRYSTAL_HERO : CRYSTAL_CORNER,
+            // No breu, a Início ganha o cristal grande atrás do manifesto (texto branco sobre a pedra).
+            tab === "home" && "dark:-right-[22%] dark:h-[430px] dark:w-[88vw] dark:sm:-right-[8%] dark:sm:h-[560px] dark:sm:w-[62vw] dark:lg:right-0 dark:lg:h-[700px] dark:lg:w-[46vw]"
+          )}
         />
       )}
       <a
@@ -294,6 +299,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
       </div>
 
       <NoticesSheet open={noticesOpen} onClose={() => setNoticesOpen(false)} notices={notices} onGo={go} />
+      <PwaInstallPrompt />
     </div>
   );
 }

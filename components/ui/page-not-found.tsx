@@ -1,6 +1,7 @@
 // Hello World
 import Link from "next/link";
 import { PrxLogo } from "@/components/brand/prx-logo";
+import { CRYSTAL_HERO, ObsidianCrystal } from "@/components/obsidian/obsidian-ui";
 
 /**
  * 404 na perspectiva central: o número monumental ocupa o eixo da página e
@@ -8,7 +9,8 @@ import { PrxLogo } from "@/components/brand/prx-logo";
  */
 export default function NotFoundPage() {
   return (
-    <main className="prx-app relative flex min-h-dvh flex-col overflow-x-hidden bg-background text-ink">
+    <main className="prx-app relative isolate flex min-h-dvh flex-col overflow-x-hidden bg-background text-ink">
+      <ObsidianCrystal sizes="(min-width: 1024px) 34vw, 60vw" className={CRYSTAL_HERO} />
       <header className="flex h-16 items-center px-5 sm:px-8">
         <Link href="/" aria-label="PRX — página inicial" className="flex min-h-12 items-center">
           <PrxLogo variant="compact" title="" className="h-6 w-auto text-ink sm:h-7" />

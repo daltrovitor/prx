@@ -35,19 +35,21 @@ type IconComponent = ComponentType<{ size?: number; strokeWidth?: number; classN
 /* -------------------------------------------------------------------------- */
 
 /**
- * Escultura de cristal PRX:
- * - No plano branco (modo claro): renderizado em cores claras e prismáticas (violeta, cobalto e prata translúcidos) com halo de luz suave e mesclagem que se integra perfeitamente ao fundo branco.
- * - No modo escuro: cristal fundido ao breu com mix-blend-screen.
+ * Lugar do cristal: canto superior direito, atrás do cabeçalho. No plano branco a pedra
+ * preta atrás de texto escuro não se lê, então nas telas cheias de conteúdo ele fica no canto.
+ */
+export const CRYSTAL_CORNER = "absolute right-0 top-0 z-0 h-[150px] w-[58vw] sm:h-[230px] sm:w-[44vw] lg:h-[230px] lg:w-[30vw]";
+/** Telas com o lado direito livre no computador (Início, documentos, entrada): o cristal cresce no desktop. */
+export const CRYSTAL_HERO = "absolute right-0 top-0 z-0 h-[150px] w-[58vw] sm:h-[240px] sm:w-[40vw] lg:h-[440px] lg:w-[34vw]";
+
+/**
+ * Escultura de cristal PRX em obsidiana preta, nos dois temas:
+ * - no plano branco, a pedra preta aparece como é e as bordas se fundem ao branco pela máscara radial;
+ * - no breu, o preto da foto some (mesclagem "screen") e sobra o brilho violeta e cobalto.
  */
 export function ObsidianCrystal({ className, priority = false, sizes = "(min-width: 1024px) 560px, 70vw" }: { className?: string; priority?: boolean; sizes?: string }) {
   return (
     <div aria-hidden className={cn("pointer-events-none select-none", className)}>
-      {/* Halo de luz claro suave para o plano branco */}
-      <span
-        aria-hidden
-        className="absolute inset-0 -z-10 rounded-full bg-[radial-gradient(55%_55%_at_60%_40%,rgba(148,104,250,0.18),rgba(0,102,255,0.08)_50%,transparent_75%)] blur-2xl dark:hidden"
-      />
-      {/* Modo claro / Plano branco: escultura de cristal em cores claras sobre fundo branco */}
       <Image
         src={crystalImg}
         alt=""
@@ -55,17 +57,7 @@ export function ObsidianCrystal({ className, priority = false, sizes = "(min-wid
         sizes={sizes}
         priority={priority}
         placeholder="blur"
-        className="block object-cover opacity-45 mix-blend-multiply invert hue-rotate-180 brightness-115 contrast-125 saturate-125 [mask-image:radial-gradient(68%_62%_at_62%_42%,#000_38%,transparent_100%)] dark:hidden"
-      />
-      {/* Modo escuro: escultura de cristal Obsidian fundida ao breu */}
-      <Image
-        src={crystalImg}
-        alt=""
-        fill
-        sizes={sizes}
-        priority={priority}
-        placeholder="blur"
-        className="hidden object-cover opacity-90 mix-blend-screen [mask-image:radial-gradient(68%_62%_at_62%_42%,#000_38%,transparent_100%)] dark:block"
+        className="object-cover opacity-95 [mask-image:radial-gradient(60%_56%_at_66%_34%,#000_38%,transparent_100%)] dark:opacity-90 dark:mix-blend-screen dark:[mask-image:radial-gradient(68%_62%_at_62%_42%,#000_38%,transparent_100%)]"
       />
     </div>
   );

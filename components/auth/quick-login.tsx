@@ -1,9 +1,10 @@
 // Hello World
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { PrxLogo } from "@/components/brand/prx-logo";
+import { CRYSTAL_HERO, ObsidianCrystal } from "@/components/obsidian/obsidian-ui";
 import { Avatar, Button, Input, Notice } from "@/components/app/ui";
 import { useThemeScope } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
@@ -38,7 +39,8 @@ type Step = "auth" | "offer";
 /**
  * Tela de login dedicada da conta lembrada ("Lembrar de mim"), no padrão dos
  * apps de banco: foto e nome do membro, e só a senha ou a biometria/rosto.
- * Com a sessão ainda ativa, funciona como bloqueio da nova visita.
+ * Com a sessão ainda ativa, funciona como bloqueio da nova visita. Com a
+ * biometria ativada neste aparelho, o pedido do rosto/digital abre sozinho.
  */
 export function QuickLogin({ account }: { account: KnownAccount }) {
   useThemeScope("app");
@@ -48,7 +50,9 @@ export function QuickLogin({ account }: { account: KnownAccount }) {
   const [error, setError] = useState<string | null>(null);
   const [biometrics, setBiometrics] = useState(false);
   const [step, setStep] = useState<Step>("auth");
+  const autoTried = useRef(false);
   const first = (account.name || "").trim().split(/\s+/)[0] || "de volta";
+  const quick = account.passkey && biometrics;
 
   useEffect(() => {
     let alive = true;
@@ -76,13 +80,34 @@ export function QuickLogin({ account }: { account: KnownAccount }) {
     if (offer) setStep("offer");
   }
 
-  async function signInWithPasskey() {
-    setBusy("passkey");
-    setError(null);
-    const result = await loginWithPasskey(account.id);
-    setBusy(null);
-    if (!result.success) setError(result.error || "Biometria não confirmada.");
-  }
+  /** `auto`: pedido aberto sozinho; se a pessoa cancelar, não mostra erro (o botão continua ali). */
+  const signInWithPasskey = useCallback(
+    async (auto = false) => {
+      setBusy("passkey");
+      setError(null);
+      const result = await loginWithPasskey(account.id);
+      setBusy(null);
+      if (!result.success && !(auto && /cancelada/i.test(result.error || ""))) setError(result.error || "Biometria não confirmada.");
+    },
+    [account.id, loginWithPasskey]
+  );
+
+  // Abre a biometria assim que a tela aparece (e de novo quando o app volta ao primeiro plano).
+  useEffect(() => {
+    if (!quick || step !== "auth") return;
+    const tryNow = () => {
+      if (document.visibilityState !== "visible" || autoTried.current) return;
+      autoTried.current = true;
+      void signInWithPasskey(true);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") autoTried.current = false;
+      tryNow();
+    };
+    tryNow();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [quick, step, signInWithPasskey]);
 
   async function enableBiometrics() {
     setBusy("register");
@@ -94,13 +119,14 @@ export function QuickLogin({ account }: { account: KnownAccount }) {
   }
 
   return (
-    <div className="prx-app isolate flex min-h-dvh flex-col bg-background text-foreground selection:bg-[#6c0cf0] selection:text-white">
+    <div className="prx-app relative isolate flex min-h-dvh flex-col overflow-x-clip bg-background text-foreground selection:bg-[#6c0cf0] selection:text-white">
       <div aria-hidden className="prx-ambient" />
+      <ObsidianCrystal sizes="(min-width: 1024px) 34vw, 60vw" className={CRYSTAL_HERO} />
       <header className="flex h-16 items-center justify-center px-4 sm:h-20">
         <PrxLogo variant="compact" title="PRX" className="h-6 w-auto text-ink sm:h-7" />
       </header>
 
-      <main className="flex flex-1 flex-col items-center justify-center px-5 pb-10">
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 pb-10">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -136,6 +162,19 @@ export function QuickLogin({ account }: { account: KnownAccount }) {
               </>
             ) : (
               <>
+                {quick && (
+                  <>
+                    <Button block onClick={() => void signInWithPasskey()} disabled={busy !== null}>
+                      <FaceIdIcon className="h-5 w-5" />
+                      {busy === "passkey" ? "Confirmando…" : "Entrar com biometria"}
+                    </Button>
+                    <div className="flex items-center gap-3 text-[12px] text-muted-foreground" aria-hidden>
+                      <span className="h-px flex-1 bg-line" />
+                      ou
+                      <span className="h-px flex-1 bg-line" />
+                    </div>
+                  </>
+                )}
                 {account.provider === "password" ? (
                   <form onSubmit={(e) => void submitPassword(e)} className="space-y-3">
                     <label htmlFor="quick-password" className="block text-[13px] font-medium text-ink">
@@ -153,8 +192,8 @@ export function QuickLogin({ account }: { account: KnownAccount }) {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Digite sua senha"
                     />
-                    <Button type="submit" block disabled={busy !== null || password.length === 0}>
-                      {busy === "password" ? "Entrando…" : "Entrar"}
+                    <Button type="submit" block variant={quick ? "secondary" : "primary"} disabled={busy !== null || password.length === 0}>
+                      {busy === "password" ? "Entrando…" : quick ? "Entrar com a senha" : "Entrar"}
                     </Button>
                   </form>
                 ) : (
@@ -174,19 +213,6 @@ export function QuickLogin({ account }: { account: KnownAccount }) {
                   </Button>
                 )}
 
-                {account.passkey && biometrics && (
-                  <>
-                    <div className="flex items-center gap-3 text-[12px] text-muted-foreground" aria-hidden>
-                      <span className="h-px flex-1 bg-line" />
-                      ou
-                      <span className="h-px flex-1 bg-line" />
-                    </div>
-                    <Button block variant="secondary" onClick={() => void signInWithPasskey()} disabled={busy !== null}>
-                      <FaceIdIcon className="h-5 w-5" />
-                      {busy === "passkey" ? "Confirmando…" : "Entrar com biometria"}
-                    </Button>
-                  </>
-                )}
               </>
             )}
             {error && <Notice tone="error">{error}</Notice>}

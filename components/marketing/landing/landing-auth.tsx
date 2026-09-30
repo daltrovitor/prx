@@ -5,6 +5,8 @@ import { useEffect, useId, useState, type FormEvent, type ReactNode } from "reac
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, ArrowRight, CreditCard, Eye, EyeOff, Loader2, Lock, Mail, Smartphone, User } from "lucide-react";
 import { TermsConsent } from "@/components/auth/terms-consent";
+import { PasswordChecklist } from "@/components/auth/password-checklist";
+import { PASSWORD_MISMATCH, passwordProblem } from "@/lib/password-policy";
 import { useAuth } from "@/hooks/use-auth";
 import { CONSENT_REQUIRED_MESSAGE } from "@/lib/legal-version";
 import { errorMessage } from "@/lib/errors";
@@ -80,6 +82,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [signupStep, setSignupStep] = useState<1 | 2>(1);
   const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
@@ -90,7 +93,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
   const [googleLoading, setGoogleLoading] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [forgotOpen, setForgotOpen] = useState(false);
-  const ids = { name: useId(), email: useId(), password: useId(), cpf: useId(), phone: useId(), status: useId() };
+  const ids = { name: useId(), email: useId(), password: useId(), confirm: useId(), cpf: useId(), phone: useId(), status: useId() };
 
   useModeFromLinks(setMode);
 
@@ -111,9 +114,9 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
         return setFeedback({ kind: "error", text: "Informe um e-mail válido." });
       }
-      if (password.length < 6) {
-        return setFeedback({ kind: "error", text: "A senha deve ter no mínimo 6 caracteres." });
-      }
+      const weak = passwordProblem(password);
+      if (weak) return setFeedback({ kind: "error", text: weak });
+      if (password !== confirmPassword) return setFeedback({ kind: "error", text: PASSWORD_MISMATCH });
       setFeedback(null);
       setSignupStep(2);
       return;
@@ -138,7 +141,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
       const res =
         mode === "login"
           ? await login(email, password, rememberMe, termsAccepted)
-          : await signup(name, email, password, cleanCpf, cleanPhone, termsAccepted);
+          : await signup(name, email, password, confirmPassword, cleanCpf, cleanPhone, termsAccepted);
       if (res.success) {
         setFeedback({ kind: "success", text: mode === "login" ? "Login realizado. Bem-vindo de volta!" : "Conta criada. Bem-vindo ao PRX!" });
         window.setTimeout(() => onAuthenticated?.(), 400);
@@ -398,6 +401,28 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </Field>
+
+                      {mode === "signup" && (
+                        <>
+                          <label htmlFor={ids.confirm} className="sr-only">
+                            Confirmar senha
+                          </label>
+                          <Field icon={<Lock className="h-4 w-4" />}>
+                            <input
+                              id={ids.confirm}
+                              type={showPassword ? "text" : "password"}
+                              autoComplete="new-password"
+                              required
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              placeholder="Confirmar senha"
+                              suppressHydrationWarning
+                              className={FIELD}
+                            />
+                          </Field>
+                          <PasswordChecklist password={password} confirm={confirmPassword} className="px-1 text-[var(--rv-body)]" />
+                        </>
+                      )}
 
                       <div className="flex items-center justify-between gap-3 pt-1">
                         <button

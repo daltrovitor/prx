@@ -4,7 +4,8 @@
 import type { ReactNode } from "react";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { Avatar } from "@/components/app/ui";
-import { ObsidianCrystal } from "@/components/obsidian/obsidian-ui";
+import { CRYSTAL_CORNER, ObsidianCrystal } from "@/components/obsidian/obsidian-ui";
+import { cn } from "@/lib/utils";
 
 /**
  * Cabeçalho dos painéis (admin, parceiro, equipe e Conta Pai) na identidade
@@ -45,12 +46,12 @@ export function DashboardHeader({
   );
 }
 
-/** Escultura de cristal no canto superior direito dos painéis (adaptada em cores claras no plano branco e obsidian no escuro). */
+/** Escultura de cristal obsidiana no canto superior direito dos painéis (no breu, maior e mais suave). */
 export function DashboardBackdrop() {
   return (
     <ObsidianCrystal
       sizes="(min-width: 1024px) 40vw, 80vw"
-      className="absolute right-0 top-0 z-0 h-[360px] w-[82vw] opacity-80 dark:opacity-60 sm:h-[460px] sm:w-[56vw] lg:w-[40vw]"
+      className={cn(CRYSTAL_CORNER, "dark:h-[360px] dark:w-[82vw] dark:opacity-60 dark:sm:h-[460px] dark:sm:w-[56vw] dark:lg:w-[40vw]")}
     />
   );
 }

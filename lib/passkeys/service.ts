@@ -113,7 +113,9 @@ export async function registrationOptions(req: NextRequest, user: { id: string; 
     userID: new TextEncoder().encode(user.id),
     attestationType: "none",
     excludeCredentials: existing.map((c) => ({ id: c.id, transports: transports(c.transports) })),
-    authenticatorSelection: { residentKey: "preferred", userVerification: "required", authenticatorAttachment: "platform" },
+    // Credencial presa a este aparelho (não é passkey sincronizada): o sistema abre direto o
+    // Windows Hello / a digital do Android, sem perguntar em qual app ou gerenciador salvar.
+    authenticatorSelection: { residentKey: "discouraged", userVerification: "required", authenticatorAttachment: "platform" },
     preferredAuthenticatorType: "localDevice",
   });
   return { options, sealed: sealChallenge({ challenge: options.challenge, purpose: "register", userId: user.id }) };
@@ -150,16 +152,25 @@ export async function verifyRegistration(req: NextRequest, userId: string, seale
   return record;
 }
 
-export async function authenticationOptions(req: NextRequest, userId: string) {
+/**
+ * Desafio de entrada. Com `credentialId` (a biometria cadastrada neste aparelho), a
+ * lista traz só ela, como autenticador interno: o navegador pula a escolha de
+ * aparelho ou app e abre direto o rosto ou a digital.
+ */
+export async function authenticationOptions(req: NextRequest, userId: string, credentialId?: string) {
   const { rpID } = relyingParty(req);
   const credentials = await getPasskeyRepository().listByUser(userId);
   if (credentials.length === 0) throw new PasskeyError("Biometria não cadastrada para esta conta. Entre com a senha.", 404);
+  const local = credentialId ? credentials.find((c) => c.id === credentialId) : undefined;
   const options = await generateAuthenticationOptions({
     rpID,
-    allowCredentials: credentials.map((c) => ({ id: c.id, transports: transports(c.transports) })),
+    allowCredentials: local ? [{ id: local.id, transports: ["internal"] }] : credentials.map((c) => ({ id: c.id, transports: transports(c.transports) })),
     userVerification: "required",
   });
-  return { options, sealed: sealChallenge({ challenge: options.challenge, purpose: "login", userId }) };
+  return {
+    options: { ...options, hints: ["client-device" as const] },
+    sealed: sealChallenge({ challenge: options.challenge, purpose: "login", userId }),
+  };
 }
 
 /** Confere a assinatura do aparelho e devolve o dono da credencial. */

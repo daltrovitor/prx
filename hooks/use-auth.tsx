@@ -40,7 +40,7 @@ interface AuthContextType {
   /** "Entrar com outra conta": encerra a sessão e esquece a conta lembrada neste aparelho. */
   forgetAccount: () => Promise<void>;
   /** Cadastro com CPF e celular obrigatórios: só salva o usuário com dados completos. */
-  signup: (fullName: string, email: string, pass: string, cpf: string, phone: string, termsAccepted?: boolean) => Promise<AuthResult>;
+  signup: (fullName: string, email: string, pass: string, confirmPass: string, cpf: string, phone: string, termsAccepted?: boolean) => Promise<AuthResult>;
   loginWithGoogle: (rememberMe?: boolean, termsAccepted?: boolean) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -50,6 +50,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const REMEMBER_KEY = "prx_remember_me";
 const TAB_KEY = "prx_tab_active";
+/** Fora do app por mais que isso, com biometria ativa neste aparelho: volta pedindo o rosto/digital. */
+const LOCK_AFTER_MS = 60_000;
 
 function errorMessage(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
@@ -143,6 +145,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  // Bloqueio de app de banco: saiu do PRX por mais de 1 minuto e tem biometria aqui → a volta pede a biometria.
+  useEffect(() => {
+    if (!user) return;
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      const away = hiddenAt ? Date.now() - hiddenAt : 0;
+      hiddenAt = 0;
+      const known = readKnownAccount();
+      if (away >= LOCK_AFTER_MS && known?.passkey && known.id === user.id) {
+        unlock.clear();
+        setUnlocked(false);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [user]);
+
   useEffect(() => {
     let active = true;
     resolveSession().then((sessionUser) => {
@@ -193,12 +216,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signup = useCallback(
-    async (fullName: string, email: string, pass: string, cpf: string, phone: string, termsAccepted = false): Promise<AuthResult> => {
+    async (fullName: string, email: string, pass: string, confirmPass: string, cpf: string, phone: string, termsAccepted = false): Promise<AuthResult> => {
       try {
         const res = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fullName, email, password: pass, cpf, phone, termsAccepted }),
+          body: JSON.stringify({ fullName, email, password: pass, confirmPassword: confirmPass, cpf, phone, termsAccepted }),
         });
         const data = (await res.json()) as { user?: User; error?: string; code?: string | null };
         if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta", code: data.code ?? null };
@@ -243,9 +266,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rememberMe }),
       });
-      const data = (await res.json()) as { user?: User; error?: string; pendingRegistration?: boolean; redirectTo?: string };
-      if (data.pendingRegistration && data.redirectTo) {
-        window.location.href = data.redirectTo;
+      const data = (await res.json()) as { user?: User; error?: string; pendingRegistration?: boolean };
+      if (data.pendingRegistration) {
+        // Cadastro novo: o app abre pedindo CPF, celular e o aceite antes de gravar a conta.
+        window.location.replace("/");
         return { success: true };
       }
       if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao autenticar com o Google" };

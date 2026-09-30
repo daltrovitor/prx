@@ -3,7 +3,7 @@
 
 import { browserSupportsWebAuthn, platformAuthenticatorIsAvailable, startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import type { PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
-import { updateKnownAccount } from "@/lib/known-account";
+import { readKnownAccount, updateKnownAccount } from "@/lib/known-account";
 
 /** Biometria/reconhecimento facial do próprio aparelho (Face ID, Touch ID, Windows Hello, digital do Android). */
 export async function canUseBiometrics(): Promise<boolean> {
@@ -41,7 +41,8 @@ export async function registerPasskey(): Promise<{ ok: true } | { ok: false; err
     });
     const result = await json<{ success?: boolean }>(finish);
     if (!finish.ok || !result.success) return { ok: false, error: result.error || "Não foi possível ativar a biometria." };
-    updateKnownAccount({ passkey: true });
+    // Guarda qual credencial é deste aparelho: a próxima entrada pede só ela.
+    updateKnownAccount({ passkey: true, passkeyId: response.id });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: ceremonyError(err, "Não foi possível ativar a biometria.") };
@@ -51,7 +52,9 @@ export async function registerPasskey(): Promise<{ ok: true } | { ok: false; err
 /** Entra na conta lembrada com a biometria do aparelho. */
 export async function authenticatePasskey<U>(userId: string): Promise<{ ok: true; user: U } | { ok: false; error: string; missing?: boolean }> {
   try {
-    const start = await fetch(`/api/auth/passkeys/login?userId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+    const known = readKnownAccount();
+    const local = known?.id === userId && known.passkeyId ? `&credentialId=${encodeURIComponent(known.passkeyId)}` : "";
+    const start = await fetch(`/api/auth/passkeys/login?userId=${encodeURIComponent(userId)}${local}`, { cache: "no-store" });
     const { options, error } = await json<{ options?: PublicKeyCredentialRequestOptionsJSON }>(start);
     if (!start.ok || !options) return { ok: false, error: error || "Não foi possível iniciar a biometria.", missing: start.status === 404 };
     const response = await startAuthentication({ optionsJSON: options });
@@ -62,6 +65,8 @@ export async function authenticatePasskey<U>(userId: string): Promise<{ ok: true
     });
     const result = await json<{ user?: U }>(finish);
     if (!finish.ok || !result.user) return { ok: false, error: result.error || "Biometria não confirmada." };
+    // Quem ativou antes desta versão aprende aqui qual credencial é deste aparelho.
+    if (known?.id === userId && !known.passkeyId) updateKnownAccount({ passkeyId: response.id });
     return { ok: true, user: result.user };
   } catch (err) {
     return { ok: false, error: ceremonyError(err, "Biometria não confirmada.") };

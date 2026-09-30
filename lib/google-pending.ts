@@ -3,6 +3,20 @@ import crypto from "crypto";
 import { getSessionSecret } from "@/lib/server-secrets";
 
 export const PENDING_GOOGLE_COOKIE = "prx_pending_google";
+const PENDING_TTL_SECONDS = 15 * 60;
+
+/** Cookie httpOnly do cadastro Google pendente (vazio = apaga). */
+export function pendingGoogleCookie(value: string) {
+  return {
+    name: PENDING_GOOGLE_COOKIE,
+    value,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: value ? PENDING_TTL_SECONDS : 0,
+  };
+}
 
 export interface PendingGooglePayload {
   authUserId?: string;
@@ -23,7 +37,7 @@ export function createPendingGoogleToken(data: { authUserId?: string; email: str
     email: data.email.toLowerCase().trim(),
     fullName: data.fullName.trim(),
     avatarUrl: data.avatarUrl || "",
-    exp: Math.floor(Date.now() / 1000) + 15 * 60, // 15 minutos
+    exp: Math.floor(Date.now() / 1000) + PENDING_TTL_SECONDS,
   };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto.createHmac("sha256", getSessionSecret()).update(body).digest("base64url");

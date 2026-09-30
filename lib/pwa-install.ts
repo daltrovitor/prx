@@ -32,12 +32,24 @@ const emit = () => {
 };
 
 let started = false;
+type InstallWindow = Window & { __prxInstallPrompt?: BeforeInstallPromptEvent | null };
+
 /** Começa a escutar os eventos de instalação. Chamado pelo registro do Service Worker, em todas as páginas. */
 export function startInstallCapture(): void {
   if (started || typeof window === "undefined") return;
   started = true;
+  const win = window as InstallWindow;
+  // O script do <head> (app/layout.tsx) pega o evento antes do React; aqui só o recolhemos.
+  const adopt = () => {
+    if (!win.__prxInstallPrompt) return;
+    deferred = win.__prxInstallPrompt;
+    win.__prxInstallPrompt = null;
+    emit();
+  };
+  adopt();
+  window.addEventListener("prx-installprompt", adopt);
   window.addEventListener("beforeinstallprompt", (event) => {
-    // Sem a mini-barra automática do Chrome: o convite é o card da Home.
+    // Sem a mini-barra automática do Chrome: o convite é o diálogo do próprio app.
     event.preventDefault();
     deferred = event as BeforeInstallPromptEvent;
     emit();

@@ -10,6 +10,8 @@ import { Button, Checkbox, Field, Input, Notice, ProgressBar, RadioCards, Select
 import { DocumentPicker } from "@/components/family/document-picker";
 import { postJson, useFamilyState } from "@/components/family/family-client";
 import { maskCpfInput } from "@/lib/cpf-mask";
+import { PasswordChecklist } from "@/components/auth/password-checklist";
+import { PASSWORD_HINT, PASSWORD_MISMATCH } from "@/lib/password-policy";
 import {
   GUARDIANSHIPS,
   GUARDIANSHIP_LABEL,
@@ -60,6 +62,7 @@ export function ParentOnboarding() {
   const [busy, setBusy] = useState(false);
 
   const [dados, setDados] = useState({ fullName: "", email: "", password: "", cpf: "", birthDate: "", phone: "", termsAccepted: false });
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [renda, setRenda] = useState<{ profession: string; incomeRange: IncomeRange | "" }>({ profession: "", incomeRange: "" });
   const [filho, setFilho] = useState({ childName: "", childBirthDate: "" });
   const [tutela, setTutela] = useState<{ relationship: Guardianship | ""; guardianshipDeclared: boolean }>({ relationship: "", guardianshipDeclared: false });
@@ -87,6 +90,7 @@ export function ParentOnboarding() {
     event.preventDefault();
     const parsed = parentSignupSchema.safeParse(dados);
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? "Confira os dados.");
+    if (dados.password !== confirmPassword) return setError(PASSWORD_MISMATCH);
     setBusy(true);
     const result = await postJson("/api/family/parent/signup", dados);
     setBusy(false);
@@ -200,9 +204,13 @@ export function ParentOnboarding() {
                   <form onSubmit={(e) => void submitDados(e)} className="space-y-4">
                     <Field label="Nome completo">{(id) => <Input id={id} autoComplete="name" value={dados.fullName} onChange={(e) => setDados({ ...dados, fullName: e.target.value })} required />}</Field>
                     <Field label="E-mail">{(id) => <Input id={id} type="email" autoComplete="email" value={dados.email} onChange={(e) => setDados({ ...dados, email: e.target.value })} required />}</Field>
-                    <Field label="Senha" hint="Pelo menos 8 caracteres.">
+                    <Field label="Senha" hint={PASSWORD_HINT}>
                       {(id, hint) => <Input id={id} type="password" autoComplete="new-password" aria-describedby={hint} value={dados.password} onChange={(e) => setDados({ ...dados, password: e.target.value })} required minLength={8} />}
                     </Field>
+                    <Field label="Confirmar senha">
+                      {(id) => <Input id={id} type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} />}
+                    </Field>
+                    <PasswordChecklist password={dados.password} confirm={confirmPassword} className="text-muted-foreground" />
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field label="CPF">{(id) => <Input id={id} inputMode="numeric" placeholder="000.000.000-00" value={dados.cpf} onChange={(e) => setDados({ ...dados, cpf: maskCpfInput(e.target.value) })} required />}</Field>
                       <Field label="Data de nascimento">{(id) => <Input id={id} type="date" autoComplete="bday" value={dados.birthDate} onChange={(e) => setDados({ ...dados, birthDate: e.target.value })} required className="cursor-pointer" />}</Field>

@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { errorMessage } from "@/lib/errors";
 import type { SessionCookieOptions } from "@/lib/db-rows";
+import { createPendingGoogleToken, pendingGoogleCookie } from "@/lib/google-pending";
 
 /**
  * Login Google simulado — SOMENTE para desenvolvimento local.
@@ -67,10 +68,15 @@ export async function POST(req: NextRequest) {
     }
 
     const rememberMe = body.rememberMe !== false;
+    authenticatedUser ??= userStore.findByEmail(email) ?? null;
 
-    if (!authenticatedUser) {
-      const user = userStore.findOrCreateGoogleUser(email, name, avatarUrl);
-      authenticatedUser = user;
+    // Como no Google real: sem CPF e celular, nada é gravado e o app abre pedindo os dados.
+    const complete = authenticatedUser && (authenticatedUser.role !== "user" || (authenticatedUser.cpf && authenticatedUser.phone));
+    if (!authenticatedUser || !complete) {
+      const pending = createPendingGoogleToken({ authUserId: supabaseAdmin ? authenticatedUser?.id : undefined, email, fullName: name, avatarUrl });
+      const res = NextResponse.json({ success: true, pendingRegistration: true });
+      res.cookies.set(pendingGoogleCookie(pending));
+      return res;
     }
 
     const tokenExpSeconds = rememberMe ? 365 * 24 * 60 * 60 : 24 * 60 * 60;

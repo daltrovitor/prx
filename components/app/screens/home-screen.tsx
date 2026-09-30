@@ -11,7 +11,6 @@ import { TextLink, TransactionRow } from "@/components/app/shared";
 import { PaymentCard } from "@/components/app/bank/card-visual";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { PointsSheet } from "@/components/app/points/points-sheet";
-import { PwaInstallCard } from "@/components/app/pwa-install-card";
 import { EmptyState, ProgressBar } from "@/components/app/ui";
 import { IconBarcode, IconPaperPlane, IconPixDiamonds } from "@/components/icons/prx-icons";
 import {
@@ -154,9 +153,6 @@ export function HomeScreen({ pass }: { pass: PassData }) {
       {/* Base da pirâmide: o dia a dia do membro */}
       <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
         <div className="min-w-0 space-y-10 lg:col-span-7">
-          {/* Convite para instalar o app (Android e Windows) */}
-          <PwaInstallCard />
-
           <section aria-label="PRX Coins e nível">
             <WalletTriad
               compact

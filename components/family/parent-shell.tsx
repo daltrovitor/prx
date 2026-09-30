@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import type { User } from "@/hooks/use-auth";
 import { DashboardBackdrop, DashboardHeader } from "@/components/app/dashboard-header";
+import { PwaInstallPrompt } from "@/components/app/pwa-install-prompt";
+import { PasswordChecklist } from "@/components/auth/password-checklist";
+import { PASSWORD_HINT, PASSWORD_MISMATCH, passwordProblem } from "@/lib/password-policy";
 import { CircleLoader } from "@/components/ui/circle-loader";
 import { Avatar, BalanceFigure, Button, EmptyState, Field, IconButton, Input, Notice, Segmented, Select, Sheet, Tag, formatBRL } from "@/components/app/ui";
 import { StatCell, TransactionRow } from "@/components/app/shared";
@@ -114,6 +117,7 @@ export function ParentShell({ user, onLogout }: { user: User; onLogout: () => vo
       <div className="prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground">
         <div aria-hidden className="prx-ambient" />
         <DashboardBackdrop />
+        <PwaInstallPrompt />
         <DashboardHeader
           name={user.name || "Responsável"}
           subtitle="Controle, segurança e mesada"
@@ -597,12 +601,16 @@ function LimitsSheet({ child, onClose, onDone }: { child: ChildDetail; onClose: 
 function NewChildSheet({ onClose, onDone }: { onClose: () => void; onDone: (childId: string) => Promise<void> }) {
   const { showToast } = useConfirmToast();
   const [form, setForm] = useState({ fullName: "", email: "", password: "", cpf: "", birthDate: "" });
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [consent, setConsent] = useState<GuardianConsentValue>(EMPTY_CONSENT);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    const weak = passwordProblem(form.password);
+    if (weak) return setError(weak);
+    if (form.password !== confirmPassword) return setError(PASSWORD_MISMATCH);
     const problem = consentProblem(consent);
     if (problem) return setError(problem);
     setBusy(true);
@@ -624,9 +632,13 @@ function NewChildSheet({ onClose, onDone }: { onClose: () => void; onDone: (chil
           <Field label="Data de nascimento">{(id) => <Input id={id} type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} required className="cursor-pointer" />}</Field>
         </div>
         <Field label="E-mail de acesso dele">{(id) => <Input id={id} type="email" autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />}</Field>
-        <Field label="Senha inicial" hint="Pelo menos 8 caracteres. Combine com seu filho.">
+        <Field label="Senha inicial" hint={`${PASSWORD_HINT} Combine com seu filho.`}>
           {(id, hint) => <Input id={id} type="password" autoComplete="new-password" aria-describedby={hint} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} />}
         </Field>
+        <Field label="Confirmar senha">
+          {(id) => <Input id={id} type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} />}
+        </Field>
+        <PasswordChecklist password={form.password} confirm={confirmPassword} className="text-muted-foreground" />
         <GuardianConsentFields
           value={consent}
           onChange={(next) => {
