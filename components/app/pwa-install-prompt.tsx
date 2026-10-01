@@ -56,7 +56,7 @@ export function PwaInstallPrompt() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/prx-icon-192.png" alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-[14px] shadow-[0_4px_12px_-6px_rgba(22,12,52,0.35)]" />
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-medium text-ink">PRX — Experiências que conectam gerações</p>
+              <p className="truncate text-[15px] font-medium text-ink">PRX — the next pays</p>
               <p className="truncate text-[13px] text-muted-foreground">{domain}</p>
             </div>
           </div>

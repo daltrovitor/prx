@@ -848,73 +848,7 @@ function AchievementsSection({ appUrl }: { appUrl: string }) {
   );
 }
 
-const FOOTER_SECTIONS: ReadonlyArray<{ href: `#${string}`; label: string }> = [
-  { href: "#app", label: "O app" },
-  { href: "#como-funciona", label: "Como funciona" },
-  { href: "#seguranca", label: "Segurança" },
-  { href: "#sou-pai", label: "Sou Pai" },
-  { href: "#planos", label: "Planos" },
-  { href: "#faq", label: "Perguntas frequentes" },
-];
-
-/** Rodapé Obsidian: a página termina no mesmo breu em que começou. */
-function Footer({ links }: { links: LandingLinks }) {
-  const base = links.appUrl.replace(/\/$/, "");
-  const link = "inline-flex min-h-12 min-w-12 cursor-pointer items-center transition-colors hover:text-white";
-  return (
-    <footer className="relative isolate overflow-hidden border-t border-white/[0.06] bg-[#050508] px-5 py-12 text-[13px] text-white/75 sm:px-8">
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(44rem_18rem_at_50%_130%,rgba(124,58,237,0.24),transparent_70%)]" />
-      <div className="mx-auto grid max-w-[1200px] gap-8 md:grid-cols-[auto_1fr_auto] md:items-start md:gap-12">
-        <PrxLogo variant="compact" title="PRX" className="h-6 w-auto text-white" />
-        <div className="grid gap-6 sm:grid-cols-2">
-          <nav aria-label="Seções">
-            <p className="ob-label mb-1 text-[10.5px] text-white/60">Conheça</p>
-            <ul className="flex flex-wrap gap-x-5">
-              {FOOTER_SECTIONS.map((s) => (
-                <li key={s.href}>
-                  <a href={s.href} className={link}>
-                    {s.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-          <nav aria-label="Conta e documentos">
-            <p className="ob-label mb-1 text-[10.5px] text-white/60">Conta</p>
-            <ul className="flex flex-wrap gap-x-5">
-              <li>
-                <a href={links.login} className={link}>
-                  Entrar
-                </a>
-              </li>
-              <li>
-                <a href={links.signup} className={link}>
-                  Criar conta
-                </a>
-              </li>
-              <li>
-                <a href={links.parent} className={link}>
-                  Conta Pai
-                </a>
-              </li>
-              <li>
-                <a href={`${base}/termos`} className={link}>
-                  Termos de Uso
-                </a>
-              </li>
-              <li>
-                <a href={`${base}/privacidade`} className={link}>
-                  Política de Privacidade
-                </a>
-              </li>
-            </ul>
-          </nav>
-        </div>
-        <ViraWebCredit onDark className="md:justify-end" />
-      </div>
-    </footer>
-  );
-}
+import { PrxFooter } from "@/components/marketing/prx-footer";
 
 /* -------------------------------------------------------------------------- */
 /* Página                                                                     */
@@ -967,7 +901,7 @@ export function RevolutLanding({ onEnterApp, onBackToApp }: RevolutLandingProps)
             <FinalCtaSection links={LINKS} />
             <AuthSection onAuthenticated={onEnterApp ?? onBackToApp} />
           </main>
-          <Footer links={LINKS} />
+          <PrxFooter onDark={true} />
         </div>
       </ReactLenis>
     </MotionConfig>

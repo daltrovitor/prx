@@ -8,7 +8,7 @@ import { PRX_GRADIENTS, PRX_LAYOUT, PRX_PATHS } from "@/lib/brand/prx-logo-data"
  * (PrxLoader) e pelo teaser do prx.app.br:
  *   1. as duas peças do símbolo deslizam e se encaixam no centro;
  *   2. o símbolo vai para a esquerda enquanto P, R e X sobem de uma máscara;
- *   3. a assinatura "EXPERIÊNCIAS QUE CONECTAM GERAÇÕES" aparece da esquerda
+ *   3. a assinatura "the next pays" aparece da esquerda
  *      para a direita e a barra abre do centro.
  */
 
@@ -79,9 +79,21 @@ export function PrxRevealMark({ uid, className, style }: { uid: string; classNam
       </g>
 
       <g clipPath={`url(#${ids.tagClip})`}>
-        <path fill="currentColor" transform={PRX_LAYOUT.tagline} d={PRX_PATHS.tagline} />
+        <text
+          x={541}
+          y={153}
+          textAnchor="middle"
+          fill="currentColor"
+          style={{
+            fontFamily: "var(--font-sans, system-ui, sans-serif)",
+            fontSize: "21px",
+            fontWeight: 500,
+            letterSpacing: "0.28em",
+          }}
+        >
+          the next pays
+        </text>
       </g>
-      <rect data-bar x={bar.x} y={bar.y} width={bar.w} height={bar.h} fill={`url(#${ids.bar})`} />
     </svg>
   );
 }

@@ -748,7 +748,7 @@ function Finale({ appUrl }: { appUrl: string }) {
         <h2 id="next-title" className="sr-only">
           PRX, the next pays
         </h2>
-        <PrxLogo variant="full" title="PRX — Experiências que conectam gerações" className="mx-auto h-16 w-auto text-white sm:h-24 lg:h-28" />
+        <PrxLogo variant="full" title="PRX — the next pays" className="mx-auto h-16 w-auto text-white sm:h-24 lg:h-28" />
       </Reveal>
       <Statement className="mx-auto" accent="Precisa de um ecossistema que entenda como ela vive hoje e quem ela quer ser amanhã." index={1}>
         A próxima geração não precisa de mais um app.

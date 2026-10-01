@@ -54,7 +54,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nxtgen.viraweb.online"),
   title: {
-    default: "PRX · Experiências que conectam gerações",
+    default: "PRX · the next pays",
     template: "%s · PRX",
   },
   description:
@@ -70,12 +70,12 @@ export const metadata: Metadata = {
     type: "website",
     locale: "pt_BR",
     siteName: "PRX",
-    title: "PRX · Experiências que conectam gerações",
+    title: "PRX · the next pays",
     description: "Benefícios, conta digital e eventos para as gerações Z e Alpha, em um app.",
   },
   twitter: {
     card: "summary",
-    title: "PRX · Experiências que conectam gerações",
+    title: "PRX · the next pays",
     description: "Benefícios, conta digital e eventos para as gerações Z e Alpha, em um app.",
   },
 };

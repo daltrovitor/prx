@@ -48,74 +48,10 @@ export function SiteHeader({ cta = true }: { cta?: boolean }) {
   );
 }
 
-export function SiteFooter() {
-  const year = 2026;
-  const columns: ReadonlyArray<{ title: string; links: ReadonlyArray<{ href: string; label: string }> }> = [
-    {
-      title: "Produtos",
-      links: [
-        { href: "/", label: "PRX PASS" },
-        { href: "/#bank", label: "PRX BANK" },
-        { href: "/#live", label: "PRX LIVE" },
-        { href: "/#reels", label: "Destaques" },
-      ],
-    },
-    {
-      title: "Empresa",
-      links: [
-        { href: "/", label: "Sobre a PRX" },
-        { href: "/sou-pai", label: "Sou Pai" },
-        { href: "/em-breve", label: "Lista VIP" },
-        { href: `mailto:${COMPANY.supportEmail}`, label: "Contato" },
-      ],
-    },
-    {
-      title: "Legal",
-      links: [
-        { href: "/termos", label: "Termos de Uso" },
-        { href: "/privacidade", label: "Política de Privacidade" },
-        { href: `mailto:${COMPANY.dpoEmail}`, label: "Encarregado de Dados (LGPD)" },
-      ],
-    },
-  ];
+import { PrxFooter } from "@/components/marketing/prx-footer";
 
-  return (
-    <footer className="border-t border-line bg-surface">
-      <div className="mx-auto max-w-[1200px] px-4 py-14 sm:px-6 lg:px-10">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
-          <div className="space-y-4">
-            <PrxLogo variant="full" title="PRX" className="h-10 w-auto text-ink" />
-            <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">Benefícios, conta digital, eventos e cultura para as gerações Z e Alpha. Build. Don&apos;t Bet.</p>
-          </div>
-          {columns.map((column) => (
-            <nav key={column.title} aria-label={column.title}>
-              <h2 className="text-[13px] font-semibold text-ink">{column.title}</h2>
-              <ul className="mt-3 space-y-1">
-                {column.links.map((link) => (
-                  <li key={link.href}>
-                    <a href={link.href} className="inline-flex min-h-12 cursor-pointer items-center text-sm text-muted-foreground transition-colors hover:text-ink">
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          ))}
-        </div>
-        <div className="mt-12 flex flex-col gap-3 border-t border-line pt-6 text-[13px] leading-relaxed text-muted-foreground md:flex-row md:items-start md:justify-between">
-          <p>
-            © {year} {COMPANY.legalName}
-            {COMPANY.cnpj ? ` · CNPJ ${COMPANY.cnpj}` : ""}. Todos os direitos reservados.
-          </p>
-          <p className="max-w-xl md:text-right">
-            A PRX não é instituição financeira. A conta de pagamento do PRX BANK será oferecida por instituição parceira autorizada pelo Banco Central, identificada no app
-            antes da ativação.
-          </p>
-        </div>
-        <ViraWebCredit className="mt-6 md:justify-start" />
-      </div>
-    </footer>
-  );
+export function SiteFooter() {
+  return <PrxFooter onDark={false} />;
 }
 
 /** Página pública completa: tema, cabeçalho, conteúdo e rodapé. */

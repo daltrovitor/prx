@@ -71,10 +71,20 @@ export function PrxLogo({ variant = "compact", className, title = "PRX" }: PrxLo
       )}
 
       {variant === "full" && (
-        <>
-          <path fill="currentColor" transform={PRX_LAYOUT.tagline} d={PRX_PATHS.tagline} />
-          <rect x={bar.x} y={bar.y} width={bar.w} height={bar.h} fill={`url(#${ids.bar})`} />
-        </>
+        <text
+          x={541}
+          y={153}
+          textAnchor="middle"
+          fill="currentColor"
+          style={{
+            fontFamily: "var(--font-sans, system-ui, sans-serif)",
+            fontSize: "21px",
+            fontWeight: 500,
+            letterSpacing: "0.28em",
+          }}
+        >
+          the next pays
+        </text>
       )}
     </svg>
   );

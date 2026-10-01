@@ -1,7 +1,7 @@
 <!-- Hello World -->
 # PRX
 
-Experiências que conectam gerações. App de benefícios (PRX PASS), conta digital (PRX BANK) e eventos (PRX LIVE) para as gerações Z e Alpha.
+PRX — the next pays. App de benefícios (PRX PASS), conta digital (PRX BANK) e eventos (PRX LIVE) para as gerações Z e Alpha.
 
 ## Rodar localmente
 

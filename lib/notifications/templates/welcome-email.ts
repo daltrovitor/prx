@@ -126,7 +126,7 @@ export function renderWelcomeEmail(input: WelcomeEmailInput): RenderedEmail {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
       <td valign="middle"><a href="${site}" style="text-decoration:none;">${img(asset("prx-logo.png"), 104, "PRX")}</a></td>
       <td valign="middle" align="right" class="hide-sm" style="${t({ size: 9, spacing: 2.5, upper: true, color: C.muted, weight: 500, align: "right" })}">
-        Experiências que conectam gerações&nbsp;&nbsp;<span style="display:inline-block;width:32px;height:1px;line-height:1px;font-size:1px;background-color:${C.fill};vertical-align:middle;">&nbsp;</span>
+        ${escapeHtml(COMPANY.tagline)}&nbsp;&nbsp;<span style="display:inline-block;width:32px;height:1px;line-height:1px;font-size:1px;background-color:${C.fill};vertical-align:middle;">&nbsp;</span>
       </td>
     </tr></table>
   </td></tr>`;
