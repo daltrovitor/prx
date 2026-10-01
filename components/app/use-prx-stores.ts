@@ -145,6 +145,11 @@ export function useBankAccount(userId: string) {
   return { account: data, loading, error, reload, run };
 }
 
+/** Recarrega a conta depois de um aviso do banco parceiro (Pix recebido, conta paga): o saldo muda. */
+export function reloadBank(userId: string): void {
+  void bankResource.load(userId, true);
+}
+
 /* -------------------------------------------------------------------------- */
 /* PRX COINS & XP                                                              */
 /* -------------------------------------------------------------------------- */

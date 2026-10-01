@@ -10,6 +10,7 @@ import { PrxMap } from "@/components/app/bank/prx-map";
 import { BankKycPanel } from "@/components/app/bank/bank-kyc";
 import { ProviderOnboarding } from "@/components/app/bank/provider-onboarding";
 import { BillPanel, ProviderPixPanel } from "@/components/app/bank/outgoing";
+import { ProviderStatement } from "@/components/app/bank/provider-statement";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { TransactionRow } from "@/components/app/shared";
@@ -180,6 +181,7 @@ export function BankScreen({ member }: { member: User }) {
       />
 
       {section === "extrato" && <StatementPanel account={account} hidden={hidden} />}
+      {section === "extrato" && viaProvider && <ProviderStatement hidden={hidden} />}
       {section === "pix" &&
         (!active ? (
           <ActivationPanel title="Pix disponível na ativação" onKeys={() => go("bank", "chaves")} />

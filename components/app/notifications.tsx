@@ -5,13 +5,14 @@ import { useMemo, useState } from "react";
 import type { PassData } from "@/components/app/use-pass-data";
 import type { AppTab } from "@/components/app/app-nav";
 import { EmptyState, Sheet } from "@/components/app/ui";
-import { IconCalendar, IconChevronRight, IconCoin, IconLevel, IconQr } from "@/components/icons/prx-icons";
+import { IconBank, IconCalendar, IconChevronRight, IconCoin, IconLevel, IconQr } from "@/components/icons/prx-icons";
+import type { BankNoticeItem } from "@/components/app/bank/use-bank-notices";
 import type { MemberWallet } from "@/lib/live/service";
 import type { PointsWallet } from "@/lib/points/types";
 
 export interface Notice {
   id: string;
-  kind: "voucher" | "mission" | "ticket" | "points";
+  kind: "voucher" | "mission" | "ticket" | "points" | "bank";
   title: string;
   body: string;
   tab: AppTab;
@@ -27,9 +28,15 @@ const short = (iso: string) =>
  * missões abertas, ingresso nos próximos 14 dias) e as compras em parceiros
  * pontuadas nos últimos 7 dias. Nada de contador inventado.
  */
-export function useNotices(pass: PassData, wallet: MemberWallet | null, points: PointsWallet | null = null): Notice[] {
+export function useNotices(pass: PassData, wallet: MemberWallet | null, points: PointsWallet | null = null, bank: ReadonlyArray<BankNoticeItem> = []): Notice[] {
   const [now] = useState(() => Date.now());
   return useMemo(() => {
+    // PRX BANK: Pix recebido/enviado, contas e aprovação da conta (últimos 7 dias, não lidos primeiro).
+    const banking: Notice[] = bank
+      .filter((n) => !n.read || now - new Date(n.createdAt).getTime() <= 7 * DAY)
+      .slice(0, 8)
+      .map((n) => ({ id: `b-${n.id}`, kind: "bank" as const, title: n.title, body: n.body ? `${n.body} · ${short(n.createdAt)}` : short(n.createdAt), tab: "bank" as const, sub: null }));
+
     const vouchers: Notice[] = pass.vouchers
       .filter((v) => v.status === "valid")
       .map((v) => ({
@@ -105,11 +112,11 @@ export function useNotices(pass: PassData, wallet: MemberWallet | null, points: 
         sub: "pontos",
       }));
 
-    return [...purchases, ...reviewed, ...vouchers, ...tickets, ...missions].slice(0, 20);
-  }, [pass.vouchers, pass.missions, wallet, points?.purchases, points?.claims, now]);
+    return [...banking, ...purchases, ...reviewed, ...vouchers, ...tickets, ...missions].slice(0, 20);
+  }, [bank, pass.vouchers, pass.missions, wallet, points?.purchases, points?.claims, now]);
 }
 
-const ICONS = { voucher: IconQr, mission: IconLevel, ticket: IconCalendar, points: IconCoin } as const;
+const ICONS = { voucher: IconQr, mission: IconLevel, ticket: IconCalendar, points: IconCoin, bank: IconBank } as const;
 
 export function NoticesSheet({
   open,
@@ -125,7 +132,7 @@ export function NoticesSheet({
   return (
     <Sheet open={open} onClose={onClose} title="Avisos" description={notices.length > 0 ? "O que está esperando por você." : undefined}>
       {notices.length === 0 ? (
-        <EmptyState title="Tudo em dia" body="Vouchers, missões, ingressos e pontos de compras em parceiros aparecem aqui." />
+        <EmptyState title="Tudo em dia" body="Pix, contas pagas, vouchers, missões, ingressos e pontos de compras em parceiros aparecem aqui." />
       ) : (
         <ul className="-mx-2 space-y-1">
           {notices.map((notice) => {
@@ -144,7 +151,7 @@ export function NoticesSheet({
                     <Icon size={18} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className={notice.kind === "points" ? "block text-[15px] font-medium leading-snug text-ink" : "block truncate text-[15px] font-medium text-ink"}>
+                    <span className={notice.kind === "points" || notice.kind === "bank" ? "block text-[15px] font-medium leading-snug text-ink" : "block truncate text-[15px] font-medium text-ink"}>
                       {notice.title}
                     </span>
                     <span className="block truncate text-[13px] text-muted-foreground">{notice.body}</span>

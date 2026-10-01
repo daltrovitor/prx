@@ -49,7 +49,8 @@ export async function accountView(userId: string): Promise<BankAccountView> {
   const provider = live?.provider ?? null;
   return {
     status: account.status,
-    balance: account.balance,
+    // Saldo oficial do banco parceiro quando disponível; senão, o último em cache.
+    balance: live?.balance ?? account.balance,
     agency: account.agency,
     accountNumber: account.accountNumber,
     activatedAt: account.activatedAt,

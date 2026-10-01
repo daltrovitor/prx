@@ -20,6 +20,7 @@ import { SmoothScroll } from "@/components/app/smooth-scroll";
 import { usePassData, firstName } from "@/components/app/use-pass-data";
 import { useLiveData, usePointsWallet } from "@/components/app/use-prx-stores";
 import { NoticesSheet, useNotices } from "@/components/app/notifications";
+import { useBankNotices } from "@/components/app/bank/use-bank-notices";
 import { Avatar, initialsOf } from "@/components/app/ui";
 import { ReelsScreen } from "@/components/app/screens/reels-screen";
 import { CircleLoader } from "@/components/ui/circle-loader";
@@ -147,7 +148,8 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
   const pass = usePassData(user);
   const { data: live } = useLiveData(user.id);
   const { wallet: points } = usePointsWallet(user.id);
-  const notices = useNotices(pass, live?.wallet ?? null, points);
+  const bank = useBankNotices(user.id);
+  const notices = useNotices(pass, live?.wallet ?? null, points, bank.notices);
   const [noticesOpen, setNoticesOpen] = useState(false);
   const [isTabLoading, setIsTabLoading] = useState(false);
   const lenis = useLenis();
@@ -368,7 +370,16 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
         />
       </div>
 
-      <NoticesSheet open={noticesOpen} onClose={() => setNoticesOpen(false)} notices={notices} onGo={go} />
+      <NoticesSheet
+        open={noticesOpen}
+        onClose={() => {
+          setNoticesOpen(false);
+          // Avisos do banco vistos no sino deixam de virar toast.
+          bank.markRead();
+        }}
+        notices={notices}
+        onGo={go}
+      />
       <PwaInstallPrompt />
     </div>
   );
