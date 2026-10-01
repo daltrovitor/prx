@@ -87,6 +87,8 @@ export async function sendPix(userId: string, input: z.output<typeof sendPixSche
   // Defesa em profundidade: movimentação só com abertura aprovada e conta ativa.
   await assertBankKycApproved(userId);
   await assertAccountActive(userId);
+  // Com o banco parceiro, o Pix sai por /api/bank/outgoing (revisão + biometria ou senha).
+  if (asaasActiveFor(userId)) throw new PartnerError("Atualize o app para enviar Pix com confirmação por biometria.", 409);
   if (!sandboxEnabled(userId)) return assertBankOperational(userId);
   const keyType = detectPixKeyType(input.key);
   if (!keyType) throw new PartnerError("Chave Pix inválida.", 422);

@@ -166,6 +166,11 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
     return { ...found };
   }
 
+  async attachProviderRef(id: string, providerRef: string) {
+    const found = this.outgoing.get(id);
+    if (found && !found.providerRef) found.providerRef = providerRef;
+  }
+
   async outgoingTotalSince(userId: string, sinceIso: string) {
     const total = [...this.outgoing.values()]
       .filter((o) => o.userId === userId && COMMITTED_OUTGOING.includes(o.status) && o.createdAt >= sinceIso)

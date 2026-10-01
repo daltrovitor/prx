@@ -9,6 +9,7 @@ import { useBankAccount, useHiddenBalance, usePointsWallet, type ActionResult, t
 import { PrxMap } from "@/components/app/bank/prx-map";
 import { BankKycPanel } from "@/components/app/bank/bank-kyc";
 import { ProviderOnboarding } from "@/components/app/bank/provider-onboarding";
+import { BillPanel, ProviderPixPanel } from "@/components/app/bank/outgoing";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { TransactionRow } from "@/components/app/shared";
@@ -31,9 +32,9 @@ import {
 import { PIX_KEY_LABEL, detectPixKeyType, parsePixPayload, type PixKeyType } from "@/lib/prx/pix";
 import { cn } from "@/lib/utils";
 
-type BankSection = "extrato" | "pix" | "cobrar" | "mapa" | "cartoes" | "chaves";
+type BankSection = "extrato" | "pix" | "cobrar" | "contas" | "mapa" | "cartoes" | "chaves";
 /** PRX Map fica entre Cobrar e Cartões. */
-const SECTIONS: ReadonlyArray<BankSection> = ["extrato", "pix", "cobrar", "mapa", "cartoes", "chaves"];
+const SECTIONS: ReadonlyArray<BankSection> = ["extrato", "pix", "cobrar", "contas", "mapa", "cartoes", "chaves"];
 
 type Run = (body: { action: string } & Record<string, unknown>) => Promise<ActionResult & { reward?: PartnerReward | null }>;
 
@@ -95,6 +96,8 @@ export function BankScreen({ member }: { member: User }) {
   if (account.kyc.status !== "approved") return <BankKycPanel member={member} kyc={account.kyc} onDone={reload} />;
 
   const active = account.status === "active";
+  // Conta aprovada no Asaas: Pix e contas saem pelo banco parceiro, com confirmação.
+  const viaProvider = account.provider?.state === "active";
 
   return (
     <div className="space-y-8">
@@ -169,6 +172,7 @@ export function BankScreen({ member }: { member: User }) {
           { value: "extrato", label: "Extrato" },
           { value: "pix", label: "Pix" },
           { value: "cobrar", label: "Cobrar" },
+          ...(viaProvider ? [{ value: "contas" as const, label: "Pagar contas" }] : []),
           { value: "mapa", label: "PRX Map" },
           { value: "cartoes", label: "Cartões" },
           { value: "chaves", label: "Chaves Pix", count: account.pixKeys.length },
@@ -176,7 +180,15 @@ export function BankScreen({ member }: { member: User }) {
       />
 
       {section === "extrato" && <StatementPanel account={account} hidden={hidden} />}
-      {section === "pix" && (active ? <PixPanel key={paying ? "pagar" : "pix"} account={account} run={run} initialMethod={paying ? "copia" : "chave"} /> : <ActivationPanel title="Pix disponível na ativação" onKeys={() => go("bank", "chaves")} />)}
+      {section === "pix" &&
+        (!active ? (
+          <ActivationPanel title="Pix disponível na ativação" onKeys={() => go("bank", "chaves")} />
+        ) : viaProvider ? (
+          <ProviderPixPanel key={paying ? "pagar" : "pix"} balance={account.balance} initialMethod={paying ? "copia" : "chave"} onSent={() => void reload()} />
+        ) : (
+          <PixPanel key={paying ? "pagar" : "pix"} account={account} run={run} initialMethod={paying ? "copia" : "chave"} />
+        ))}
+      {section === "contas" && (active && viaProvider ? <BillPanel onPaid={() => void reload()} /> : <ActivationPanel title="Pagamento de contas na ativação" onKeys={() => go("bank", "chaves")} />)}
       {section === "cobrar" && (active ? <ChargePanel account={account} run={run} /> : <ActivationPanel title="Cobranças com QR Code na ativação" onKeys={() => go("bank", "chaves")} />)}
       {section === "mapa" && <PrxMap transactions={account.transactions} hidden={hidden} />}
       {section === "cartoes" && <CardsPanel account={account} run={run} holder={member.name || "Membro PRX"} />}

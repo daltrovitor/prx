@@ -260,6 +260,12 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     return rows.length > 0 ? mapOutgoing(rows[0]) : null;
   }
 
+  async attachProviderRef(id: string, providerRef: string) {
+    if (!isUuid(id)) return;
+    const { error } = await this.db.from("bank_outgoing_requests").update({ provider_ref: providerRef, updated_at: new Date().toISOString() }).eq("id", id).is("provider_ref", null);
+    if (error) throw dbError(error, "Não foi possível vincular a operação ao banco parceiro");
+  }
+
   async outgoingTotalSince(userId: string, sinceIso: string) {
     const { data, error } = await this.db
       .from("bank_outgoing_requests")

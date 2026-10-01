@@ -32,12 +32,14 @@ export class PasskeyError extends Error {
   }
 }
 
-type Purpose = "register" | "login";
+type Purpose = "register" | "login" | "transaction";
 
 interface ChallengeClaims {
   challenge: string;
   purpose: Purpose;
   userId: string;
+  /** Operação confirmada (ex.: id do pedido de Pix): o desafio não serve para outra. */
+  ref?: string;
   exp: number;
 }
 
@@ -175,7 +177,36 @@ export async function authenticationOptions(req: NextRequest, userId: string, cr
 
 /** Confere a assinatura do aparelho e devolve o dono da credencial. */
 export async function verifyAuthentication(req: NextRequest, sealed: string | undefined, response: AuthenticationResponseJSON): Promise<string> {
-  const claims = openChallenge(sealed, "login");
+  return verifyAssertion(req, openChallenge(sealed, "login"), response);
+}
+
+/**
+ * Desafio para confirmar uma operação do PRX BANK com a biometria do aparelho,
+ * amarrado ao membro e ao pedido. null quando o membro não tem biometria.
+ */
+export async function transactionOptions(req: NextRequest, userId: string, ref: string) {
+  const { rpID } = relyingParty(req);
+  const credentials = await getPasskeyRepository().listByUser(userId);
+  if (credentials.length === 0) return null;
+  const options = await generateAuthenticationOptions({
+    rpID,
+    allowCredentials: credentials.map((c) => ({ id: c.id, transports: transports(c.transports) })),
+    userVerification: "required",
+  });
+  return {
+    options: { ...options, hints: ["client-device" as const] },
+    sealed: sealChallenge({ challenge: options.challenge, purpose: "transaction", userId, ref }),
+  };
+}
+
+/** Confere a biometria da confirmação: mesmo membro, mesma operação, desafio no prazo. */
+export async function verifyTransaction(req: NextRequest, sealed: string | undefined, response: AuthenticationResponseJSON, userId: string, ref: string): Promise<void> {
+  const claims = openChallenge(sealed, "transaction");
+  if (claims.userId !== userId || claims.ref !== ref) throw new PasskeyError("A confirmação pertence a outra operação.", 403);
+  await verifyAssertion(req, claims, response);
+}
+
+async function verifyAssertion(req: NextRequest, claims: ChallengeClaims, response: AuthenticationResponseJSON): Promise<string> {
   const repo = getPasskeyRepository();
   const credential = await repo.get(response.id);
   if (!credential || credential.userId !== claims.userId) throw new PasskeyError("Biometria não reconhecida para esta conta.", 401);

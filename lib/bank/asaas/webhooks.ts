@@ -4,6 +4,7 @@ import { errorMessage } from "@/lib/errors";
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { applyGeneralApproval } from "@/lib/bank/asaas/onboarding";
 import { ensureDefaultPixKey, handlePaymentEvent } from "@/lib/bank/asaas/cash-in";
+import { handleOutgoingEvent } from "@/lib/bank/asaas/outgoing-events";
 import type { Subaccount } from "@/lib/bank/asaas/types";
 
 /**
@@ -61,6 +62,7 @@ type EventHandler = (event: AsaasEvent, sub: Subaccount, deps: AsaasDeps) => Pro
 const handlers: ReadonlyArray<{ match: (event: string) => boolean; handle: EventHandler }> = [
   { match: (e) => e.startsWith("ACCOUNT_STATUS_"), handle: handleAccountStatus },
   { match: (e) => e.startsWith("PAYMENT_"), handle: handlePaymentEvent },
+  { match: (e) => e.startsWith("TRANSFER_") || e.startsWith("BILL_"), handle: handleOutgoingEvent },
 ];
 
 async function dispatch(event: AsaasEvent, deps: AsaasDeps): Promise<WebhookOutcome> {

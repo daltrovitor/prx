@@ -23,7 +23,7 @@ export const ACCOUNT_STATUS_LABEL: Record<AccountStatus, string> = {
   blocked: "Bloqueada",
 };
 
-export type TransactionKind = "pix_in" | "pix_out" | "card" | "cashback" | "ticket";
+export type TransactionKind = "pix_in" | "pix_out" | "card" | "cashback" | "ticket" | "bill";
 
 export interface BankTransaction {
   id: string;
@@ -201,6 +201,7 @@ export const TRANSACTION_LABEL: Record<TransactionKind, string> = {
   card: "Cartão",
   cashback: "Cashback",
   ticket: "Ingresso",
+  bill: "Conta paga",
 };
 
 /** Mensagem única para operações que dependem do banco parceiro. */

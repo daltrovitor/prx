@@ -88,7 +88,7 @@ interface TransactionRow {
   partner_id?: string | null;
 }
 
-const TX_KINDS: readonly TransactionKind[] = ["pix_in", "pix_out", "card", "cashback", "ticket"];
+const TX_KINDS: readonly TransactionKind[] = ["pix_in", "pix_out", "card", "cashback", "ticket", "bill"];
 
 function mapTransaction(r: TransactionRow): BankTransaction {
   return {
@@ -178,7 +178,8 @@ class SupabaseBankRepository implements BankRepository {
   }
 
   async listTransactions(userId: string, limit: number) {
-    const { data, error } = await this.db.from("bank_transactions").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit);
+    // Estornados (Pix devolvido, boleto recusado) não entram no extrato nem nos limites.
+    const { data, error } = await this.db.from("bank_transactions").select("*").eq("user_id", userId).neq("status", "reversed").order("created_at", { ascending: false }).limit(limit);
     if (error) throw dbError(error, "Não foi possível carregar o extrato");
     return (data as TransactionRow[]).map(mapTransaction);
   }

@@ -35,6 +35,8 @@ export interface BankMirror {
   upsertTransaction(userId: string, tx: MirrorTransaction): Promise<void>;
   /** Marca o lançamento como estornado (Pix devolvido, boleto recusado). */
   reverseTransaction(providerRef: string): Promise<void>;
+  /** Nicho e parceiro do gasto (PRX Map) quando o Pix foi para um parceiro PRX. */
+  categorizeTransaction(providerRef: string, data: { categoryId: string; partnerId: string | null; counterparty: string }): Promise<void>;
   saveCharge(userId: string, charge: MirrorCharge): Promise<void>;
   /** Marca a cobrança paga; devolve o dono, ou null se não era uma cobrança do PRX. */
   markChargePaid(providerRef: string, paidAt: string): Promise<string | null>;
@@ -101,6 +103,14 @@ class SupabaseBankMirror implements BankMirror {
     if (error) throw dbError(error, "Não foi possível estornar o lançamento");
   }
 
+  async categorizeTransaction(providerRef: string, data: { categoryId: string; partnerId: string | null; counterparty: string }) {
+    const { error } = await this.db
+      .from("bank_transactions")
+      .update({ category_id: data.categoryId, partner_id: data.partnerId, counterparty: data.counterparty.slice(0, 140) })
+      .eq("provider_ref", providerRef);
+    if (error) console.warn("[bank] nicho do Pix não gravado:", error.code, error.message);
+  }
+
   async saveCharge(userId: string, charge: MirrorCharge) {
     const { error } = await this.db.from("bank_pix_charges").insert({
       user_id: userId,
@@ -158,6 +168,13 @@ export class MemoryBankMirror implements BankMirror {
 
   async reverseTransaction(providerRef: string) {
     for (const t of this.transactions) if (t.providerRef === providerRef) t.status = "reversed";
+  }
+
+  categories = new Map<string, { categoryId: string; partnerId: string | null }>();
+
+  async categorizeTransaction(providerRef: string, data: { categoryId: string; partnerId: string | null; counterparty: string }) {
+    this.categories.set(providerRef, { categoryId: data.categoryId, partnerId: data.partnerId });
+    for (const t of this.transactions) if (t.providerRef === providerRef) t.counterparty = data.counterparty;
   }
 
   async saveCharge(userId: string, charge: MirrorCharge) {

@@ -2,7 +2,7 @@
 import type { AsaasEnvironment } from "@/lib/asaas/config";
 
 /**
- * Tipos do espelho do Asaas no Supabase (migração 20261001_prx_asaas_baas.sql).
+ * Tipos do espelho do Asaas no Supabase (migra��o 20261001_prx_asaas_baas.sql).
  */
 
 export const SUBACCOUNT_STATUSES = ["pending_activation", "active", "blocked", "rejected"] as const;
@@ -33,7 +33,7 @@ export const OUTGOING_KINDS = ["pix_key", "pix_qr", "bill"] as const;
 export type OutgoingKind = (typeof OUTGOING_KINDS)[number];
 export const OUTGOING_STATUSES = ["awaiting_confirmation", "requested", "approved", "refused", "done", "failed", "cancelled", "expired"] as const;
 export type OutgoingStatus = (typeof OUTGOING_STATUSES)[number];
-/** SaÃ­das que jÃ¡ comprometem o saldo/limite do dia (pedidas ao Asaas e nÃ£o desfeitas). */
+/** Saídas que já comprometem o saldo/limite do dia (pedidas ao Asaas e não desfeitas). */
 export const COMMITTED_OUTGOING: readonly OutgoingStatus[] = ["requested", "approved", "done"];
 
 export interface OutgoingRequest {
@@ -74,13 +74,13 @@ export interface WebhookRecord {
   payload: unknown;
 }
 
-/** new: primeiro recebimento; retry: jÃ¡ recebido, mas o processamento falhou; duplicate: jÃ¡ processado. */
+/** new: primeiro recebimento; retry: já recebido, mas o processamento falhou; duplicate: já processado. */
 export type WebhookRecordResult = "new" | "retry" | "duplicate";
 
 export interface AsaasBankStore {
   getSubaccount(userId: string): Promise<Subaccount | null>;
   findSubaccountByAsaasId(asaasAccountId: string): Promise<Subaccount | null>;
-  /** Trava a abertura: true sÃ³ para quem pegou a vez (ou uma trava esquecida hÃ¡ mais de `staleBefore`). */
+  /** Trava a abertura: true só para quem pegou a vez (ou uma trava esquecida há mais de `staleBefore`). */
   reserveSubaccount(userId: string, environment: AsaasEnvironment, staleBefore: string): Promise<boolean>;
   releaseSubaccount(userId: string): Promise<void>;
   saveSubaccount(userId: string, patch: SubaccountPatch): Promise<Subaccount>;
@@ -88,7 +88,7 @@ export interface AsaasBankStore {
   recordWebhook(input: WebhookRecord): Promise<WebhookRecordResult>;
   finishWebhook(eventId: string, error: string | null): Promise<void>;
 
-  /** false quando o aviso daquele evento jÃ¡ existia. */
+  /** false quando o aviso daquele evento já existia. */
   insertNotification(input: NewNotification): Promise<boolean>;
   listNotifications(userId: string, limit: number): Promise<BankNotification[]>;
   markNotificationsRead(userId: string, ids: string[] | "all"): Promise<void>;
@@ -96,9 +96,11 @@ export interface AsaasBankStore {
   insertOutgoing(input: NewOutgoing): Promise<OutgoingRequest>;
   getOutgoing(id: string): Promise<OutgoingRequest | null>;
   findOutgoingByProviderRef(providerRef: string): Promise<OutgoingRequest | null>;
-  /** Troca de status atÃ´mica: sÃ³ sai de um dos `from`. null quando outro processo chegou antes. */
+  /** Troca de status atômica: só sai de um dos `from`. null quando outro processo chegou antes. */
   transitionOutgoing(id: string, from: readonly OutgoingStatus[], to: OutgoingStatus, patch?: OutgoingPatch): Promise<OutgoingRequest | null>;
-  /** Soma das saÃ­das comprometidas do membro desde `sinceIso`. */
+  /** Grava o id do Asaas no pedido sem mexer no status (o webhook de validação pode ter chegado antes). */
+  attachProviderRef(id: string, providerRef: string): Promise<void>;
+  /** Soma das saídas comprometidas do membro desde `sinceIso`. */
   outgoingTotalSince(userId: string, sinceIso: string): Promise<number>;
 }
 
