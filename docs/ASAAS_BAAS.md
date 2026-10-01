@@ -1,0 +1,45 @@
+<!-- Hello World -->
+# PRX BANK × Asaas (BaaS)
+
+O PRX BANK opera contas de pagamento individualizadas como subcontas white label do Asaas: Asaas Gestão Financeira Instituição de Pagamento S.A., Código Bacen 461. O navegador nunca fala com o Asaas. Todas as chamadas saem de `lib/asaas/*`, com a chave da conta mãe ou com a apiKey da subconta, guardada cifrada.
+
+## Ligar em um ambiente
+
+1. Aplique `supabase/migrations/20261001_prx_asaas_baas.sql`.
+2. Configure as variáveis (Vercel → Environment Variables):
+   - `BANK_PROVIDER=asaas`, `ASAAS_ENVIRONMENT` (`sandbox` ou `production`) e `ASAAS_API_KEY`. A chave precisa ser do mesmo ambiente: `$aact_hmlg_` no sandbox e `$aact_prod_` em produção. Se não for, a integração fica desligada. No `.env.local`, escreva `\$aact_...`, porque o Next expande o `$`.
+   - `ASAAS_API_URL` (opcional): só aceita hosts oficiais do Asaas e caminho terminando em `/v3`.
+   - `ASAAS_WEBHOOK_AUTH_TOKEN`: 32+ caracteres. É conferido em tempo constante no header `asaas-access-token`.
+   - `ASAAS_WEBHOOK_URL_EVENTS` e `ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW` (ou `NEXT_PUBLIC_APP_URL`), mais `ASAAS_WEBHOOK_EMAIL` (ou o e-mail de `PRX_EMAIL_FROM`).
+   - `BANK_ENCRYPTION_KEY`: 32+ caracteres. Cifra as apiKeys das subcontas (AES-256-GCM). Depois de abrir contas, não troque a chave. O texto cifrado guarda qual chave foi usada.
+3. No painel do Asaas, em Integrações → Mecanismos de segurança, ligue a validação de saque apontando para `/api/bank/webhooks/validate-withdraw` com o mesmo token. Em subcontas, confirme com o gerente de contas como a configuração é replicada.
+
+Sem essas condições, o app segue no modo de pré-ativação (ou sandbox em memória no desenvolvimento), sem nenhuma chamada ao Asaas.
+
+## Fluxo
+
+| Etapa | PRX | Asaas |
+|---|---|---|
+| KYC | `/api/bank/kyc` + aprovação no admin | — |
+| Abertura | `POST /api/bank/accounts` (idempotente, com trava contra conta dupla) | `POST /v3/accounts` com webhook + authToken |
+| Documentos | `/api/bank/accounts/documents` (reaproveita frente e verso do KYC) | `GET/POST /v3/myAccount/documents` |
+| Aprovação | webhook `ACCOUNT_STATUS_GENERAL_APPROVAL_*` ativa a conta e cria uma chave EVP | — |
+| Pix entrada | chaves e cobrança em `/api/bank` (`add_pix_key`, `create_charge`) | `/v3/pix/addressKeys`, `/v3/payments` + `pixQrCode` |
+| Pix saída e contas | `POST /api/bank/outgoing` (preparar, depois confirmar com biometria ou senha) | `/v3/transfers`, `/v3/pix/qrCodes/decode` e `/pay`, `/v3/bill/simulate` e `/v3/bill` |
+| Validação de saque | `POST /api/bank/webhooks/validate-withdraw`: só aprova pedido confirmado no app, mesmo valor e tipo | chamado ~5 s após cada saída |
+| Saldo e extrato | `GET /api/bank/balance`, `GET /api/bank/statement` | `/v3/finance/balance`, `/v3/financialTransactions` |
+| Avisos | webhook `POST /api/bank/webhooks/asaas` → `bank_notifications` → sino e toast no app | eventos `PAYMENT_*`, `TRANSFER_*`, `BILL_*` |
+
+## Garantias
+
+- **Idempotência**: cada evento entra em `bank_webhooks_log` (único por `event_id`). Um evento já processado volta 200 sem efeito. Lançamentos usam `provider_ref` único.
+- **Nada sai duas vezes**: o pedido passa de `awaiting_confirmation` para `requested` numa troca atômica. 429 é repetido. 5xx ou timeout num POST nunca é repetido: o pedido fica em aberto até o webhook decidir.
+- **Limites**: Pix noturno de R$ 1.000 entre 20h e 6h de Brasília (Res. BCB 142/2021), limites da Conta Família para menores e saldo do Asaas, conferidos no preparo e na confirmação.
+- **Transparência** (Res. Conjunta nº 16/2025): a chancela do Asaas aparece na aba PRX BANK, nos termos da abertura, na confirmação de Pix e contas e no extrato oficial.
+
+## Pendências fora do código
+
+- **Rotacionar `ASAAS_WEBHOOK_AUTH_TOKEN`**: o valor antigo foi publicado no repositório público, no commit `249d8f0`. Gere outro com `openssl rand -hex 24` e atualize o `.env.local`, a Vercel e os webhooks já criados no Asaas.
+- **Nome comercial**: a Res. Conjunta nº 16/2025 veda "banco/bank" para instituição não autorizada (ver `docs/PLANO_BAAS.md`, seção 2).
+- **Menores de idade**: confirme com o Asaas a regra de subconta para menores antes de abrir para a Conta Família.
+- **Chaves Pix por CPF, e-mail ou celular**: pela API, o Asaas cria só chave aleatória (EVP).

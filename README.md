@@ -38,6 +38,9 @@ Sem variáveis do Supabase o app roda com contas de demonstração, que só exis
 | `NEXT_PUBLIC_PRX_DPO_EMAIL` / `NEXT_PUBLIC_PRX_SUPPORT_EMAIL` | Canal do Encarregado (LGPD) e contato (padrão `privacidade@` e `contato@prx.app.br`) |
 | `PRX_BAAS_WEBHOOK_SECRET` | Segredo HMAC (32+ caracteres) do webhook `POST /api/bank/webhooks/pix` do banco parceiro |
 | `PRX_BAAS_MODE=sandbox` | Liga a conta sandbox (saldo fictício) fora do desenvolvimento, só para contas em memória |
+| `BANK_PROVIDER=asaas` / `ASAAS_API_KEY` / `ASAAS_ENVIRONMENT` / `ASAAS_API_URL` | PRX BANK pelo Asaas (BaaS, Código Bacen 461). Chave `$aact_` do mesmo ambiente; no `.env`, escreva `\$aact_...`. Ver [docs/ASAAS_BAAS.md](docs/ASAAS_BAAS.md) |
+| `ASAAS_WEBHOOK_AUTH_TOKEN` / `ASAAS_WEBHOOK_URL_EVENTS` / `ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW` / `ASAAS_WEBHOOK_EMAIL` | Token (32+ caracteres) do header `asaas-access-token`, URLs públicas dos webhooks e e-mail de alertas da fila |
+| `BANK_ENCRYPTION_KEY` | Chave (32+ caracteres) que cifra as apiKeys das subcontas. Não troque depois de abrir contas |
 | `PRX_TEASER_HOSTS` | Hosts extras que abrem o teaser `/em-breve` na raiz (além de `prx.app.br`) |
 | `CRON_SECRET` | Protege `GET /api/cron/allowances` (mesada automática, agendada no `vercel.json` para 09:05 de Brasília) |
 | `PRX_WEBAUTHN_RP_ID` / `PRX_WEBAUTHN_ORIGINS` | Domínio e origens da biometria (passkeys). Padrão: o host da requisição |

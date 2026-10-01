@@ -12,6 +12,7 @@ import { assertBankKycApproved, bankKycState } from "@/lib/kyc/guards";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
 import { providerSnapshot } from "@/lib/bank/asaas/view";
 import { createProviderCharge, createProviderPixKey } from "@/lib/bank/asaas/cash-in";
+import { assertNightLimit } from "@/lib/bank/asaas/limits";
 
 /**
  * Regras do PRX BANK antes da ativação do banco parceiro: a conta existe,
@@ -94,7 +95,10 @@ export async function sendPix(userId: string, input: z.output<typeof sendPixSche
   const keyType = detectPixKeyType(input.key);
   if (!keyType) throw new PartnerError("Chave Pix inválida.", 422);
   // Menor de idade: conta liberada pelo responsável e dentro dos limites que ele definiu.
-  await assertMinorSpend(userId, input.amount, await getBankRepository(userId).listTransactions(userId, 500));
+  const recent = await getBankRepository(userId).listTransactions(userId, 500);
+  await assertMinorSpend(userId, input.amount, recent);
+  // Limite noturno do Banco Central, também no sandbox: soma os Pix enviados no período.
+  await assertNightLimit(input.amount, new Date(), async (since) => recent.filter((t) => t.kind === "pix_out" && t.createdAt >= since).reduce((sum, t) => sum + t.amount, 0));
 
   const recipient = input.recipientName?.trim() || input.key;
   const settled = sandboxSendPix(userId, { key: input.key, amount: input.amount, recipient, description: input.description });

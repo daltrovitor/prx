@@ -7,7 +7,7 @@ import { QrScanner } from "@/components/app/qr-scanner";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { Button, Field, Input, Notice, Segmented, Sheet, Textarea, formatBRL } from "@/components/app/ui";
 import { PIX_KEY_LABEL, detectPixKeyType } from "@/lib/prx/pix";
-import { ProviderDisclosure } from "@/components/app/bank/provider-disclosure";
+import { NIGHT_LIMIT_HINT, ProviderDisclosure } from "@/components/app/bank/provider-disclosure";
 
 /**
  * Saídas pelo banco parceiro: Pix (chave, Copia e Cola, QR Code) e pagamento
@@ -259,6 +259,7 @@ export function ProviderPixPanel({ balance, initialMethod = "chave", onSent }: {
       {method === "qr" && <QrScanner onScan={fromPayload} active={!review && !busy} />}
 
       {error && <Notice tone="error">{error}</Notice>}
+      <p className="text-[13px] text-muted-foreground">{NIGHT_LIMIT_HINT}</p>
       <ReviewSheet review={review} onClose={() => setReview(null)} onDone={done} />
     </section>
   );

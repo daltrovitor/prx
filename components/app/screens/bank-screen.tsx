@@ -11,6 +11,7 @@ import { BankKycPanel } from "@/components/app/bank/bank-kyc";
 import { ProviderOnboarding } from "@/components/app/bank/provider-onboarding";
 import { BillPanel, ProviderPixPanel } from "@/components/app/bank/outgoing";
 import { ProviderStatement } from "@/components/app/bank/provider-statement";
+import { NIGHT_LIMIT_HINT, ProviderDisclosure } from "@/components/app/bank/provider-disclosure";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { TransactionRow } from "@/components/app/shared";
@@ -195,6 +196,10 @@ export function BankScreen({ member }: { member: User }) {
       {section === "mapa" && <PrxMap transactions={account.transactions} hidden={hidden} />}
       {section === "cartoes" && <CardsPanel account={account} run={run} holder={member.name || "Membro PRX"} />}
       {section === "chaves" && <KeysPanel account={account} run={run} />}
+
+      <footer className="border-t border-line pt-5">
+        <ProviderDisclosure />
+      </footer>
     </div>
   );
 }
@@ -404,6 +409,7 @@ function PixPanel({ account, run, initialMethod = "chave" }: { account: BankAcco
       {method === "qr" && <QrScanner onScan={reviewFromPayload} active={!draft} />}
 
       {error && <Notice tone="error">{error}</Notice>}
+      <p className="text-[13px] text-muted-foreground">{NIGHT_LIMIT_HINT}</p>
 
       <Sheet
         open={Boolean(draft)}
@@ -452,6 +458,7 @@ function PixPanel({ account, run, initialMethod = "chave" }: { account: BankAcco
             )}
           </dl>
         )}
+        {draft && <ProviderDisclosure className="mt-4" />}
       </Sheet>
     </section>
   );

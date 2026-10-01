@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { User } from "@/hooks/use-auth";
 import { Button, Checkbox, Field, Input, Notice, ProgressBar, RadioCards, Select, Tag } from "@/components/app/ui";
 import { DocumentPicker } from "@/components/family/document-picker";
+import { ProviderDisclosure } from "@/components/app/bank/provider-disclosure";
 import { postJson } from "@/components/family/family-client";
 import { maskCpfInput } from "@/lib/cpf-mask";
 import { ageGroup } from "@/lib/family/age";
@@ -447,6 +448,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
                     </>
                   }
                 />
+                <ProviderDisclosure />
                 <Actions error={error} busy={busy} submitLabel="Enviar para análise" onBack={() => go("perfil")} onSubmit={() => void submit()} />
               </div>
             )}
