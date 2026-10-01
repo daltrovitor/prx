@@ -3,12 +3,15 @@ import crypto from "crypto";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
 import { getBankRepository, sandboxActivate, sandboxCategorize, sandboxSendPix, usesSupabaseBank } from "@/lib/bank/repository";
-import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type CardRequest, type PixKey } from "@/lib/prx/bank";
+import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type BankProviderView, type CardRequest, type PixKey } from "@/lib/prx/bank";
 import { detectPixKeyType, isValidCpf } from "@/lib/prx/pix";
 import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { processPartnerPixTransfer, type PartnerPixResult } from "@/lib/points/service";
 import { assertCanHoldMoney, assertMinorSpend } from "@/lib/family/guards";
 import { assertBankKycApproved, bankKycState } from "@/lib/kyc/guards";
+import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
+import { subaccountView } from "@/lib/bank/asaas/onboarding";
+import { errorMessage } from "@/lib/errors";
 
 /**
  * Regras do PRX BANK antes da ativação do banco parceiro: a conta existe,
@@ -30,15 +33,32 @@ export function sandboxEnabled(userId: string): boolean {
   return DEMO_ACCOUNTS_ENABLED || process.env.PRX_BAAS_MODE === "sandbox";
 }
 
+/**
+ * Situação da conta no banco parceiro. Falha do espelho (ex.: migração ainda
+ * não aplicada) esconde a integração em vez de derrubar a aba inteira.
+ */
+async function providerView(userId: string): Promise<BankProviderView | null> {
+  if (!asaasActiveFor(userId)) return null;
+  try {
+    const deps = asaasDeps();
+    const sub = subaccountView(await deps.store.getSubaccount(userId));
+    return { name: "asaas", environment: deps.client.environment, state: sub.state, rejectReason: sub.rejectReason };
+  } catch (err) {
+    console.warn("[bank] banco parceiro indisponível na visão da conta:", errorMessage(err));
+    return null;
+  }
+}
+
 export async function accountView(userId: string): Promise<BankAccountView> {
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
-  const [transactions, pixKeys, cardRequest, charges, kyc] = await Promise.all([
+  const [transactions, pixKeys, cardRequest, charges, kyc, provider] = await Promise.all([
     repo.listTransactions(userId, 200),
     repo.listPixKeys(userId),
     repo.getOpenCardRequest(userId),
     repo.listCharges(userId, 20),
     bankKycState(userId),
+    providerView(userId),
   ]);
   return {
     status: account.status,
@@ -53,6 +73,7 @@ export async function accountView(userId: string): Promise<BankAccountView> {
     charges,
     sandbox: sandboxEnabled(userId),
     kyc,
+    provider,
   };
 }
 

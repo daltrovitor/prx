@@ -1,0 +1,159 @@
+// Hello World
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { decryptSecret } from "@/lib/asaas/secrets";
+import { openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
+import { forwardKycDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
+import { handleAsaasEvent } from "@/lib/bank/asaas/webhooks";
+import { ASAAS_TEST_ENV, USER_ID, approvedKyc, fakeAsaas, testDeps } from "./asaas-fakes";
+
+const CREATED = { id: "acc_123", walletId: "wal_123", apiKey: "$aact_hmlg_subconta_secreta", accountNumber: { agency: "0001", account: "123456", accountDigit: "7" } };
+
+beforeEach(() => {
+  for (const [key, value] of Object.entries(ASAAS_TEST_ENV)) vi.stubEnv(key, value);
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe("abertura da subconta no Asaas", () => {
+  it("envia os dados do KYC, registra o webhook PRX e guarda a apiKey só cifrada", async () => {
+    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { deps, store, mirror } = testDeps(client);
+
+    const view = await openSubaccount(USER_ID, deps);
+    expect(view).toEqual({ state: "pending_activation", kycStatus: "PENDING", rejectReason: null });
+
+    const body = calls[0].body as Record<string, unknown> & { webhooks: Array<Record<string, unknown>> };
+    expect(calls[0].apiKey).toBe("$aact_hmlg_master");
+    expect(body).toMatchObject({
+      name: "Ana Souza",
+      email: "ana@prx.dev",
+      cpfCnpj: "52998224725",
+      birthDate: "2000-05-10",
+      mobilePhone: "11987654321",
+      incomeValue: 4500,
+      address: "Avenida Paulista",
+      addressNumber: "1000",
+      complement: "Apto 5",
+      province: "Bela Vista",
+      postalCode: "01310100",
+    });
+    expect(body.webhooks[0]).toMatchObject({ url: ASAAS_TEST_ENV.ASAAS_WEBHOOK_URL_EVENTS, authToken: ASAAS_TEST_ENV.ASAAS_WEBHOOK_AUTH_TOKEN, email: "ola@prx.app.br", enabled: true, apiVersion: 3 });
+    expect(body.webhooks[0].events).toContain("ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED");
+
+    const sub = await store.getSubaccount(USER_ID);
+    expect(sub?.apiKeySealed).not.toContain("aact");
+    expect(decryptSecret(sub!.apiKeySealed!)).toBe(CREATED.apiKey);
+    expect(sub).toMatchObject({ asaasAccountId: "acc_123", walletId: "wal_123", agency: "0001", accountNumber: "123456-7", provisioningStartedAt: null });
+    expect(mirror.accounts.get(USER_ID)).toMatchObject({ providerAccountId: "acc_123", status: "pending_activation" });
+
+    // Idempotente: não abre uma segunda conta.
+    await openSubaccount(USER_ID, deps);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("sem KYC aprovado não chama o Asaas", async () => {
+    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { deps } = testDeps(client, approvedKyc({ status: "pending" }));
+    await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 403 });
+    const none = testDeps(client, null);
+    await expect(openSubaccount(USER_ID, none.deps)).rejects.toMatchObject({ status: 403 });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("sem token ou URL do webhook configurados não abre conta", async () => {
+    vi.stubEnv("ASAAS_WEBHOOK_AUTH_TOKEN", "");
+    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    await expect(openSubaccount(USER_ID, testDeps(client).deps)).rejects.toMatchObject({ status: 503 });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("recusa do Asaas libera para tentar de novo, com a descrição para o membro", async () => {
+    let attempt = 0;
+    const { client } = fakeAsaas({
+      "POST /accounts": () => (++attempt === 1 ? { status: 400, body: { errors: [{ code: "invalid_email", description: "O e-mail informado já está em uso." }] } } : { body: CREATED }),
+    });
+    const { deps } = testDeps(client);
+    await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 422, message: "O e-mail informado já está em uso." });
+    await expect(openSubaccount(USER_ID, deps)).resolves.toMatchObject({ state: "pending_activation" });
+  });
+
+  it("resultado incerto mantém a trava: nada de conta dupla", async () => {
+    const { client, calls } = fakeAsaas({ "POST /accounts": { status: 502 } });
+    const { deps, store } = testDeps(client);
+    await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 503 });
+    await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 409 });
+    expect(calls).toHaveLength(1);
+    expect(subaccountView(await store.getSubaccount(USER_ID)).state).toBe("provisioning");
+  });
+});
+
+describe("webhook de aprovação da conta", () => {
+  async function opened() {
+    const fake = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const ctx = testDeps(fake.client);
+    await openSubaccount(USER_ID, ctx.deps);
+    return ctx;
+  }
+
+  it("aprovação ativa a conta e avisa o membro uma única vez", async () => {
+    const { deps, store, mirror } = await opened();
+    const event = { id: "evt_1", event: "ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED", account: { id: "acc_123" } };
+    await expect(handleAsaasEvent(event, deps)).resolves.toBe("processed");
+    await expect(handleAsaasEvent(event, deps)).resolves.toBe("duplicate");
+    await expect(handleAsaasEvent({ ...event, id: "evt_2" }, deps)).resolves.toBe("processed");
+
+    expect(await store.getSubaccount(USER_ID)).toMatchObject({ status: "active", kycStatus: "APPROVED" });
+    expect(mirror.accounts.get(USER_ID)).toMatchObject({ status: "active", activatedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) });
+    const notices = await store.listNotifications(USER_ID, 10);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].title).toBe("Sua conta bancária foi aprovada! 🎉");
+  });
+
+  it("reprovação guarda o motivo e pede novo envio", async () => {
+    const { deps, store } = await opened();
+    await handleAsaasEvent({ id: "evt_r", event: "ACCOUNT_STATUS_GENERAL_APPROVAL_REJECTED", account: { id: "acc_123" }, accountStatus: { rejectReason: "Selfie ilegível" } }, deps);
+    expect(await store.getSubaccount(USER_ID)).toMatchObject({ status: "rejected", kycStatus: "REJECTED", rejectReason: "Selfie ilegível" });
+    const [notice] = await store.listNotifications(USER_ID, 10);
+    expect(notice.title).toBe("Atenção aos seus documentos");
+    expect(notice.body).toContain("Selfie ilegível");
+  });
+
+  it("ignora eventos de contas que o PRX não conhece", async () => {
+    const { deps, store } = await opened();
+    await expect(handleAsaasEvent({ id: "evt_x", event: "ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED", account: { id: "acc_outra" } }, deps)).resolves.toBe("ignored");
+    expect((await store.getSubaccount(USER_ID))?.status).toBe("pending_activation");
+  });
+});
+
+describe("documentos da subconta", () => {
+  const groups = {
+    rejectReasons: null,
+    data: [
+      { id: "grp-id", status: "NOT_SENT", type: "IDENTIFICATION", title: "Documento com foto", documents: [] },
+      { id: "grp-selfie", status: "NOT_SENT", type: "IDENTIFICATION_SELFIE", title: "Selfie", onboardingUrl: "https://onboarding.asaas.com/x" },
+    ],
+  };
+
+  it("reaproveita frente e verso do KYC no grupo IDENTIFICATION, com a chave da subconta", async () => {
+    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
+    const { deps } = testDeps(client);
+    await openSubaccount(USER_ID, deps);
+    await expect(forwardKycDocuments(USER_ID, deps)).resolves.toBe(2);
+    const uploads = calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/"));
+    expect(uploads.map((c) => c.path)).toEqual(["/myAccount/documents/grp-id", "/myAccount/documents/grp-id"]);
+    expect(uploads.every((c) => c.apiKey === CREATED.apiKey)).toBe(true);
+    expect((uploads[0].body as FormData).get("type")).toBe("IDENTIFICATION");
+  });
+
+  it("envio manual usa o tipo do próprio Asaas e recusa formatos ou grupos do link seguro", async () => {
+    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
+    const { deps } = testDeps(client);
+    await openSubaccount(USER_ID, deps);
+    const png = new File(["x"], "rg.png", { type: "image/png" });
+    await uploadSubaccountDocument(USER_ID, "grp-id", png, deps);
+    expect((calls.at(-1)?.body as FormData).get("type")).toBe("IDENTIFICATION");
+    await expect(uploadSubaccountDocument(USER_ID, "grp-selfie", png, deps)).rejects.toMatchObject({ status: 409 });
+    await expect(uploadSubaccountDocument(USER_ID, "grp-id", new File(["x"], "a.exe", { type: "application/x-msdownload" }), deps)).rejects.toMatchObject({ status: 422 });
+  });
+});

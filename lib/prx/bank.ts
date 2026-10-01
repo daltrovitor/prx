@@ -89,6 +89,15 @@ export interface PixCharge {
   createdAt: string;
 }
 
+/** Banco parceiro (BaaS) que opera a conta: hoje, o Asaas (Código Bacen 461). */
+export interface BankProviderView {
+  name: "asaas";
+  environment: "sandbox" | "production";
+  /** Subconta no parceiro: ainda não aberta, abrindo, em análise, ativa, bloqueada ou reprovada. */
+  state: "none" | "provisioning" | "pending_activation" | "active" | "blocked" | "rejected";
+  rejectReason: string | null;
+}
+
 /** O que o app recebe de /api/bank. */
 export interface BankAccountView {
   status: AccountStatus;
@@ -105,6 +114,8 @@ export interface BankAccountView {
   sandbox: boolean;
   /** Abertura de conta (KYC bancário): sem aprovação a conta não existe no banco parceiro. */
   kyc: BankKycState;
+  /** Banco parceiro ligado neste ambiente (null = sem BaaS: pré-ativação ou sandbox). */
+  provider: BankProviderView | null;
 }
 
 export const MAX_PIX_KEYS = 5;

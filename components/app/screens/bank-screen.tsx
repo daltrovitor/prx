@@ -7,6 +7,7 @@ import { useAppNav } from "@/components/app/app-nav";
 import { useBankAccount, useHiddenBalance, usePointsWallet, type ActionResult, type PartnerReward } from "@/components/app/use-prx-stores";
 import { PrxMap } from "@/components/app/bank/prx-map";
 import { BankKycPanel } from "@/components/app/bank/bank-kyc";
+import { ProviderOnboarding } from "@/components/app/bank/provider-onboarding";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { TransactionRow } from "@/components/app/shared";
@@ -101,7 +102,8 @@ export function BankScreen({ member }: { member: User }) {
           <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
           <Tag tone={active ? "success" : account.status === "blocked" ? "warning" : "neutral"}>Conta {ACCOUNT_STATUS_LABEL[account.status].toLowerCase()}</Tag>
         </div>
-        {account.status === "pending_activation" && (
+        {account.provider && account.provider.state !== "active" && account.provider.state !== "blocked" && <ProviderOnboarding provider={account.provider} onChanged={() => void reload()} />}
+        {account.status === "pending_activation" && !account.provider && (
           <Notice tone="neutral">
             Sua conta digital está em ativação com o banco parceiro. Até lá o saldo fica zerado e nenhum dinheiro é movimentado. Você já pode
             pré-cadastrar chaves Pix e pedir o cartão físico: tudo segue para o banco na ativação.
