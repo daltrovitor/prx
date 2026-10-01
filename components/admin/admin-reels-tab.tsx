@@ -7,6 +7,8 @@ import { Button, Checkbox, EmptyState, Field, Input, Notice, Select, Sheet, Tag,
 import { IconPlus, IconUpload } from "@/components/icons/prx-icons";
 import type { PartnerOverview } from "@/lib/partners/service";
 import type { Benefit } from "@/lib/pass-data";
+import { compressImageFile } from "@/lib/media/compression";
+import { PrxImage } from "@/components/ui/prx-image";
 import {
   REEL_COLLECTIONS,
   REEL_COLLECTION_LABEL,
@@ -146,7 +148,10 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
     setUploading(kind);
     setError(null);
     try {
-      const url = await upload(file, kind);
+      const fileToUpload = kind === "poster"
+        ? await compressImageFile(file, { maxWidth: 1080, maxHeight: 1920, quality: 0.82 })
+        : file;
+      const url = await upload(fileToUpload, kind);
       setForm((f) => (kind === "video" ? { ...f, videoUrl: url } : { ...f, posterUrl: url }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha no envio.");
@@ -256,8 +261,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
                     <div className="flex items-center gap-3">
                       <span className="relative block h-14 w-8 shrink-0 overflow-hidden rounded-md bg-[#0b0b10]">
                         {reel.posterUrl && (
-                          // eslint-disable-next-line @next/next/no-img-element -- capa enviada pelo admin (Storage ou memória), sem otimização de imagem
-                          <img src={reel.posterUrl} alt="" className="h-full w-full object-cover" />
+                          <PrxImage src={reel.posterUrl} alt="" fill sizes="48px" className="object-cover" />
                         )}
                       </span>
                       <div className="min-w-0">

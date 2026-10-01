@@ -4,6 +4,7 @@
 import { useId, useRef, useState } from "react";
 import { DOCUMENT_LABEL, type DocumentKind, type DocumentRef } from "@/lib/family/types";
 import { uploadFamilyDocument } from "@/components/family/family-client";
+import { compressImageFile } from "@/lib/media/compression";
 import { cn } from "@/lib/utils";
 
 /**
@@ -33,7 +34,11 @@ export function DocumentPicker({
     setBusy(true);
     setError(null);
     try {
-      onChange(await uploadFamilyDocument(kind, file));
+      // Se for foto (RG, CNH, certidão), compacta e redimensiona antes do envio
+      const uploadFile = file.type.startsWith("image/")
+        ? await compressImageFile(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 })
+        : file;
+      onChange(await uploadFamilyDocument(kind, uploadFile));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha no envio.");
     } finally {

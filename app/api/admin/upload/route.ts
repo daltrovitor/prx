@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { errorMessage } from "@/lib/errors";
 import { requireAdmin } from "@/lib/partners/http";
 import { PartnerError } from "@/lib/partners/errors";
+import { compressImageDataUrl } from "@/lib/media/compression";
 
 /** Pasta do bucket para o tipo pedido; só estas três existem (o tipo vira caminho, então nada livre). */
 function uploadFolder(value: FormDataEntryValue | null): "benefits" | "logos" | "banners" | null {
@@ -117,11 +118,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Fallback: Data URL if no Supabase credentials
+    // 2. Fallback: Data URL compactada com gzip para economizar espaço no banco
     const base64Data = `data:${file.type};base64,${buffer.toString("base64")}`;
+    const compressedUrl = await compressImageDataUrl(base64Data);
     return NextResponse.json({
       success: true,
-      url: base64Data,
+      url: compressedUrl,
       fileName: file.name,
     });
   } catch (error) {

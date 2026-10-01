@@ -23,8 +23,11 @@ import { firstIssue, type Partner } from "@/lib/partners/types";
 const imageUrl = z
   .string()
   .trim()
-  .max(1000)
-  .refine((v) => v === "" || /^https?:\/\//i.test(v), "Use um endereço de imagem http(s).")
+  .max(5_000_000)
+  .refine(
+    (v) => v === "" || /^https?:\/\//i.test(v) || /^prx:gz:/i.test(v) || /^data:image\//i.test(v),
+    "Use um endereço de imagem válido (http, https ou imagem compactada)."
+  )
   .optional();
 
 const benefitSchema = z.object({

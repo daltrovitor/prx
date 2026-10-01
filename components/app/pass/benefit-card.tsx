@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import { PrxImage } from "@/components/ui/prx-image";
 import type { Benefit } from "@/lib/pass-data";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +34,7 @@ export function BenefitCard({ benefit, redeemed, locked, onSelect }: BenefitCard
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-card">
         {src ? (
-          <Image
+          <PrxImage
             src={src}
             alt=""
             fill

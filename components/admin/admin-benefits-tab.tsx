@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import Image from "next/image";
+import { PrxImage } from "@/components/ui/prx-image";
 import { PRX_CATEGORIES, type Benefit, levelGateOptions } from "@/lib/pass-data";
 import { VISIBILITY_PLANS } from "@/lib/partners/plans";
 import type { PartnerOverview } from "@/lib/partners/service";
@@ -279,7 +279,7 @@ export function AdminBenefitsTab({ benefits, partners, economy, onRefresh, draft
                       <div className="flex items-center gap-3">
                         <div className="relative h-10 w-10 shrink-0 overflow-hidden bg-surface">
                           {benefit.partnerLogo ? (
-                            <Image src={benefit.partnerLogo} alt="" fill sizes="40px" className="object-cover" />
+                            <PrxImage src={benefit.partnerLogo} alt="" fill sizes="40px" className="object-cover" />
                           ) : (
                             <span className="flex h-full w-full items-center justify-center text-muted-foreground">
                               <IconImage size={16} />

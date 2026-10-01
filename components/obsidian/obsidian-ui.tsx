@@ -3,6 +3,7 @@
 
 import type { ComponentType, ReactNode } from "react";
 import Image, { type StaticImageData } from "next/image";
+import { PrxImage } from "@/components/ui/prx-image";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { IconArrowRight, IconBell, IconEye, IconEyeOff } from "@/components/icons/prx-icons";
@@ -439,7 +440,7 @@ export function ObsidianEventCard({
         className
       )}
     >
-      <Image
+      <PrxImage
         src={src}
         alt=""
         fill

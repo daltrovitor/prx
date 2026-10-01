@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Image from "next/image";
+import { PrxImage } from "@/components/ui/prx-image";
 import { AnimatePresence, motion } from "motion/react";
 import type { User } from "@/hooks/use-auth";
 import { useAppNav } from "@/components/app/app-nav";
@@ -277,7 +278,7 @@ export function ReelsScreen({ member }: { member: User }) {
                 </div>
                 <div className="mt-3 flex items-center gap-3 rounded-2xl bg-white/95 p-2.5 text-[#0b0b10] shadow-lg">
                   <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f2f2f5] text-[13px] font-semibold">
-                    {reel.partnerLogo ? <Image src={reel.partnerLogo} alt="" fill sizes="44px" className="object-cover" /> : reel.partnerName.slice(0, 2).toUpperCase()}
+                    {reel.partnerLogo ? <PrxImage src={reel.partnerLogo} alt="" fill sizes="44px" className="object-cover" /> : reel.partnerName.slice(0, 2).toUpperCase()}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-semibold">{reel.partnerName}</span>

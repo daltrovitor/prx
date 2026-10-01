@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import { PrxImage } from "@/components/ui/prx-image";
 import type { PassData } from "@/components/app/use-pass-data";
 import { useAppNav } from "@/components/app/app-nav";
 import { BenefitCard } from "@/components/app/pass/benefit-card";
@@ -286,7 +287,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
           <div className="space-y-6">
             {selectedSrc && (
               <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-surface">
-                <Image src={selectedSrc} alt="" fill sizes="(max-width: 640px) 100vw, 512px" className="object-cover" />
+                <PrxImage src={selectedSrc} alt="" fill sizes="(max-width: 640px) 100vw, 512px" className="object-cover" />
               </div>
             )}
             <div className="flex flex-wrap items-baseline justify-between gap-3">

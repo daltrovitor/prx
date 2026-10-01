@@ -182,6 +182,14 @@ const optionalUrl = z
   .trim()
   .max(1000)
   .refine((v) => v === "" || /^https?:\/\//i.test(v), "Use um endereço http(s).");
+const optionalImageUrl = z
+  .string()
+  .trim()
+  .max(5_000_000)
+  .refine(
+    (v) => v === "" || /^https?:\/\//i.test(v) || /^prx:gz:/i.test(v) || /^data:image\//i.test(v),
+    "Use um endereço de imagem válido (http, https ou imagem compactada)."
+  );
 const optionalEmail = z
   .string()
   .trim()
@@ -216,8 +224,8 @@ export const partnerInputSchema = z
     categoryId: z.string().trim().min(1, "Escolha a categoria."),
     location: z.string().trim().min(2, "Informe a cidade ou o alcance.").max(160),
     description: trimmed(600).default(""),
-    logoUrl: optionalUrl.default(""),
-    bannerUrl: optionalUrl.default(""),
+    logoUrl: optionalImageUrl.default(""),
+    bannerUrl: optionalImageUrl.default(""),
     status: z.enum(PARTNER_STATUSES).default("ATIVO"),
     representative: representativeSchema.default({ name: "", document: "", role: "", email: "", phone: "" }),
     contact: contactSchema.default({ name: "", phone: "", email: "" }),

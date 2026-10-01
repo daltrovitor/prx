@@ -173,12 +173,15 @@ export interface FoundersSubmission {
 /* Schemas de entrada                                                          */
 /* -------------------------------------------------------------------------- */
 
-/** Capa: URL pública (storage) ou, só no desenvolvimento sem Supabase, imagem embutida. */
+/** Capa: URL pública (storage) ou imagem embutida/compactada no banco. */
 const coverUrl = z
   .string()
   .trim()
-  .max(4_000_000)
-  .refine((v) => v === "" || /^https:\/\/\S+$/i.test(v) || /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(v), "Imagem de capa inválida.");
+  .max(5_000_000)
+  .refine(
+    (v) => v === "" || /^https:\/\/\S+$/i.test(v) || /^prx:gz:/i.test(v) || /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(v),
+    "Imagem de capa inválida."
+  );
 
 const isoDateTime = z
   .string()

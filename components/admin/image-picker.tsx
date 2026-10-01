@@ -2,18 +2,25 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
-import Image from "next/image";
 import { IconImage, IconUpload } from "@/components/icons/prx-icons";
+import { compressImageFile } from "@/lib/media/compression";
+import { PrxImage } from "@/components/ui/prx-image";
 
-/** Envia a imagem para o bucket do Supabase Storage e devolve a URL pública. */
+/** Envia a imagem para o bucket do Supabase Storage ou gera fallback compactado com gzip. */
 export function useImageUpload(onUploaded: (url: string) => void, onError: (message: string) => void) {
   const [busy, setBusy] = useState(false);
   async function upload(event: ChangeEvent<HTMLInputElement>, type: "logo" | "banner") {
-    const file = event.target.files?.[0];
+    const rawFile = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (!rawFile) return;
     setBusy(true);
     try {
+      // Compacta e redimensiona antes de enviar para poupar banda e espaço no banco
+      const file = await compressImageFile(rawFile, {
+        maxWidth: type === "logo" ? 800 : 1600,
+        maxHeight: type === "logo" ? 800 : 1200,
+        quality: 0.82,
+      });
       const body = new FormData();
       body.append("file", file);
       body.append("type", type);
@@ -49,7 +56,7 @@ export function ImagePicker({
       <label className="mt-1.5 flex min-h-20 cursor-pointer items-center gap-4 rounded-2xl bg-surface p-3 transition-colors hover:bg-line has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
         <span className={`relative shrink-0 overflow-hidden rounded-xl bg-card ${square ? "h-14 w-14" : "h-14 w-24"}`}>
           {value ? (
-            <Image src={value} alt="" fill sizes="96px" className="object-cover" />
+            <PrxImage src={value} alt="" fill sizes="96px" className="object-cover" />
           ) : (
             <span className="flex h-full w-full items-center justify-center text-muted-foreground">
               <IconImage size={18} />
