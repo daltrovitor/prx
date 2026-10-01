@@ -6,6 +6,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useSyncExternalStore,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -13,6 +14,7 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { IconClose } from "@/components/icons/prx-icons";
@@ -298,7 +300,17 @@ interface SheetProps {
   size?: "md" | "lg";
 }
 
+const subscribeNoop = () => () => {};
+/*
+ * O painel é montado na raiz do app (`.prx-app`, ou `body` fora dela) e não onde o
+ * <Sheet> é usado: o conteúdo das telas vive num stacking context (z-10), então um
+ * z-index alto lá dentro nunca passaria do dock de navegação (z-50) e a barra
+ * cobria botões e cards do painel. No servidor não há DOM, então o host é null.
+ */
+const getSheetHost = () => document.querySelector<HTMLElement>(".prx-app") ?? document.body;
+
 export function Sheet({ open, onClose, title, description, children, footer, size = "md" }: SheetProps) {
+  const host = useSyncExternalStore(subscribeNoop, getSheetHost, () => null);
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -325,7 +337,9 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
     };
   }, [open]);
 
-  return (
+  if (!host) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-6" data-lenis-prevent>
@@ -369,12 +383,13 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
             </div>
             <div className="flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 sm:px-7 sm:py-5">{children}</div>
             {footer && (
-              <div className="border-t border-line px-5 py-3.5 pb-[max(2.75rem,calc(env(safe-area-inset-bottom)+2rem))] sm:px-7 sm:py-4 sm:pb-4">{footer}</div>
+              <div className="border-t border-line px-5 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7 sm:py-4">{footer}</div>
             )}
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    host
   );
 }
 
