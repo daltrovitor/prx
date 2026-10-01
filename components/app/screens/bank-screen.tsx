@@ -8,10 +8,9 @@ import { useAppNav } from "@/components/app/app-nav";
 import { useBankAccount, useHiddenBalance, usePointsWallet, type ActionResult, type PartnerReward } from "@/components/app/use-prx-stores";
 import { PrxMap } from "@/components/app/bank/prx-map";
 import { BankKycPanel } from "@/components/app/bank/bank-kyc";
-import { ProviderOnboarding } from "@/components/app/bank/provider-onboarding";
 import { BillPanel, ProviderPixPanel } from "@/components/app/bank/outgoing";
 import { ProviderStatement } from "@/components/app/bank/provider-statement";
-import { NIGHT_LIMIT_HINT, ProviderDisclosure } from "@/components/app/bank/provider-disclosure";
+import { NIGHT_LIMIT_HINT } from "@/components/app/bank/provider-disclosure";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { TransactionRow } from "@/components/app/shared";
@@ -79,7 +78,6 @@ export function BankScreen({ member }: { member: User }) {
   const { account, loading, error, reload, run } = useBankAccount(member.id);
   const { wallet } = usePointsWallet(member.id);
   const [hidden, toggleHidden] = useHiddenBalance();
-  const [activating, setActivating] = useState(false);
 
   if (!account) {
     return (
@@ -107,36 +105,8 @@ export function BankScreen({ member }: { member: User }) {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
           <Tag tone={active ? "success" : account.status === "blocked" ? "warning" : "neutral"}>Conta {ACCOUNT_STATUS_LABEL[account.status].toLowerCase()}</Tag>
+          {account.sandbox && <Tag tone="neutral">Modo Sandbox · Testes</Tag>}
         </div>
-        {account.provider && account.provider.state !== "active" && account.provider.state !== "blocked" && <ProviderOnboarding provider={account.provider} onChanged={() => void reload()} />}
-        {account.status === "pending_activation" && !account.provider && (
-          <Notice tone="neutral">
-            Sua conta digital está em ativação com o banco parceiro. Até lá o saldo fica zerado e nenhum dinheiro é movimentado. Você já pode
-            pré-cadastrar chaves Pix e pedir o cartão físico: tudo segue para o banco na ativação.
-          </Notice>
-        )}
-        {account.sandbox && account.status === "pending_activation" && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-input p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[13px] leading-relaxed text-muted-foreground">
-              Ambiente de testes: ative uma conta sandbox com R$ 1.000 fictícios para testar Pix para parceiros, PRX Coins e o PRX Map. Nenhum dinheiro real é
-              movimentado.
-            </p>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="min-h-12 shrink-0"
-              disabled={activating}
-              onClick={async () => {
-                setActivating(true);
-                await run({ action: "sandbox_activate" });
-                setActivating(false);
-              }}
-            >
-              {activating ? "Ativando…" : "Ativar conta sandbox"}
-            </Button>
-          </div>
-        )}
-        {account.sandbox && account.status === "active" && <Tag tone="warning">Conta sandbox · valores fictícios</Tag>}
         {account.status === "blocked" && <Notice tone="warning">Conta bloqueada. Fale com o suporte PRX para entender o motivo.</Notice>}
       </header>
 
@@ -184,35 +154,17 @@ export function BankScreen({ member }: { member: User }) {
       {section === "extrato" && <StatementPanel account={account} hidden={hidden} />}
       {section === "extrato" && viaProvider && <ProviderStatement hidden={hidden} />}
       {section === "pix" &&
-        (!active ? (
-          <ActivationPanel title="Pix disponível na ativação" onKeys={() => go("bank", "chaves")} />
-        ) : viaProvider ? (
+        (viaProvider ? (
           <ProviderPixPanel key={paying ? "pagar" : "pix"} balance={account.balance} initialMethod={paying ? "copia" : "chave"} onSent={() => void reload()} />
         ) : (
           <PixPanel key={paying ? "pagar" : "pix"} account={account} run={run} initialMethod={paying ? "copia" : "chave"} />
         ))}
-      {section === "contas" && (active && viaProvider ? <BillPanel onPaid={() => void reload()} /> : <ActivationPanel title="Pagamento de contas na ativação" onKeys={() => go("bank", "chaves")} />)}
-      {section === "cobrar" && (active ? <ChargePanel account={account} run={run} /> : <ActivationPanel title="Cobranças com QR Code na ativação" onKeys={() => go("bank", "chaves")} />)}
+      {section === "contas" && <BillPanel onPaid={() => void reload()} />}
+      {section === "cobrar" && <ChargePanel account={account} run={run} />}
       {section === "mapa" && <PrxMap transactions={account.transactions} hidden={hidden} />}
       {section === "cartoes" && <CardsPanel account={account} run={run} holder={member.name || "Membro PRX"} />}
       {section === "chaves" && <KeysPanel account={account} run={run} />}
-
-      <footer className="border-t border-line pt-5">
-        <ProviderDisclosure />
-      </footer>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------------ */
-
-function ActivationPanel({ title, onKeys }: { title: string; onKeys: () => void }) {
-  return (
-    <EmptyState
-      title={title}
-      body="Enviar e receber dinheiro depende do banco parceiro, que ainda está sendo conectado. Pré-cadastre sua chave para receber assim que a conta abrir."
-      action={<Button onClick={onKeys}>Pré-cadastrar chave Pix</Button>}
-    />
   );
 }
 
@@ -458,7 +410,6 @@ function PixPanel({ account, run, initialMethod = "chave" }: { account: BankAcco
             )}
           </dl>
         )}
-        {draft && <ProviderDisclosure className="mt-4" />}
       </Sheet>
     </section>
   );
@@ -591,7 +542,7 @@ function CardsPanel({ account, run, holder }: { account: BankAccountView; run: R
             </dl>
             {request.status === "waiting_activation" && (
               <>
-                <p className="text-[13px] text-muted-foreground">O pedido segue para o emissor assim que a conta for ativada. O prazo de entrega começa a contar a partir daí.</p>
+                <p className="text-[13px] text-muted-foreground">O pedido foi recebido e está em processamento para envio.</p>
                 <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act({ action: "cancel_card_request", id: request.id })}>
                   Cancelar pedido
                 </Button>
@@ -600,7 +551,7 @@ function CardsPanel({ account, run, holder }: { account: BankAccountView; run: R
           </div>
         ) : (
           <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
-            <p className="text-[15px] text-ink">Peça o cartão físico sem anuidade. Ele é produzido depois da ativação da conta.</p>
+            <p className="text-[15px] text-ink">Peça o cartão físico sem anuidade com entrega no seu endereço.</p>
             <Button onClick={() => setRequestOpen(true)}>Pedir cartão físico</Button>
           </div>
         )}

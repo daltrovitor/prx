@@ -40,54 +40,76 @@ export async function GET(req: NextRequest) {
             }
           } catch {}
 
-          users = dbProfiles.map((p) => {
-            const userVouchers = passStore.getUserVouchers(p.id);
-            const metadataRole = authRolesMap.get(p.id) || (p.email ? authRolesMap.get(p.email.toLowerCase()) : null);
-            const effectiveRole = p.role !== "user" ? p.role : (metadataRole || p.role || "user");
+            // Query bank accounts for PRX BANK balance
+            let bankMap = new Map<string, { balance: number; status: string }>();
+            try {
+              const { data: bankData } = await supabaseAdmin.from("bank_accounts").select("user_id, balance, status");
+              if (bankData) {
+                for (const b of bankData) {
+                  bankMap.set(b.user_id, { balance: Number(b.balance || 0), status: b.status || "active" });
+                }
+              }
+            } catch (bankErr) {
+              console.warn("Supabase bank_accounts query error:", bankErr);
+            }
 
+            users = dbProfiles.map((p) => {
+              const userVouchers = passStore.getUserVouchers(p.id);
+              const metadataRole = authRolesMap.get(p.id) || (p.email ? authRolesMap.get(p.email.toLowerCase()) : null);
+              const effectiveRole = p.role !== "user" ? p.role : (metadataRole || p.role || "user");
+              const bankInfo = bankMap.get(p.id);
+
+              return {
+                id: p.id,
+                email: p.email,
+                name: p.full_name || p.name || p.email.split("@")[0],
+                role: effectiveRole,
+                prxScore: p.nxt_score ?? 250,
+                prxLevel: calculatePrxLevel(p.nxt_score ?? 250),
+                walletBalance: Number(p.wallet_balance || 0),
+                bankBalance: bankInfo ? bankInfo.balance : 0,
+                bankStatus: bankInfo ? bankInfo.status : "active",
+                createdAt: p.created_at,
+                vouchersCount: userVouchers.length,
+                vouchers: userVouchers,
+              };
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("Supabase profiles query error:", e);
+      }
+
+      // 2. Fallback to userStore only if Supabase has no records
+      if (users.length === 0) {
+        const { getBankRepository } = await import("@/lib/bank/repository");
+        const allUsers = userStore.getAllUsers();
+        users = await Promise.all(
+          allUsers.map(async (u) => {
+            const userVouchers = passStore.getUserVouchers(u.id);
+            const bankAcc = await getBankRepository(u.id).getOrCreateAccount(u.id);
             return {
-              id: p.id,
-              email: p.email,
-              name: p.full_name || p.name || p.email.split("@")[0],
-              role: effectiveRole,
-              prxScore: p.nxt_score ?? 250,
-              prxLevel: calculatePrxLevel(p.nxt_score ?? 250),
-              walletBalance: Number(p.wallet_balance || 0),
-              createdAt: p.created_at,
+              id: u.id,
+              email: u.email,
+              name: u.fullName,
+              role: u.role,
+              prxScore: u.prxScore,
+              prxLevel: u.prxLevel,
+              walletBalance: u.walletBalance,
+              bankBalance: bankAcc.balance,
+              bankStatus: bankAcc.status,
+              createdAt: u.createdAt,
               vouchersCount: userVouchers.length,
               vouchers: userVouchers,
             };
-          });
-        }
+          })
+        );
       }
-    } catch (e) {
-      console.warn("Supabase profiles query error:", e);
-    }
 
-    // 2. Fallback to userStore only if Supabase has no records
-    if (users.length === 0) {
-      const allUsers = userStore.getAllUsers();
-      users = allUsers.map((u) => {
-        const userVouchers = passStore.getUserVouchers(u.id);
-        return {
-          id: u.id,
-          email: u.email,
-          name: u.fullName,
-          role: u.role,
-          prxScore: u.prxScore,
-          prxLevel: u.prxLevel,
-          walletBalance: u.walletBalance,
-          createdAt: u.createdAt,
-          vouchersCount: userVouchers.length,
-          vouchers: userVouchers,
-        };
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      currentUserRole: auth.adminUser?.role,
-      users,
+      return NextResponse.json({
+        success: true,
+        currentUserRole: auth.adminUser?.role,
+        users,
     });
   } catch (error) {
     return NextResponse.json(
@@ -105,8 +127,8 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    // Saldo não é editável: a conta PRX BANK só muda por movimentações do banco parceiro.
-    const { id, email, role } = body;
+    const { id, email, role, bankBalance } = body;
+    const bankBalanceInput = body.bankBalance !== undefined && body.bankBalance !== "" ? Math.max(0, Math.round(Number(body.bankBalance) * 100) / 100) : undefined;
     // Régua infinita: nível e XP andam juntos. XP informado define o nível; só o nível
     // informado leva o XP ao piso daquele nível.
     const scoreInput = body.prxScore !== undefined && body.prxScore !== "" ? Math.max(0, Math.floor(Number(body.prxScore) || 0)) : undefined;
@@ -155,13 +177,23 @@ export async function PUT(req: NextRequest) {
           }
         }
 
-        // B) Update fields in profiles table
+        // B) Update bank balance if provided
+        if (targetUserId && bankBalanceInput !== undefined) {
+          try {
+            const { setAdminBankBalance } = await import("@/lib/bank/repository");
+            await setAdminBankBalance(targetUserId, bankBalanceInput, "Ajuste de saldo administrativo (Sandbox)");
+          } catch (bankErr) {
+            console.warn("Notice: setAdminBankBalance error:", bankErr);
+          }
+        }
+
+        // C) Update fields in profiles table
         const updatePayload: Record<string, unknown> = {};
         if (prxLevel !== undefined) updatePayload.nxt_level = Number(prxLevel);
         if (prxScore !== undefined) updatePayload.nxt_score = Number(prxScore);
         if (role !== undefined) updatePayload.role = role;
 
-        if (Object.keys(updatePayload).length > 0) {
+        if (Object.keys(updatePayload).length > 0 || bankBalanceInput !== undefined) {
           let updateQuery = supabaseAdmin.from("profiles").update(updatePayload);
           if (id) {
             updateQuery = updateQuery.eq("id", id);
@@ -169,7 +201,7 @@ export async function PUT(req: NextRequest) {
             updateQuery = updateQuery.eq("email", email.toLowerCase());
           }
 
-          const firstAttempt = await updateQuery.select().maybeSingle();
+          const firstAttempt = Object.keys(updatePayload).length > 0 ? await updateQuery.select().maybeSingle() : { data: currentProfile, error: null };
           const updateError = firstAttempt.error;
           let updatedProfile = firstAttempt.data;
 
@@ -199,6 +231,7 @@ export async function PUT(req: NextRequest) {
               prxLevel: updatedProfile?.nxt_level ?? p.nxt_level,
               prxScore: updatedProfile?.nxt_score ?? p.nxt_score,
               walletBalance: Number(updatedProfile?.wallet_balance ?? p.wallet_balance ?? 0),
+              bankBalance: bankBalanceInput !== undefined ? bankBalanceInput : undefined,
             };
           }
         }
@@ -214,6 +247,16 @@ export async function PUT(req: NextRequest) {
       role: role !== undefined ? role : undefined,
     });
 
+    if (bankBalanceInput !== undefined) {
+      try {
+        const { setAdminBankBalance } = await import("@/lib/bank/repository");
+        const resolvedId = updatedStore?.id || id || targetKey;
+        await setAdminBankBalance(resolvedId, bankBalanceInput, "Ajuste de saldo administrativo (Sandbox)");
+      } catch (bankErr) {
+        console.warn("Notice: setAdminBankBalance userStore error:", bankErr);
+      }
+    }
+
     if (updatedStore) {
       userFound = true;
       if (!returnUser) {
@@ -225,6 +268,7 @@ export async function PUT(req: NextRequest) {
           prxLevel: updatedStore.prxLevel,
           prxScore: updatedStore.prxScore,
           walletBalance: updatedStore.walletBalance,
+          bankBalance: bankBalanceInput !== undefined ? bankBalanceInput : undefined,
         };
       }
     }

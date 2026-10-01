@@ -305,7 +305,7 @@ function ChildPanel({ child, tab, onTab, approved, onAction }: { child: ChildDet
           <h2 id="child-title" className="ob-display text-[22px] text-ink sm:text-[26px]">
             {child.name}
           </h2>
-          <p className="text-[14px] text-muted-foreground">{child.bankStatus === "active" ? "Conta PRX Bank ativa" : "Conta PRX Bank em ativação"}</p>
+          <p className="text-[14px] text-muted-foreground">{child.bankStatus === "blocked" ? "Conta PRX Bank bloqueada" : "Conta PRX Bank ativa"}</p>
         </div>
         <div className="grid grid-cols-3 gap-2 sm:flex">
           <Button onClick={() => onAction("pix")} disabled={!approved} className="px-4">

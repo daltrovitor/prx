@@ -2,8 +2,8 @@
 import crypto from "crypto";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
-import { getBankRepository, sandboxActivate, sandboxCategorize, sandboxSendPix, usesSupabaseBank } from "@/lib/bank/repository";
-import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type CardRequest, type PixCharge, type PixKey } from "@/lib/prx/bank";
+import { getBankRepository, isSandboxMode, repoSendPix, sandboxActivate, sandboxCategorize, sandboxSendPix, usesSupabaseBank } from "@/lib/bank/repository";
+import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type CardRequest, type PixCharge, type PixKey, type VirtualCard } from "@/lib/prx/bank";
 import { detectPixKeyType, isValidCpf } from "@/lib/prx/pix";
 import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { processPartnerPixTransfer, type PartnerPixResult } from "@/lib/points/service";
@@ -26,15 +26,16 @@ const BAAS_PENDING = "A integração com o banco parceiro ainda não foi publica
 /**
  * Sandbox do banco parceiro: simula aprovação da conta, saldo fictício e Pix
  * liquidado na hora, para exercitar o motor de compras em parceiros antes do
- * BaaS. Só vale para contas em memória (desenvolvimento, ou PRX_BAAS_MODE=sandbox
- * em um ambiente de homologação sem Supabase). Contas reais nunca entram aqui.
+ * BaaS.
  */
-export function sandboxEnabled(userId: string): boolean {
-  if (usesSupabaseBank(userId)) return false;
+export function sandboxEnabled(userId?: string): boolean {
+  if (isSandboxMode()) return true;
+  if (userId && usesSupabaseBank(userId)) return false;
   return DEMO_ACCOUNTS_ENABLED || process.env.PRX_BAAS_MODE === "sandbox";
 }
 
 export async function accountView(userId: string): Promise<BankAccountView> {
+  const isSandbox = sandboxEnabled(userId);
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
   const [transactions, localKeys, cardRequest, charges, kyc, live] = await Promise.all([
@@ -43,25 +44,29 @@ export async function accountView(userId: string): Promise<BankAccountView> {
     repo.getOpenCardRequest(userId),
     repo.listCharges(userId, 20),
     bankKycState(userId),
-    providerSnapshot(userId),
+    isSandbox ? Promise.resolve(null) : providerSnapshot(userId),
   ]);
   // Conta ativa no banco parceiro: as chaves vêm do DICT; antes disso, o pré-cadastro local.
   const pixKeys = live?.pixKeys ?? localKeys;
-  const provider = live?.provider ?? null;
+  const provider = isSandbox ? null : (live?.provider ?? null);
+  const status = isSandbox && account.status === "pending_activation" ? "active" : account.status;
+  const virtualCard = account.virtualCard ?? (isSandbox ? { last4: "4242", expiry: "12/30", locked: false } : null);
+  const kycState = isSandbox && kyc.status !== "approved" ? { ...kyc, status: "approved" as const } : kyc;
+
   return {
-    status: account.status,
+    status,
     // Saldo oficial do banco parceiro quando disponível; senão, o último em cache.
     balance: live?.balance ?? account.balance,
-    agency: account.agency,
-    accountNumber: account.accountNumber,
-    activatedAt: account.activatedAt,
+    agency: account.agency || (isSandbox ? "0001" : null),
+    accountNumber: account.accountNumber || (isSandbox ? `1000${userId.replace(/\D/g, "").slice(-4) || "0101"}` : null),
+    activatedAt: account.activatedAt || (isSandbox ? new Date().toISOString() : null),
     transactions,
     pixKeys,
-    virtualCard: account.virtualCard,
+    virtualCard,
     cardRequest,
     charges,
-    sandbox: sandboxEnabled(userId),
-    kyc,
+    sandbox: isSandbox,
+    kyc: kycState,
     provider,
   };
 }
@@ -101,7 +106,7 @@ export async function sendPix(userId: string, input: z.output<typeof sendPixSche
   await assertNightLimit(input.amount, new Date(), async (since) => recent.filter((t) => t.kind === "pix_out" && t.createdAt >= since).reduce((sum, t) => sum + t.amount, 0));
 
   const recipient = input.recipientName?.trim() || input.key;
-  const settled = sandboxSendPix(userId, { key: input.key, amount: input.amount, recipient, description: input.description });
+  const settled = await repoSendPix(userId, { key: input.key, amount: input.amount, recipient, description: input.description });
   const partner = await processPartnerPixTransfer(userId, {
     endToEndId: settled.endToEndId,
     key: input.key,
@@ -159,9 +164,9 @@ export async function addPixKey(userId: string, input: z.output<typeof pixKeyInp
   const keys = await repo.listPixKeys(userId);
   if (keys.length >= MAX_PIX_KEYS) throw new PartnerError(`Limite de ${MAX_PIX_KEYS} chaves Pix por conta.`, 409);
   if (keys.some((k) => k.value === input.value)) throw new PartnerError("Esta chave já está cadastrada.", 409);
-  // Sem o banco parceiro não há registro no DICT: a chave fica reservada para a ativação.
-  if (account.status !== "active") return repo.insertPixKey(userId, { ...input, status: "pending_activation" });
-  throw new PartnerError(BAAS_PENDING, 503);
+  // No sandbox ou conta ativa, a chave já fica ativa
+  const status = sandboxEnabled(userId) || account.status === "active" ? "active" : "pending_activation";
+  return repo.insertPixKey(userId, { ...input, status });
 }
 
 export const chargeSchema = z.object({
@@ -169,12 +174,20 @@ export const chargeSchema = z.object({
   description: z.string().trim().max(40).default(""),
 });
 
-/** Cobrança Pix com QR Code dinâmico, gerada pelo banco parceiro. */
+/** Cobrança Pix com QR Code dinâmico, gerada pelo banco parceiro ou simulada no sandbox. */
 export async function createCharge(userId: string, input: z.output<typeof chargeSchema>): Promise<PixCharge> {
   await assertBankKycApproved(userId);
   await assertAccountActive(userId);
-  if (!asaasActiveFor(userId)) return assertBankOperational(userId);
-  return createProviderCharge(userId, { amount: input.amount ?? null, description: input.description }, asaasDeps());
+  if (asaasActiveFor(userId)) return createProviderCharge(userId, { amount: input.amount ?? null, description: input.description }, asaasDeps());
+  if (!sandboxEnabled(userId)) return assertBankOperational(userId);
+  const repo = getBankRepository(userId);
+  const amt = input.amount ? input.amount.toFixed(2) : "";
+  const payload = `00020126580014br.gov.bcb.pix0136${crypto.randomUUID()}520400005303986${amt ? `54${String(amt.length).padStart(2, "0")}${amt}` : ""}5802BR5913PRX ECOSYSTEM6009SAO PAULO62070503***6304ABCD`;
+  return repo.insertCharge(userId, { amount: input.amount ?? null, description: input.description, payload });
+}
+
+export async function toggleCardLock(userId: string): Promise<VirtualCard> {
+  return getBankRepository(userId).toggleCardLock(userId);
 }
 
 export async function removePixKey(userId: string, keyId: string): Promise<void> {
@@ -212,7 +225,7 @@ export async function cancelPhysicalCard(userId: string, requestId: string): Pro
 export async function assertAccountActive(userId: string): Promise<void> {
   const account = await getBankRepository(userId).getOrCreateAccount(userId);
   if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
-  if (account.status !== "active") throw new PartnerError(ACTIVATION_REQUIRED, 409);
+  if (account.status !== "active" && !sandboxEnabled(userId)) throw new PartnerError(ACTIVATION_REQUIRED, 409);
 }
 
 /** Pix, cobrança e bloqueio de cartão dependem do banco parceiro. */

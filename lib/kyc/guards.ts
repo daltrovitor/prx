@@ -2,6 +2,7 @@
 import { PartnerError } from "@/lib/partners/errors";
 import { getKycRepository } from "@/lib/kyc/repository";
 import { getFamilyRepository } from "@/lib/family/repository";
+import { isSandboxMode } from "@/lib/bank/repository";
 import { KYC_PENDING_MESSAGE, KYC_REQUIRED_MESSAGE, type BankKycState } from "@/lib/kyc/types";
 
 /*
@@ -9,6 +10,7 @@ import { KYC_PENDING_MESSAGE, KYC_REQUIRED_MESSAGE, type BankKycState } from "@/
  * abertura aprovada (KYC). Módulo leve, importado pelo banco sem ciclo.
  */
 export async function assertBankKycApproved(userId: string): Promise<void> {
+  if (isSandboxMode()) return;
   const app = await getKycRepository().latestForUser(userId);
   if (!app) throw new PartnerError(KYC_REQUIRED_MESSAGE, 403);
   if (app.status === "pending") throw new PartnerError(KYC_PENDING_MESSAGE, 403);
@@ -17,6 +19,14 @@ export async function assertBankKycApproved(userId: string): Promise<void> {
 
 /** Situação da abertura de conta para a aba PRX BANK (sem dados pessoais). */
 export async function bankKycState(userId: string): Promise<BankKycState> {
+  if (isSandboxMode()) {
+    return {
+      status: "approved",
+      reviewNote: "",
+      awaitingGuardian: false,
+      awaitingEmancipation: false,
+    };
+  }
   const [app, identity] = await Promise.all([getKycRepository().latestForUser(userId), getFamilyRepository().getIdentity(userId)]);
   const minor = identity?.accountType === "minor";
   return {

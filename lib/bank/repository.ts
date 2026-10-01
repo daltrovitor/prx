@@ -35,6 +35,13 @@ export interface BankAccountRecord {
   createdAt: string;
 }
 
+export function isSandboxMode(): boolean {
+  const provider = (process.env.BANK_PROVIDER ?? "").trim().toLowerCase();
+  const env = (process.env.ASAAS_ENVIRONMENT ?? "").trim().toLowerCase();
+  const baasMode = (process.env.PRX_BAAS_MODE ?? "").trim().toLowerCase();
+  return provider === "sandbox" || env === "sandbox" || baasMode === "sandbox";
+}
+
 export interface BankRepository {
   getOrCreateAccount(userId: string): Promise<BankAccountRecord>;
   listTransactions(userId: string, limit: number): Promise<BankTransaction[]>;
@@ -45,6 +52,8 @@ export interface BankRepository {
   insertCardRequest(userId: string, address: string): Promise<CardRequest>;
   cancelCardRequest(userId: string, requestId: string): Promise<boolean>;
   listCharges(userId: string, limit: number): Promise<PixCharge[]>;
+  insertCharge(userId: string, charge: { amount: number | null; description: string; payload: string }): Promise<PixCharge>;
+  toggleCardLock(userId: string): Promise<VirtualCard>;
 }
 
 const oneOf = <T extends string>(list: readonly T[], value: unknown, fallback: T): T => (list.includes(value as T) ? (value as T) : fallback);
@@ -161,13 +170,59 @@ class SupabaseBankRepository implements BankRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async getOrCreateAccount(userId: string) {
+    const isSandbox = isSandboxMode();
     const found = await this.db.from("bank_accounts").select("*").eq("user_id", userId).maybeSingle();
     if (found.error) throw dbError(found.error, "Não foi possível consultar a conta");
-    if (found.data) return mapAccount(found.data as AccountRow);
-    // Conta nova: zerada e em ativação. upsert evita corrida entre duas abas.
+    if (found.data) {
+      const acc = mapAccount(found.data as AccountRow);
+      if (isSandbox && acc.status === "pending_activation") {
+        const agency = acc.agency || "0001";
+        const accountNumber = acc.accountNumber || `1000${userId.replace(/\D/g, "").slice(-4) || "0101"}`;
+        const cardLast4 = acc.virtualCard?.last4 || "4242";
+        const cardExpiry = acc.virtualCard?.expiry || "12/30";
+        const activatedAt = acc.activatedAt || new Date().toISOString();
+        await this.db
+          .from("bank_accounts")
+          .update({
+            status: "active",
+            agency,
+            account_number: accountNumber,
+            card_last4: cardLast4,
+            card_expiry: cardExpiry,
+            activated_at: activatedAt,
+          })
+          .eq("user_id", userId);
+        acc.status = "active";
+        acc.agency = agency;
+        acc.accountNumber = accountNumber;
+        acc.virtualCard = { last4: cardLast4, expiry: cardExpiry, locked: Boolean(acc.virtualCard?.locked) };
+        acc.activatedAt = activatedAt;
+      }
+      return acc;
+    }
+    // Conta nova: no modo sandbox/teste já nasce ativa com agência e cartão virtual
+    const initialStatus = isSandbox ? "active" : "pending_activation";
+    const initialAgency = isSandbox ? "0001" : null;
+    const initialAccountNum = isSandbox ? `1000${userId.replace(/\D/g, "").slice(-4) || "0101"}` : null;
+    const initialCardLast4 = isSandbox ? "4242" : null;
+    const initialCardExpiry = isSandbox ? "12/30" : null;
+    const initialActivatedAt = isSandbox ? new Date().toISOString() : null;
+
     const created = await this.db
       .from("bank_accounts")
-      .upsert({ user_id: userId, status: "pending_activation", balance: 0 }, { onConflict: "user_id", ignoreDuplicates: true })
+      .upsert(
+        {
+          user_id: userId,
+          status: initialStatus,
+          balance: 0,
+          agency: initialAgency,
+          account_number: initialAccountNum,
+          card_last4: initialCardLast4,
+          card_expiry: initialCardExpiry,
+          activated_at: initialActivatedAt,
+        },
+        { onConflict: "user_id", ignoreDuplicates: true }
+      )
       .select("*")
       .maybeSingle();
     if (created.error) throw dbError(created.error, "Não foi possível abrir a conta");
@@ -246,6 +301,29 @@ class SupabaseBankRepository implements BankRepository {
     if (error) throw dbError(error, "Não foi possível carregar as cobranças");
     return (data as ChargeRow[]).map(mapCharge);
   }
+
+  async insertCharge(userId: string, charge: { amount: number | null; description: string; payload: string }) {
+    const { data, error } = await this.db
+      .from("bank_pix_charges")
+      .insert({
+        user_id: userId,
+        amount: charge.amount,
+        description: charge.description,
+        payload: charge.payload,
+      })
+      .select("*")
+      .single();
+    if (error) throw dbError(error, "Não foi possível gerar a cobrança");
+    return mapCharge(data as ChargeRow);
+  }
+
+  async toggleCardLock(userId: string): Promise<VirtualCard> {
+    const acc = await this.getOrCreateAccount(userId);
+    const locked = !(acc.virtualCard?.locked ?? false);
+    const { error } = await this.db.from("bank_accounts").update({ card_locked: locked }).eq("user_id", userId);
+    if (error) throw dbError(error, "Não foi possível alterar o bloqueio do cartão");
+    return { last4: acc.virtualCard?.last4 || "4242", expiry: acc.virtualCard?.expiry || "12/30", locked };
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -268,14 +346,31 @@ function memoryBank(userId: string): MemoryBank {
   const store = memory();
   let bank = store.get(userId);
   if (!bank) {
+    const isSandbox = isSandboxMode();
+    const expiry = "12/30";
     bank = {
-      account: { userId, status: "pending_activation", balance: 0, agency: null, accountNumber: null, activatedAt: null, virtualCard: null, createdAt: new Date().toISOString() },
+      account: {
+        userId,
+        status: isSandbox ? "active" : "pending_activation",
+        balance: 0,
+        agency: isSandbox ? "0001" : null,
+        accountNumber: isSandbox ? `${digits(7)}-${digits(1)}` : null,
+        activatedAt: isSandbox ? new Date().toISOString() : null,
+        virtualCard: isSandbox ? { last4: digits(4), expiry, locked: false } : null,
+        createdAt: new Date().toISOString(),
+      },
       transactions: [],
       pixKeys: [],
       cardRequests: [],
       charges: [],
     };
     store.set(userId, bank);
+  } else if (isSandboxMode() && bank.account.status === "pending_activation") {
+    bank.account.status = "active";
+    bank.account.agency ||= "0001";
+    bank.account.accountNumber ||= `${digits(7)}-${digits(1)}`;
+    bank.account.virtualCard ||= { last4: digits(4), expiry: "12/30", locked: false };
+    bank.account.activatedAt ||= new Date().toISOString();
   }
   return bank;
 }
@@ -330,6 +425,28 @@ class MemoryBankRepository implements BankRepository {
 
   async listCharges(userId: string, limit: number) {
     return structuredClone(memoryBank(userId).charges.slice(0, limit));
+  }
+
+  async insertCharge(userId: string, charge: { amount: number | null; description: string; payload: string }) {
+    const created: PixCharge = {
+      id: newId(),
+      amount: charge.amount,
+      description: charge.description,
+      payload: charge.payload,
+      paid: false,
+      createdAt: new Date().toISOString(),
+    };
+    memoryBank(userId).charges.unshift(created);
+    return structuredClone(created);
+  }
+
+  async toggleCardLock(userId: string): Promise<VirtualCard> {
+    const bank = memoryBank(userId);
+    if (!bank.account.virtualCard) {
+      bank.account.virtualCard = { last4: "4242", expiry: "12/30", locked: false };
+    }
+    bank.account.virtualCard.locked = !bank.account.virtualCard.locked;
+    return structuredClone(bank.account.virtualCard);
   }
 }
 
@@ -443,4 +560,113 @@ export function getBankRepository(userId: string): BankRepository {
 
 export function usesSupabaseBank(userId: string): boolean {
   return Boolean(supabaseAdmin && isUuid(userId));
+}
+
+/** Envio de Pix no modo sandbox / testes (Supabase ou memória). */
+export async function repoSendPix(
+  userId: string,
+  input: { key: string; amount: number; recipient: string; description: string }
+): Promise<{ endToEndId: string; transaction: BankTransaction }> {
+  const amount = Math.round(input.amount * 100) / 100;
+  if (!(amount > 0)) throw new PartnerError("Informe o valor do Pix.", 422);
+
+  if (usesSupabaseBank(userId) && supabaseAdmin) {
+    const acc = await supabaseAdmin.from("bank_accounts").select("balance, status").eq("user_id", userId).maybeSingle();
+    const currentBalance = Number(acc.data?.balance || 0);
+    if (amount > currentBalance) throw new PartnerError("Saldo insuficiente para esta transferência.", 409);
+    const newBalance = Math.round((currentBalance - amount) * 100) / 100;
+
+    await supabaseAdmin.from("bank_accounts").update({ balance: newBalance }).eq("user_id", userId);
+    const now = new Date();
+    const e2e = endToEndId(now);
+    const { data, error } = await supabaseAdmin
+      .from("bank_transactions")
+      .insert({
+        user_id: userId,
+        kind: "pix_out",
+        direction: "out",
+        amount,
+        counterparty: input.recipient.slice(0, 80) || input.key,
+        description: input.description.slice(0, 60) || "Pix enviado",
+        status: "settled",
+      })
+      .select("*")
+      .single();
+    if (error) throw dbError(error, "Não foi possível registrar a transação");
+    return { endToEndId: e2e, transaction: mapTransaction(data as TransactionRow) };
+  }
+
+  return sandboxSendPix(userId, input);
+}
+
+/** Ajusta o saldo de um membro pelo painel Admin para testes no sandbox. */
+export async function setAdminBankBalance(
+  userId: string,
+  targetBalance: number,
+  note?: string
+): Promise<{ balance: number; status: AccountStatus }> {
+  const repo = getBankRepository(userId);
+  const account = await repo.getOrCreateAccount(userId);
+  const newBalance = Math.max(0, Math.round(targetBalance * 100) / 100);
+  const diff = Math.round((newBalance - account.balance) * 100) / 100;
+
+  if (usesSupabaseBank(userId) && supabaseAdmin) {
+    const agency = account.agency || "0001";
+    const accountNumber = account.accountNumber || `1000${userId.replace(/\D/g, "").slice(-4) || "0101"}`;
+    const cardLast4 = account.virtualCard?.last4 || "4242";
+    const cardExpiry = account.virtualCard?.expiry || "12/30";
+    const activatedAt = account.activatedAt || new Date().toISOString();
+
+    await supabaseAdmin
+      .from("bank_accounts")
+      .upsert(
+        {
+          user_id: userId,
+          status: "active",
+          balance: newBalance,
+          agency,
+          account_number: accountNumber,
+          card_last4: cardLast4,
+          card_expiry: cardExpiry,
+          card_locked: account.virtualCard?.locked ?? false,
+          activated_at: activatedAt,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+
+    if (diff !== 0) {
+      await supabaseAdmin.from("bank_transactions").insert({
+        user_id: userId,
+        kind: diff > 0 ? "pix_in" : "pix_out",
+        direction: diff > 0 ? "in" : "out",
+        amount: Math.abs(diff),
+        counterparty: "Admin PRX (Sandbox)",
+        description: note || (diff > 0 ? "Crédito administrativo (Sandbox)" : "Ajuste de saldo (Sandbox)"),
+        status: "settled",
+      });
+    }
+  } else {
+    const bank = memoryBank(userId);
+    bank.account.balance = newBalance;
+    bank.account.status = "active";
+    bank.account.agency ||= "0001";
+    bank.account.accountNumber ||= `${digits(7)}-${digits(1)}`;
+    bank.account.virtualCard ||= { last4: "4242", expiry: "12/30", locked: false };
+    bank.account.activatedAt ||= new Date().toISOString();
+
+    if (diff !== 0) {
+      bank.transactions.unshift({
+        id: newId(),
+        kind: diff > 0 ? "pix_in" : "pix_out",
+        direction: diff > 0 ? "in" : "out",
+        amount: Math.abs(diff),
+        counterparty: "Admin PRX (Sandbox)",
+        description: note || (diff > 0 ? "Crédito administrativo (Sandbox)" : "Ajuste de saldo (Sandbox)"),
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  return { balance: newBalance, status: "active" };
 }

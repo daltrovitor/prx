@@ -17,6 +17,8 @@ export interface AdminUser {
   prxScore: number;
   prxLevel: number;
   walletBalance: number;
+  bankBalance?: number;
+  bankStatus?: string;
   createdAt: string;
   vouchersCount: number;
   vouchers: SystemVoucher[];
@@ -38,7 +40,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [inspecting, setInspecting] = useState<AdminUser | null>(null);
-  const [form, setForm] = useState({ level: 1, score: 0, role: "user" as MemberRole });
+  const [form, setForm] = useState({ level: 1, score: 0, role: "user" as MemberRole, bankBalance: "0" });
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -50,7 +52,12 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
 
   function openEdit(user: AdminUser) {
     setEditing(user);
-    setForm({ level: calculatePrxLevel(user.prxScore), score: user.prxScore, role: user.role });
+    setForm({
+      level: calculatePrxLevel(user.prxScore),
+      score: user.prxScore,
+      role: user.role,
+      bankBalance: String(user.bankBalance ?? 0),
+    });
     setFeedback(null);
   }
 
@@ -63,14 +70,22 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         // Papel "staff" é gerenciado na aba Equipe: aqui ele só é preservado.
-        body: JSON.stringify({ id: editing.id, prxScore: form.score, ...(form.role === "staff" ? {} : { role: form.role }) }),
+        body: JSON.stringify({
+          id: editing.id,
+          prxScore: form.score,
+          bankBalance: Math.max(0, Number(form.bankBalance) || 0),
+          ...(form.role === "staff" ? {} : { role: form.role }),
+        }),
       });
       const data = (await res.json()) as ApiResult;
       if (!res.ok || !data.success) {
         setFeedback({ ok: false, text: data.error || "Não foi possível atualizar o membro." });
         return;
       }
-      setFeedback({ ok: true, text: `${editing.name} atualizado: nível ${form.level}, ${form.score.toLocaleString("pt-BR")} XP.` });
+      setFeedback({
+        ok: true,
+        text: `${editing.name} atualizado: nível ${form.level}, ${form.score.toLocaleString("pt-BR")} XP, Saldo PRX Bank R$ ${Number(form.bankBalance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.`,
+      });
       setEditing(null);
       await onRefresh();
     } catch {
@@ -123,6 +138,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
                 <th scope="col" className="px-4 py-3 font-medium">Papel</th>
                 <th scope="col" className="px-4 py-3 font-medium">Nível</th>
                 <th scope="col" className="px-4 py-3 text-right font-medium">XP</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Saldo PRX Bank</th>
                 <th scope="col" className="px-4 py-3 font-medium">Vouchers</th>
                 <th scope="col" className="px-4 py-3">
                   <span className="sr-only">Ações</span>
@@ -141,6 +157,11 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
                   </td>
                   <td className="px-4 py-3 tabular-nums text-ink">{user.prxLevel}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-ink">{user.prxScore.toLocaleString("pt-BR")}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    <span className="font-semibold text-ink">
+                      {(user.bankBalance ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     <Button variant="ghost" size="sm" className="-ml-3" onClick={() => setInspecting(user)}>
                       {(() => {
@@ -219,6 +240,67 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
               </Select>
             )}
           </Field>
+
+          <div className="sm:col-span-2 space-y-3 rounded-2xl border border-line bg-surface/50 p-4">
+            <div className="flex items-center justify-between">
+              <label htmlFor="member-bank-balance" className="text-sm font-semibold text-ink">
+                Saldo PRX BANK (Sandbox / Testes)
+              </label>
+              <Tag tone="success">Conta Ativa · Sandbox</Tag>
+            </div>
+            <p className="text-[13px] text-muted-foreground">
+              Defina quanto dinheiro este membro tem em conta para realizar testes de Pix, compras e pagamentos no sandbox.
+            </p>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                R$
+              </span>
+              <Input
+                id="member-bank-balance"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0,00"
+                value={form.bankBalance}
+                onChange={(e) => setForm({ ...form, bankBalance: e.target.value })}
+                className="pl-10 font-mono text-base font-semibold"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setForm({ ...form, bankBalance: "500" })}
+              >
+                R$ 500
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setForm({ ...form, bankBalance: "1000" })}
+              >
+                R$ 1.000
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setForm({ ...form, bankBalance: "5000" })}
+              >
+                R$ 5.000
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setForm({ ...form, bankBalance: "0" })}
+              >
+                Zerar saldo
+              </Button>
+            </div>
+          </div>
         </form>
       </Sheet>
 

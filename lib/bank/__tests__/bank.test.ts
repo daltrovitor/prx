@@ -1,5 +1,5 @@
 // Hello World
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cardAddressSchema, pixKeyInputSchema } from "@/lib/bank/service";
 import { filterTransactions, summarize, type BankTransaction } from "@/lib/prx/bank";
 
@@ -52,5 +52,64 @@ describe("extrato", () => {
     const list = [tx("a", "in", 0.1, 1), tx("b", "in", 0.2, 2), tx("c", "out", 10, 40)];
     expect(summarize(filterTransactions(list, 30, "all", now))).toEqual({ income: 0.3, outcome: 0 });
     expect(filterTransactions(list, 90, "out", now).map((t) => t.id)).toEqual(["c"]);
+  });
+});
+
+describe("modo sandbox e saldo admin", () => {
+  const testUserId = "user-sandbox-admin-test-01";
+  const origBankProvider = process.env.BANK_PROVIDER;
+  const origBaasMode = process.env.PRX_BAAS_MODE;
+
+  beforeEach(() => {
+    process.env.BANK_PROVIDER = "sandbox";
+    process.env.PRX_BAAS_MODE = "sandbox";
+  });
+
+  afterEach(() => {
+    process.env.BANK_PROVIDER = origBankProvider;
+    process.env.PRX_BAAS_MODE = origBaasMode;
+  });
+
+  it("conta em sandbox nasce ativa com agência, número, cartão virtual e KYC aprovado", async () => {
+    const { accountView } = await import("@/lib/bank/service");
+    const view = await accountView(testUserId);
+    expect(view.status).toBe("active");
+    expect(view.agency).toBe("0001");
+    expect(view.virtualCard).toBeTruthy();
+    expect(view.virtualCard?.last4).toMatch(/^\d{4}$/);
+    expect(view.kyc.status).toBe("approved");
+    expect(view.provider).toBeNull();
+  });
+
+  it("admin pode definir o saldo da conta diretamente para testes no sandbox", async () => {
+    const { setAdminBankBalance } = await import("@/lib/bank/repository");
+    const { accountView } = await import("@/lib/bank/service");
+
+    const updated = await setAdminBankBalance(testUserId, 1500.5);
+    expect(updated.balance).toBe(1500.5);
+    expect(updated.status).toBe("active");
+
+    const view = await accountView(testUserId);
+    expect(view.balance).toBe(1500.5);
+  });
+
+  it("envio de Pix no sandbox debita o saldo e registra a transação imediatamente", async () => {
+    const { sendPix, accountView } = await import("@/lib/bank/service");
+    const { setAdminBankBalance } = await import("@/lib/bank/repository");
+
+    await setAdminBankBalance(testUserId, 200);
+    const result = await sendPix(testUserId, {
+      key: "teste@prx.dev",
+      amount: 50,
+      description: "Teste Sandbox Pix",
+      recipientName: "Parceiro Teste",
+    });
+
+    expect(result).toBeDefined();
+    const view = await accountView(testUserId);
+    expect(view.balance).toBe(150);
+    expect(view.transactions.length).toBeGreaterThan(0);
+    expect(view.transactions[0].kind).toBe("pix_out");
+    expect(view.transactions[0].amount).toBe(50);
   });
 });

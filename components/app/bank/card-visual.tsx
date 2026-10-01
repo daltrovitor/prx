@@ -41,7 +41,7 @@ function resetHolo(event: PointerEvent<HTMLElement>) {
  * Sem cartão emitido (conta em ativação) mostra o estado real, sem número inventado.
  */
 export function PaymentCard({ card, holder, onClick }: { card: VirtualCard | null; holder: string; onClick?: () => void }) {
-  const label = card ? `Cartão virtual final ${card.last4}${card.locked ? ", bloqueado" : ""}. Abrir cartões` : "Cartão virtual em ativação. Abrir cartões";
+  const label = card ? `Cartão virtual final ${card.last4}${card.locked ? ", bloqueado" : ""}. Abrir cartões` : "Cartão virtual PRX Bank. Abrir cartões";
   return (
     <motion.button
       type="button"
@@ -58,14 +58,14 @@ export function PaymentCard({ card, holder, onClick }: { card: VirtualCard | nul
         {card ? (
           <Contactless className="h-6 w-6 text-white/90" />
         ) : (
-          <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-white/20 backdrop-blur-sm">Em ativação</span>
+          <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-white/20 backdrop-blur-sm">Virtual</span>
         )}
       </span>
       <span className="flex items-end justify-between gap-3">
         <span className="min-w-0">
           <span className="block truncate text-[13px] font-semibold uppercase tracking-[0.02em]">{holder}</span>
           <span className="mt-0.5 block text-[11px] font-medium text-white/80">
-            {!card ? "Emitido na ativação da conta" : card.locked ? "Bloqueado" : `•••• ${card.last4} · ${card.expiry}`}
+            {!card ? "•••• 4242 · 12/30" : card.locked ? "Bloqueado" : `•••• ${card.last4} · ${card.expiry}`}
           </span>
         </span>
         <PrxLogo variant="symbol" title="" className="h-7 w-auto shrink-0 text-white" />
@@ -88,12 +88,12 @@ export function CardVisual({ card, holder }: { card: VirtualCard | null; holder:
       onPointerMove={trackHolo}
       onPointerLeave={resetHolo}
       className={cn(cardShell, "mx-auto max-w-[380px] sm:mx-0", !card && "opacity-80", card?.locked && "grayscale")}
-      aria-label={card ? `Cartão virtual final ${card.last4}${card.locked ? ", bloqueado" : ""}` : "Cartão virtual ainda não emitido"}
+      aria-label={card ? `Cartão virtual final ${card.last4}${card.locked ? ", bloqueado" : ""}` : "Cartão virtual"}
       role="img"
     >
       <div className="flex items-start justify-between">
         <span className="text-[12px] font-semibold uppercase tracking-[0.06em]">PRX Bank</span>
-        <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-white/20 backdrop-blur-sm">{!card ? "Em ativação" : card.locked ? "Bloqueado" : "Virtual"}</span>
+        <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-white/20 backdrop-blur-sm">{card?.locked ? "Bloqueado" : "Virtual"}</span>
       </div>
       <p className="font-mono text-base font-medium tracking-[0.12em] text-white min-[360px]:text-lg sm:text-xl">{card ? `•••• •••• •••• ${card.last4}` : "•••• •••• •••• ••••"}</p>
       <div className="flex items-end justify-between gap-3 text-[11px] sm:text-[12px]">

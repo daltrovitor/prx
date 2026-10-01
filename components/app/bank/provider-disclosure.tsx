@@ -12,5 +12,5 @@ export const PROVIDER_DISCLOSURE = "Conta de pagamento operada em parceria com A
 export const NIGHT_LIMIT_HINT = "Entre 20h e 6h (horário de Brasília), o Pix tem limite de R$ 1.000 por noite, regra do Banco Central.";
 
 export function ProviderDisclosure({ className }: { className?: string }) {
-  return <p className={cn("text-[12px] leading-relaxed text-muted-foreground", className)}>{PROVIDER_DISCLOSURE}.</p>;
+  return null;
 }

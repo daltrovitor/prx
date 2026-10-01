@@ -20,6 +20,7 @@ import {
   requestPhysicalCard,
   sendPix,
   sendPixSchema,
+  toggleCardLock,
 } from "@/lib/bank/service";
 import { previewPartnerPix, type PartnerPixResult } from "@/lib/points/service";
 
@@ -119,6 +120,9 @@ export async function POST(req: NextRequest) {
         await createCharge(user.id, charge.data);
         break;
       }
+      case "toggle_lock":
+        await toggleCardLock(user.id);
+        break;
       default:
         await assertBankOperational(user.id);
     }

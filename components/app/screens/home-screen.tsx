@@ -95,7 +95,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
             onToggleHidden={toggleHidden}
             onOpen={() => go("bank")}
             actions={balanceActions}
-            note={account && account.status !== "active" ? "Conta em ativação" : undefined}
+            note={account?.sandbox ? "Modo Sandbox · Testes" : undefined}
           />
         </motion.div>
 
@@ -173,7 +173,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
               <div className="mt-3">
                 <EmptyState
                   title="Nenhuma movimentação ainda"
-                  body={account?.status === "active" ? "Pix, compras e cashbacks aparecem aqui." : "Sua conta PRX BANK está em ativação. Pix, compras e cashbacks aparecem aqui depois."}
+                  body="Pix, compras e cashbacks aparecem aqui."
                 />
               </div>
             ) : (
