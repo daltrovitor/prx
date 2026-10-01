@@ -328,7 +328,7 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6" data-lenis-prevent>
+        <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-6" data-lenis-prevent>
           <motion.button
             type="button"
             aria-label="Fechar"
@@ -369,7 +369,7 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
             </div>
             <div className="flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 sm:px-7 sm:py-5">{children}</div>
             {footer && (
-              <div className="border-t border-line px-5 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7 sm:py-4">{footer}</div>
+              <div className="border-t border-line px-5 py-3.5 pb-[max(2.75rem,calc(env(safe-area-inset-bottom)+2rem))] sm:px-7 sm:py-4 sm:pb-4">{footer}</div>
             )}
           </motion.div>
         </div>

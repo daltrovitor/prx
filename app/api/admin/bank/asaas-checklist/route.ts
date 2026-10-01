@@ -1,0 +1,43 @@
+// Hello World
+import { NextRequest, NextResponse } from "next/server";
+import { verifyAdminRequest } from "@/lib/auth";
+import { asaasEnabled, getAsaasClient } from "@/lib/asaas/client";
+import { completeAsaasSandboxChecklist } from "@/lib/bank/asaas/onboarding";
+import { errorMessage } from "@/lib/errors";
+
+export async function POST(req: NextRequest) {
+  try {
+    const auth = await verifyAdminRequest(req);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    if (!asaasEnabled()) {
+      return NextResponse.json(
+        { error: "A integração com o Asaas não está ligada ou configurada neste ambiente." },
+        { status: 503 }
+      );
+    }
+
+    const client = getAsaasClient();
+    if (!client) {
+      return NextResponse.json(
+        { error: "Cliente HTTP do Asaas indisponível." },
+        { status: 503 }
+      );
+    }
+
+    const result = await completeAsaasSandboxChecklist(client);
+
+    return NextResponse.json({
+      success: true,
+      message: "Checklist do Sandbox Asaas executado: cliente criado, cobrança gerada e pagamento confirmado.",
+      result,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: errorMessage(error) || "Erro ao executar checklist do Asaas Sandbox." },
+      { status: 500 }
+    );
+  }
+}

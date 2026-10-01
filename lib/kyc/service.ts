@@ -123,6 +123,19 @@ export async function reviewBankKyc(id: string, decision: "approve" | "reject", 
   }
   const decided = await kycRepo().decide(id, targetStatus, note, reviewer);
   if (!decided) throw new FamilyError("Não foi possível atualizar a decisão do pedido.", 409);
+
+  if (targetStatus === "approved") {
+    try {
+      const { asaasEnabled } = await import("@/lib/asaas/client");
+      if (asaasEnabled()) {
+        const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
+        await ensureAsaasCustomerAndAccount(decided.userId);
+      }
+    } catch (err) {
+      console.warn("[kyc] Aviso ao provisionar Asaas após aprovação de KYC:", err);
+    }
+  }
+
   return decided;
 }
 

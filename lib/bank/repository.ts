@@ -610,6 +610,16 @@ export async function setAdminBankBalance(
   const newBalance = Math.max(0, Math.round(targetBalance * 100) / 100);
   const diff = Math.round((newBalance - account.balance) * 100) / 100;
 
+  try {
+    const { asaasEnabled } = await import("@/lib/asaas/client");
+    if (asaasEnabled()) {
+      const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
+      await ensureAsaasCustomerAndAccount(userId);
+    }
+  } catch (err) {
+    console.warn("[bank] Aviso ao sincronizar Asaas no setAdminBankBalance:", err);
+  }
+
   if (usesSupabaseBank(userId) && supabaseAdmin) {
     const agency = account.agency || "0001";
     const accountNumber = account.accountNumber || `1000${userId.replace(/\D/g, "").slice(-4) || "0101"}`;

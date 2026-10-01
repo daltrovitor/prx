@@ -97,7 +97,7 @@ export class AsaasClient {
     const method = init.method ?? "GET";
     const url = this.url(path, init.query);
     const headers: Record<string, string> = {
-      access_token: init.apiKey ?? this.masterKey,
+      access_token: (init.apiKey && init.apiKey.trim()) ? init.apiKey.trim() : this.masterKey,
       "User-Agent": USER_AGENT,
       Accept: "application/json",
     };

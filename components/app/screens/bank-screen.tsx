@@ -309,7 +309,7 @@ function PixPanel({ account, run, initialMethod = "chave" }: { account: BankAcco
   }
 
   return (
-    <section aria-label="Enviar Pix" className="space-y-6 lg:max-w-2xl">
+    <section aria-label="Enviar Pix" className="space-y-6 lg:max-w-2xl pb-48 sm:pb-36 lg:pb-8">
       <Segmented
         label="Forma de pagamento Pix"
         value={method}
@@ -335,9 +335,11 @@ function PixPanel({ account, run, initialMethod = "chave" }: { account: BankAcco
             )}
           </Field>
           <Field label="Mensagem (opcional)">{(id) => <Input id={id} value={description} maxLength={60} onChange={(e) => setDescription(e.target.value)} />}</Field>
-          <Button type="submit" block>
-            Revisar Pix
-          </Button>
+          <div className="pt-2 pb-4">
+            <Button type="submit" block>
+              Revisar Pix
+            </Button>
+          </div>
         </form>
       )}
 
@@ -352,9 +354,11 @@ function PixPanel({ account, run, initialMethod = "chave" }: { account: BankAcco
           <Field label="Código Pix Copia e Cola">
             {(id) => <Textarea id={id} value={pasted} onChange={(e) => setPasted(e.target.value)} className="font-mono text-sm" spellCheck={false} placeholder="00020126…" />}
           </Field>
-          <Button type="submit" block disabled={!pasted.trim()}>
-            Ler código
-          </Button>
+          <div className="pt-2 pb-4">
+            <Button type="submit" block disabled={!pasted.trim()}>
+              Ler código
+            </Button>
+          </div>
         </form>
       )}
 
@@ -440,7 +444,7 @@ function ChargePanel({ account, run }: { account: BankAccountView; run: Run }) {
   }
 
   return (
-    <section aria-label="Cobrar com Pix" className="grid gap-10 lg:grid-cols-12">
+    <section aria-label="Cobrar com Pix" className="grid gap-10 lg:grid-cols-12 pb-36 lg:pb-8">
       <form onSubmit={(e) => void create(e)} className="space-y-5 lg:col-span-5">
         <Field label={valueRequired ? "Valor" : "Valor (opcional)"} hint={valueRequired ? "Quanto você quer receber." : "Sem valor, quem paga escolhe quanto enviar."}>
           {(id, describedBy) => (
@@ -506,7 +510,7 @@ function CardsPanel({ account, run, holder }: { account: BankAccountView; run: R
   }
 
   return (
-    <section aria-label="Cartões" className="grid gap-12 lg:grid-cols-12">
+    <section aria-label="Cartões" className="grid gap-12 lg:grid-cols-12 pb-36 lg:pb-8">
       <div className="space-y-6 lg:col-span-6">
         <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Cartão virtual</h2>
         <CardVisual card={card} holder={holder} />
@@ -624,7 +628,7 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
   }
 
   return (
-    <section aria-label="Chaves Pix" className="grid gap-10 lg:grid-cols-12">
+    <section aria-label="Chaves Pix" className="grid gap-10 lg:grid-cols-12 pb-36 lg:pb-8">
       <form onSubmit={(e) => void add(e)} className="space-y-5 lg:col-span-5">
         {account.status === "pending_activation" && (
           <p className="text-[13px] leading-relaxed text-muted-foreground">

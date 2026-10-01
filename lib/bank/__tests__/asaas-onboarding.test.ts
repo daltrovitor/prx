@@ -1,7 +1,7 @@
 // Hello World
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { decryptSecret } from "@/lib/asaas/secrets";
-import { openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
+import { completeAsaasSandboxChecklist, ensureAsaasCustomerAndAccount, openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
 import { forwardKycDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
 import { handleAsaasEvent } from "@/lib/bank/asaas/webhooks";
 import { ASAAS_TEST_ENV, USER_ID, approvedKyc, fakeAsaas, testDeps } from "./asaas-fakes";
@@ -157,3 +157,45 @@ describe("documentos da subconta", () => {
     await expect(uploadSubaccountDocument(USER_ID, "grp-id", new File(["x"], "a.exe", { type: "application/x-msdownload" }), deps)).rejects.toMatchObject({ status: 422 });
   });
 });
+
+describe("sincronização de cliente e subconta e checklist do sandbox", () => {
+  it("ensureAsaasCustomerAndAccount cria subconta e cliente na conta mestre", async () => {
+    const { client, calls } = fakeAsaas({
+      "POST /accounts": { body: CREATED },
+      "POST /customers": { body: { id: "cus_master_1" } },
+      "GET /pix/addressKeys": { body: { data: [] } },
+      "POST /pix/addressKeys": { body: { id: "key_evp_1", key: "0000-0000", type: "EVP", status: "ACTIVE" } },
+    });
+    const { deps, store } = testDeps(client);
+
+    const view = await ensureAsaasCustomerAndAccount(USER_ID, deps);
+    expect(view.state).toBe("active");
+    expect(view.kycStatus).toBe("APPROVED");
+
+    const customerCall = calls.find((c) => c.path === "/customers");
+    expect(customerCall).toBeDefined();
+    expect(customerCall?.apiKey).toBe("$aact_hmlg_master");
+
+    const sub = await store.getSubaccount(USER_ID);
+    expect(sub?.status).toBe("active");
+    expect(sub?.kycStatus).toBe("APPROVED");
+  });
+
+  it("completeAsaasSandboxChecklist executa cliente, cobrança e confirmação", async () => {
+    const { client, calls } = fakeAsaas({
+      "POST /customers": { body: { id: "cus_sandbox_1" } },
+      "POST /payments": { body: { id: "pay_123", value: 5.0, status: "PENDING" } },
+      "POST /payments/pay_123/receiveInCash": { body: { id: "pay_123", status: "RECEIVED_IN_CASH" } },
+    });
+
+    const result = await completeAsaasSandboxChecklist(client);
+    expect(result.customer.id).toBe("cus_sandbox_1");
+    expect(result.payment.id).toBe("pay_123");
+    expect(result.confirmed).toBe(true);
+
+    expect(calls.some((c) => c.path === "/customers")).toBe(true);
+    expect(calls.some((c) => c.path === "/payments")).toBe(true);
+    expect(calls.some((c) => c.path === "/payments/pay_123/receiveInCash")).toBe(true);
+  });
+});
+

@@ -38,8 +38,10 @@ export function createEvpKey(client: AsaasClient, apiKey: string): Promise<Asaas
 
 const customerSchema = z.object({ id: z.string().min(1) });
 
-export function createCustomer(client: AsaasClient, apiKey: string, input: { name: string; cpfCnpj: string; email: string; mobilePhone: string }): Promise<{ id: string }> {
-  return client.post("/customers", { ...input, notificationDisabled: true }, { apiKey }, customerSchema);
+export function createCustomer(client: AsaasClient, apiKey?: string, input?: { name: string; cpfCnpj: string; email: string; mobilePhone: string }): Promise<{ id: string }> {
+  const payload = input ?? (typeof apiKey === "object" ? apiKey : undefined);
+  const key = typeof apiKey === "string" && apiKey.trim() ? apiKey.trim() : undefined;
+  return client.post("/customers", { ...payload, notificationDisabled: true }, key ? { apiKey: key } : {}, customerSchema);
 }
 
 const paymentSchema = z.object({

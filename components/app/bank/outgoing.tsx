@@ -203,7 +203,7 @@ export function ProviderPixPanel({ balance, initialMethod = "chave", onSent }: {
   }
 
   return (
-    <section aria-label="Enviar Pix" className="space-y-6 lg:max-w-2xl">
+    <section aria-label="Enviar Pix" className="space-y-6 lg:max-w-2xl pb-48 sm:pb-36 lg:pb-8">
       <Segmented
         label="Forma de pagamento Pix"
         value={method}
@@ -227,9 +227,11 @@ export function ProviderPixPanel({ balance, initialMethod = "chave", onSent }: {
             {(id, describedBy) => <Input id={id} aria-describedby={describedBy} inputMode="decimal" placeholder="0,00" value={amountText} onChange={(e) => setAmountText(e.target.value)} className="font-mono text-lg" />}
           </Field>
           <Field label="Mensagem (opcional)">{(id) => <Input id={id} value={description} maxLength={60} onChange={(e) => setDescription(e.target.value)} />}</Field>
-          <Button type="submit" block disabled={busy}>
-            {busy ? "Revisando…" : "Revisar Pix"}
-          </Button>
+          <div className="pt-2 pb-4">
+            <Button type="submit" block disabled={busy}>
+              {busy ? "Revisando…" : "Revisar Pix"}
+            </Button>
+          </div>
         </form>
       )}
 
@@ -286,7 +288,7 @@ export function BillPanel({ onPaid }: { onPaid: () => void }) {
   }
 
   return (
-    <section aria-label="Pagar contas" className="space-y-6 lg:max-w-2xl">
+    <section aria-label="Pagar contas" className="space-y-6 lg:max-w-2xl pb-36 lg:pb-8">
       <form onSubmit={(e) => void prepare(e)} className="space-y-5">
         <Field label="Linha digitável" hint="Copie do boleto ou da conta. Pontos e espaços são ignorados.">
           {(id, describedBy) => <Textarea id={id} aria-describedby={describedBy} value={line} inputMode="numeric" onChange={(e) => setLine(e.target.value)} className="font-mono text-sm" spellCheck={false} />}

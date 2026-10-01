@@ -61,9 +61,12 @@ function warnOnce(message: string): void {
 
 /** Configuração ativa do Asaas, ou null quando o PRX BANK não usa o Asaas neste ambiente. */
 export function readAsaasConfig(env: Env = process.env): AsaasConfig | null {
-  if ((env.BANK_PROVIDER ?? "").trim().toLowerCase() !== "asaas") return null;
+  const provider = (env.BANK_PROVIDER ?? "").trim().toLowerCase();
   const apiKey = (env.ASAAS_API_KEY ?? "").trim();
-  // Toda chave do Asaas começa com $aact_; o resto é placeholder ou "$" expandido pelo .env.
+  // Chave ausente, vazia ou placeholder: Asaas não liga
+  if (!apiKey || apiKey.includes("coloque_sua_chave") || apiKey.includes("your_")) return null;
+  // Só liga se BANK_PROVIDER for 'asaas'
+  if (provider !== "asaas") return null;
   if (!apiKey.startsWith("$aact_")) {
     if (apiKey) warnOnce("ASAAS_API_KEY não parece uma chave do Asaas (esperado $aact_...; no .env escreva \\$aact_...). Integração desligada.");
     return null;

@@ -35,27 +35,37 @@ export function sandboxEnabled(userId?: string): boolean {
 }
 
 export async function accountView(userId: string): Promise<BankAccountView> {
-  const isSandbox = sandboxEnabled(userId);
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
-  const [transactions, localKeys, cardRequest, charges, kyc, live] = await Promise.all([
+  const kyc = await bankKycState(userId);
+
+  const isAsaas = asaasActiveFor(userId);
+  if (isAsaas && (kyc.status === "approved" || isSandboxMode())) {
+    try {
+      const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
+      await ensureAsaasCustomerAndAccount(userId);
+    } catch (err) {
+      console.warn("[bank] Aviso ao sincronizar Asaas no accountView:", err);
+    }
+  }
+
+  const isSandbox = !isAsaas && sandboxEnabled(userId);
+  const [transactions, localKeys, cardRequest, charges, live] = await Promise.all([
     repo.listTransactions(userId, 200),
     repo.listPixKeys(userId),
     repo.getOpenCardRequest(userId),
     repo.listCharges(userId, 20),
-    bankKycState(userId),
-    isSandbox ? Promise.resolve(null) : providerSnapshot(userId),
+    isAsaas ? providerSnapshot(userId) : Promise.resolve(null),
   ]);
-  // Conta ativa no banco parceiro: as chaves vêm do DICT; antes disso, o pré-cadastro local.
+
   const pixKeys = live?.pixKeys ?? localKeys;
-  const provider = isSandbox ? null : (live?.provider ?? null);
-  const status = isSandbox && account.status === "pending_activation" ? "active" : account.status;
+  const provider = isAsaas ? (live?.provider ?? null) : null;
+  const status = isSandbox && account.status === "pending_activation" ? "active" : (live?.provider?.state === "active" ? "active" : account.status);
   const virtualCard = account.virtualCard ?? (isSandbox ? { last4: "4242", expiry: "12/30", locked: false } : null);
   const kycState = isSandbox && kyc.status !== "approved" ? { ...kyc, status: "approved" as const } : kyc;
 
   return {
     status,
-    // Saldo oficial do banco parceiro quando disponível; senão, o último em cache.
     balance: live?.balance ?? account.balance,
     agency: account.agency || (isSandbox ? "0001" : null),
     accountNumber: account.accountNumber || (isSandbox ? `1000${userId.replace(/\D/g, "").slice(-4) || "0101"}` : null),

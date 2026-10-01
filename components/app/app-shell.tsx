@@ -319,8 +319,8 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
             className={cn(
               "mx-auto w-full max-w-[1120px]",
               immersive
-                ? "px-0 pb-[calc(78px+max(0.5rem,env(safe-area-inset-bottom)))] sm:px-6 lg:px-12 lg:pb-6"
-                : "px-4 pb-36 pt-2 sm:px-6 lg:px-12 lg:pb-20 lg:pt-4"
+                ? "px-0 pb-[calc(88px+max(0.75rem,env(safe-area-inset-bottom)))] sm:px-6 lg:px-12 lg:pb-6"
+                : "px-4 pb-48 pt-2 sm:px-6 lg:px-12 lg:pb-24 lg:pt-4"
             )}
           >
             {notice && !immersive && <div className="mb-6">{notice}</div>}
