@@ -2,7 +2,7 @@
 "use client";
 
 import { calculatePrxLevel, levelGateOptions, xpForLevel } from "@/lib/pass-data";
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { Button, EmptyState, Field, Input, Notice, Select, Sheet, Tag } from "@/components/app/ui";
 import { IconSearch } from "@/components/icons/prx-icons";
 import type { SystemVoucher } from "@/lib/pass-store";
@@ -43,6 +43,9 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
   const [form, setForm] = useState({ level: 1, score: 0, role: "user" as MemberRole, bankBalance: "0" });
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const closeEdit = useCallback(() => setEditing(null), []);
+  const closeInspect = useCallback(() => setInspecting(null), []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -184,7 +187,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
 
       <Sheet
         open={Boolean(editing)}
-        onClose={() => setEditing(null)}
+        onClose={closeEdit}
         title="Editar membro"
         description={editing ? `${editing.name} · ${editing.email}` : undefined}
         footer={
@@ -202,7 +205,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
                 value={form.level}
                 onChange={(e) => {
                   const level = Number(e.target.value);
-                  setForm({ ...form, level, score: xpForLevel(level) });
+                  setForm((prev) => ({ ...prev, level, score: xpForLevel(level) }));
                 }}
               >
                 {levelGateOptions(form.level).map((lvl) => (
@@ -221,16 +224,21 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
                 min={0}
                 step={50}
                 value={form.score}
+                onFocus={(e) => {
+                  if (e.target.value === "0") {
+                    e.target.select();
+                  }
+                }}
                 onChange={(e) => {
                   const score = Math.max(0, Math.floor(Number(e.target.value) || 0));
-                  setForm({ ...form, score, level: calculatePrxLevel(score) });
+                  setForm((prev) => ({ ...prev, score, level: calculatePrxLevel(score) }));
                 }}
               />
             )}
           </Field>
           <Field label="Papel de acesso" className="sm:col-span-2" hint={form.role === "staff" ? "Contas da Equipe PRX são gerenciadas na aba Equipe." : undefined}>
             {(id, describedBy) => (
-              <Select id={id} aria-describedby={describedBy} value={form.role} disabled={form.role === "staff"} onChange={(e) => setForm({ ...form, role: e.target.value as MemberRole })}>
+              <Select id={id} aria-describedby={describedBy} value={form.role} disabled={form.role === "staff"} onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value as MemberRole }))}>
                 <option value="user">Membro</option>
                 <option value="partner">Parceiro credenciado</option>
                 <option value="admin">Administrador</option>
@@ -262,7 +270,18 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
                 step="0.01"
                 placeholder="0,00"
                 value={form.bankBalance}
-                onChange={(e) => setForm({ ...form, bankBalance: e.target.value })}
+                onFocus={(e) => {
+                  if (e.target.value === "0") {
+                    e.target.select();
+                  }
+                }}
+                onChange={(e) => {
+                  let val = e.target.value;
+                  if (/^0\d+/.test(val)) {
+                    val = String(Number(val));
+                  }
+                  setForm((prev) => ({ ...prev, bankBalance: val }));
+                }}
                 className="pl-10 font-mono text-base font-semibold"
               />
             </div>
@@ -271,7 +290,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
                 type="button"
                 variant="secondary"
                 size="sm"
-                onClick={() => setForm({ ...form, bankBalance: "500" })}
+                onClick={() => setForm((prev) => ({ ...prev, bankBalance: "500" }))}
               >
                 R$ 500
               </Button>
@@ -279,7 +298,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
                 type="button"
                 variant="secondary"
                 size="sm"
-                onClick={() => setForm({ ...form, bankBalance: "1000" })}
+                onClick={() => setForm((prev) => ({ ...prev, bankBalance: "1000" }))}
               >
                 R$ 1.000
               </Button>
@@ -287,7 +306,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
                 type="button"
                 variant="secondary"
                 size="sm"
-                onClick={() => setForm({ ...form, bankBalance: "5000" })}
+                onClick={() => setForm((prev) => ({ ...prev, bankBalance: "5000" }))}
               >
                 R$ 5.000
               </Button>
@@ -295,7 +314,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setForm({ ...form, bankBalance: "0" })}
+                onClick={() => setForm((prev) => ({ ...prev, bankBalance: "0" }))}
               >
                 Zerar saldo
               </Button>
@@ -304,7 +323,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
         </form>
       </Sheet>
 
-      <Sheet open={Boolean(inspecting)} onClose={() => setInspecting(null)} title={inspecting ? `Vouchers de ${inspecting.name}` : "Vouchers"} description={inspecting?.email}>
+      <Sheet open={Boolean(inspecting)} onClose={closeInspect} title={inspecting ? `Vouchers de ${inspecting.name}` : "Vouchers"} description={inspecting?.email}>
         {inspecting && (!inspecting.vouchers || inspecting.vouchers.length === 0) ? (
           <EmptyState title="Nenhum resgate" body="Este membro ainda não gerou vouchers." />
         ) : (
