@@ -3,15 +3,15 @@ import crypto from "crypto";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
 import { getBankRepository, sandboxActivate, sandboxCategorize, sandboxSendPix, usesSupabaseBank } from "@/lib/bank/repository";
-import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type BankProviderView, type CardRequest, type PixKey } from "@/lib/prx/bank";
+import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type CardRequest, type PixCharge, type PixKey } from "@/lib/prx/bank";
 import { detectPixKeyType, isValidCpf } from "@/lib/prx/pix";
 import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { processPartnerPixTransfer, type PartnerPixResult } from "@/lib/points/service";
 import { assertCanHoldMoney, assertMinorSpend } from "@/lib/family/guards";
 import { assertBankKycApproved, bankKycState } from "@/lib/kyc/guards";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
-import { subaccountView } from "@/lib/bank/asaas/onboarding";
-import { errorMessage } from "@/lib/errors";
+import { providerSnapshot } from "@/lib/bank/asaas/view";
+import { createProviderCharge, createProviderPixKey } from "@/lib/bank/asaas/cash-in";
 
 /**
  * Regras do PRX BANK antes da ativação do banco parceiro: a conta existe,
@@ -33,33 +33,20 @@ export function sandboxEnabled(userId: string): boolean {
   return DEMO_ACCOUNTS_ENABLED || process.env.PRX_BAAS_MODE === "sandbox";
 }
 
-/**
- * Situação da conta no banco parceiro. Falha do espelho (ex.: migração ainda
- * não aplicada) esconde a integração em vez de derrubar a aba inteira.
- */
-async function providerView(userId: string): Promise<BankProviderView | null> {
-  if (!asaasActiveFor(userId)) return null;
-  try {
-    const deps = asaasDeps();
-    const sub = subaccountView(await deps.store.getSubaccount(userId));
-    return { name: "asaas", environment: deps.client.environment, state: sub.state, rejectReason: sub.rejectReason };
-  } catch (err) {
-    console.warn("[bank] banco parceiro indisponível na visão da conta:", errorMessage(err));
-    return null;
-  }
-}
-
 export async function accountView(userId: string): Promise<BankAccountView> {
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
-  const [transactions, pixKeys, cardRequest, charges, kyc, provider] = await Promise.all([
+  const [transactions, localKeys, cardRequest, charges, kyc, live] = await Promise.all([
     repo.listTransactions(userId, 200),
     repo.listPixKeys(userId),
     repo.getOpenCardRequest(userId),
     repo.listCharges(userId, 20),
     bankKycState(userId),
-    providerView(userId),
+    providerSnapshot(userId),
   ]);
+  // Conta ativa no banco parceiro: as chaves vêm do DICT; antes disso, o pré-cadastro local.
+  const pixKeys = live?.pixKeys ?? localKeys;
+  const provider = live?.provider ?? null;
   return {
     status: account.status,
     balance: account.balance,
@@ -160,12 +147,27 @@ export async function addPixKey(userId: string, input: z.output<typeof pixKeyInp
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
   if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
+  // Conta aprovada no banco parceiro: a chave é registrada no DICT pelo Asaas.
+  if (account.status === "active" && asaasActiveFor(userId)) return createProviderPixKey(userId, input.type, asaasDeps());
   const keys = await repo.listPixKeys(userId);
   if (keys.length >= MAX_PIX_KEYS) throw new PartnerError(`Limite de ${MAX_PIX_KEYS} chaves Pix por conta.`, 409);
   if (keys.some((k) => k.value === input.value)) throw new PartnerError("Esta chave já está cadastrada.", 409);
   // Sem o banco parceiro não há registro no DICT: a chave fica reservada para a ativação.
   if (account.status !== "active") return repo.insertPixKey(userId, { ...input, status: "pending_activation" });
   throw new PartnerError(BAAS_PENDING, 503);
+}
+
+export const chargeSchema = z.object({
+  amount: z.number().positive("Informe o valor da cobrança.").max(50_000, "Limite de R$ 50.000 por cobrança.").nullish(),
+  description: z.string().trim().max(40).default(""),
+});
+
+/** Cobrança Pix com QR Code dinâmico, gerada pelo banco parceiro. */
+export async function createCharge(userId: string, input: z.output<typeof chargeSchema>): Promise<PixCharge> {
+  await assertBankKycApproved(userId);
+  await assertAccountActive(userId);
+  if (!asaasActiveFor(userId)) return assertBankOperational(userId);
+  return createProviderCharge(userId, { amount: input.amount ?? null, description: input.description }, asaasDeps());
 }
 
 export async function removePixKey(userId: string, keyId: string): Promise<void> {

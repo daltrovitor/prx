@@ -3,6 +3,7 @@ import { z } from "zod";
 import { errorMessage } from "@/lib/errors";
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { applyGeneralApproval } from "@/lib/bank/asaas/onboarding";
+import { ensureDefaultPixKey, handlePaymentEvent } from "@/lib/bank/asaas/cash-in";
 import type { Subaccount } from "@/lib/bank/asaas/types";
 
 /**
@@ -39,6 +40,8 @@ async function handleAccountStatus(event: AsaasEvent, sub: Subaccount, deps: Asa
   switch (event.event) {
     case "ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED":
       await applyGeneralApproval(sub, "APPROVED", null, deps);
+      // Conta nova já nasce com uma chave aleatória para receber Pix.
+      await ensureDefaultPixKey(sub.userId, deps);
       return "processed";
     case "ACCOUNT_STATUS_GENERAL_APPROVAL_REJECTED":
     case "ACCOUNT_STATUS_DOCUMENT_REJECTED":
@@ -55,7 +58,10 @@ async function handleAccountStatus(event: AsaasEvent, sub: Subaccount, deps: Asa
 type EventHandler = (event: AsaasEvent, sub: Subaccount, deps: AsaasDeps) => Promise<WebhookOutcome>;
 
 /** Manipuladores por família de evento. */
-const handlers: ReadonlyArray<{ match: (event: string) => boolean; handle: EventHandler }> = [{ match: (e) => e.startsWith("ACCOUNT_STATUS_"), handle: handleAccountStatus }];
+const handlers: ReadonlyArray<{ match: (event: string) => boolean; handle: EventHandler }> = [
+  { match: (e) => e.startsWith("ACCOUNT_STATUS_"), handle: handleAccountStatus },
+  { match: (e) => e.startsWith("PAYMENT_"), handle: handlePaymentEvent },
+];
 
 async function dispatch(event: AsaasEvent, deps: AsaasDeps): Promise<WebhookOutcome> {
   const accountId = event.account?.id ?? null;

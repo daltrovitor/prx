@@ -9,6 +9,7 @@ import type { IncomeRange } from "@/lib/family/types";
 import { KYC_PENDING_MESSAGE, KYC_REQUIRED_MESSAGE, type BankKycApplication } from "@/lib/kyc/types";
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { bankMessage } from "@/lib/bank/asaas/messages";
+import { ACTIVATION_REQUIRED } from "@/lib/prx/bank";
 import type { Subaccount, SubaccountKycStatus, SubaccountStatus } from "@/lib/bank/asaas/types";
 
 /**
@@ -142,6 +143,14 @@ export async function requireSubaccount(userId: string, deps: AsaasDeps): Promis
   const sub = await deps.store.getSubaccount(userId);
   if (!sub?.asaasAccountId || !sub.apiKeySealed) throw new PartnerError("Abra sua conta no banco parceiro primeiro.", 409);
   return { sub, apiKey: decryptSecret(sub.apiKeySealed) };
+}
+
+/** Subconta aprovada pelo Asaas: só ela movimenta dinheiro. */
+export async function requireActiveSubaccount(userId: string, deps: AsaasDeps): Promise<{ sub: Subaccount; apiKey: string }> {
+  const found = await requireSubaccount(userId, deps);
+  if (found.sub.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
+  if (found.sub.status !== "active") throw new PartnerError(ACTIVATION_REQUIRED, 409);
+  return found;
 }
 
 type GeneralStatus = "APPROVED" | "REJECTED" | "PENDING" | "AWAITING_APPROVAL";

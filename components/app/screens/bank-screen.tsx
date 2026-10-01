@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import Image from "next/image";
 import type { User } from "@/hooks/use-auth";
 import { useAppNav } from "@/components/app/app-nav";
 import { useBankAccount, useHiddenBalance, usePointsWallet, type ActionResult, type PartnerReward } from "@/components/app/use-prx-stores";
@@ -13,7 +14,7 @@ import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { TransactionRow } from "@/components/app/shared";
 import { CardVisual } from "@/components/app/bank/card-visual";
 import { QrScanner } from "@/components/app/qr-scanner";
-import { CopyButton } from "@/components/app/pass/voucher-sheet";
+import { CopyButton, useQrDataUrl } from "@/components/app/pass/voucher-sheet";
 import { BalanceFigure, Button, EmptyState, Field, IconButton, Input, Notice, Segmented, Select, Sheet, Tag, Textarea, formatBRL } from "@/components/app/ui";
 import { IconEye, IconEyeOff, IconLock, IconTrash, IconUnlock } from "@/components/icons/prx-icons";
 import {
@@ -449,27 +450,34 @@ function ChargePanel({ account, run }: { account: BankAccountView; run: Run }) {
   const [amountText, setAmountText] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const current = account.charges[0];
+  // Banco parceiro gera QR Code dinâmico com valor definido.
+  const valueRequired = Boolean(account.provider);
+  const qr = useQrDataUrl(current && !current.paid ? current.payload : null);
 
   async function create(event: FormEvent) {
     event.preventDefault();
     setError(null);
     const amount = parseMoney(amountText);
+    if (valueRequired && !(amount > 0)) return setError("Informe o valor da cobrança.");
+    setBusy(true);
     const result = await run({ action: "create_charge", amount: amount > 0 ? amount : null, description });
+    setBusy(false);
     if (!result.ok) setError(result.error);
   }
 
   return (
     <section aria-label="Cobrar com Pix" className="grid gap-10 lg:grid-cols-12">
       <form onSubmit={(e) => void create(e)} className="space-y-5 lg:col-span-5">
-        <Field label="Valor (opcional)" hint="Sem valor, quem paga escolhe quanto enviar.">
+        <Field label={valueRequired ? "Valor" : "Valor (opcional)"} hint={valueRequired ? "Quanto você quer receber." : "Sem valor, quem paga escolhe quanto enviar."}>
           {(id, describedBy) => (
             <Input id={id} aria-describedby={describedBy} inputMode="decimal" placeholder="0,00" value={amountText} onChange={(e) => setAmountText(e.target.value)} className="font-mono text-lg" />
           )}
         </Field>
         <Field label="Descrição (opcional)">{(id) => <Input id={id} value={description} maxLength={40} onChange={(e) => setDescription(e.target.value)} />}</Field>
-        <Button type="submit" block>
-          Gerar QR Code
+        <Button type="submit" block disabled={busy}>
+          {busy ? "Gerando…" : "Gerar QR Code"}
         </Button>
         {error && <Notice tone="error">{error}</Notice>}
       </form>
@@ -480,6 +488,11 @@ function ChargePanel({ account, run }: { account: BankAccountView; run: Run }) {
               <p className="text-3xl font-light tracking-[-0.03em] text-ink">{current.amount ? formatBRL(current.amount) : "Valor livre"}</p>
               {current.paid ? <Tag tone="success">Recebido</Tag> : <Tag>Aguardando</Tag>}
             </div>
+            {qr && (
+              <div className="w-full max-w-[240px] rounded-3xl bg-white p-4 ring-1 ring-line">
+                <Image src={qr} alt="QR Code da cobrança Pix" width={240} height={240} unoptimized className="h-auto w-full" />
+              </div>
+            )}
             <p className="break-all font-mono text-[12px] leading-relaxed text-muted-foreground">{current.payload}</p>
             <CopyButton value={current.payload} label="Copiar código" />
           </div>
@@ -618,12 +631,15 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const full = account.pixKeys.length >= MAX_PIX_KEYS;
+  // Conta ativa no banco parceiro: pelo app, só a chave aleatória é registrada no DICT.
+  const onlyRandom = account.provider?.state === "active";
 
   async function add(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const result = await run({ action: "add_pix_key", key: { type, value: type === "random" ? "" : value } });
+    const keyType = onlyRandom ? "random" : type;
+    const result = await run({ action: "add_pix_key", key: { type: keyType, value: keyType === "random" ? "" : value } });
     setBusy(false);
     if (!result.ok) return setError(result.error);
     setValue("");
@@ -648,13 +664,17 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
           {(id) => (
             <Select id={id} value={type} onChange={(e) => setType(e.target.value as Exclude<PixKeyType, "cnpj">)}>
               <option value="random">Chave aleatória</option>
-              <option value="cpf">CPF</option>
-              <option value="email">E-mail</option>
-              <option value="phone">Celular</option>
+              {!onlyRandom && (
+                <>
+                  <option value="cpf">CPF</option>
+                  <option value="email">E-mail</option>
+                  <option value="phone">Celular</option>
+                </>
+              )}
             </Select>
           )}
         </Field>
-        {type !== "random" && (
+        {type !== "random" && !onlyRandom && (
           <Field label={PIX_KEY_LABEL[type]}>
             {(id) => (
               <Input
