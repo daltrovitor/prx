@@ -58,7 +58,13 @@ export const bankKycSchema = z
     fullName: personName("Nome"),
     cpf: cpfSchema,
     birthDate: birthDateSchema,
-    motherName: personName("Nome da mãe"),
+    motherName: z
+      .string()
+      .trim()
+      .max(120, "Nome da mãe muito longo.")
+      .transform((v) => v.replace(/\s+/g, " "))
+      .optional()
+      .default(""),
     phone: z
       .string()
       .trim()
@@ -75,7 +81,7 @@ export const bankKycSchema = z
     parentEmail: z.string().trim().toLowerCase().email("Informe o e-mail do responsável.").max(160).optional().or(z.literal("")),
     termsAccepted: z.literal(true, { error: "Aceite os termos da conta de pagamento para continuar." }),
   })
-  .refine((v) => v.fullName.toLowerCase() !== v.motherName.toLowerCase(), { message: "O nome da mãe não pode ser igual ao seu.", path: ["motherName"] });
+  .refine((v) => !v.motherName || v.fullName.toLowerCase() !== v.motherName.toLowerCase(), { message: "O nome da mãe não pode ser igual ao seu.", path: ["motherName"] });
 export type BankKycInput = z.output<typeof bankKycSchema>;
 
 export const KYC_STATUSES = ["pending", "approved", "rejected"] as const;

@@ -125,7 +125,7 @@ export function AdminFamilyTab() {
                     </div>
                     <dl className="grid gap-2 text-[14px] sm:grid-cols-3">
                       <Info label="Idade" value={`${ageOn(k.birthDate)} anos`} />
-                      <Info label="Mãe" value={k.motherName} />
+                      <Info label="Mãe" value={k.motherName && k.motherName !== "Não informado" ? k.motherName : "Não informada"} />
                       <Info label="Celular" value={phone(k.phone)} />
                       <Info label="Ocupação" value={k.occupation} />
                       <Info label="Renda" value={INCOME_LABEL[k.incomeRange]} />

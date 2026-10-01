@@ -221,7 +221,7 @@ export function BalanceFigure({
 
 /* Campo preenchido em cinza; dentro de um bloco cinza (bg-surface) ele fica branco para não sumir. */
 const controlBase =
-  "w-full rounded-2xl border border-transparent bg-surface in-[.bg-surface]:bg-card px-4 text-[15px] text-ink placeholder:text-[#8a8a96] " +
+  "w-full min-w-0 max-w-full box-border rounded-2xl border border-transparent bg-surface in-[.bg-surface]:bg-card px-4 text-[15px] text-ink placeholder:text-[#8a8a96] " +
   "transition-[background-color,border-color,box-shadow] hover:border-input focus:border-primary focus:bg-card focus:outline-none focus-visible:outline-none " +
   "focus:ring-4 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -237,7 +237,7 @@ export function Field({ label, hint, error, children, className }: FieldProps) {
   const id = useId();
   const hintId = hint || error ? `${id}-hint` : undefined;
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("min-w-0 max-w-full space-y-1.5", className)}>
       <label htmlFor={id} className="block text-[13px] font-medium text-ink">
         {label}
       </label>
@@ -252,10 +252,23 @@ export function Field({ label, hint, error, children, className }: FieldProps) {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
-  { className, ...rest },
+  { className, type, ...rest },
   ref
 ) {
-  return <input ref={ref} suppressHydrationWarning className={cn(controlBase, "h-12", className)} {...rest} />;
+  return (
+    <input
+      ref={ref}
+      type={type}
+      suppressHydrationWarning
+      className={cn(
+        controlBase,
+        "h-12",
+        type === "date" && "appearance-none [-webkit-appearance:none] max-w-full min-w-0 text-left cursor-pointer",
+        className
+      )}
+      {...rest}
+    />
+  );
 });
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select(

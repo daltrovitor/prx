@@ -87,7 +87,7 @@ export async function submitBankKyc(user: MemberRef, input: BankKycInput, meta: 
     fullName: input.fullName,
     cpf: input.cpf,
     birthDate: input.birthDate,
-    motherName: input.motherName,
+    motherName: input.motherName?.trim() || "Não informado",
     phone: input.phone,
     occupation: input.occupation,
     incomeRange: input.incomeRange,

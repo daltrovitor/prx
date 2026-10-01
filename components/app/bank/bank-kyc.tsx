@@ -124,7 +124,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [dados, setDados] = useState({ fullName: member.name || "", cpf: "", birthDate: "", motherName: "", phone: "" });
+  const [dados, setDados] = useState({ fullName: member.name || "", cpf: "", birthDate: "", phone: "" });
   const [minorPath, setMinorPath] = useState<TeenPath | "">("");
   const [parentEmail, setParentEmail] = useState("");
   const [address, setAddress] = useState({ cep: "", street: "", number: "", complement: "", district: "", city: "", state: "" as Uf | "" });
@@ -152,7 +152,6 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
     if (!isValidCpf(cpf)) return setError("CPF inválido. Confira os 11 números.");
     if (!group) return setError("Informe a data de nascimento.");
     if (group === "over") return setError("O PRX BANK é para jovens até 29 anos.");
-    if (dados.motherName.trim().split(/\s+/).length < 2) return setError("Informe o nome completo da sua mãe.");
     if (dados.phone.replace(/\D/g, "").length !== 11) return setError("Informe o celular com DDD.");
     if (minor) {
       const path = group === "child" ? "linked" : minorPath;
@@ -300,17 +299,16 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
           <h1 className="mt-6 text-[30px] font-semibold leading-tight tracking-[-0.04em] text-ink sm:text-[36px]">{TITLES[step].title}</h1>
           <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">{TITLES[step].body}</p>
 
-          <div className="glass mt-6 rounded-[28px] p-5 sm:p-7">
+          <div className="glass mt-6 overflow-hidden rounded-[28px] p-5 sm:p-7">
             {step === "dados" && (
               <form onSubmit={nextFromDados} className="space-y-4">
                 <Field label="Nome completo">{(id) => <Input id={id} autoComplete="name" value={dados.fullName} onChange={(e) => setDados({ ...dados, fullName: e.target.value })} required />}</Field>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="CPF">{(id) => <Input id={id} inputMode="numeric" placeholder="000.000.000-00" value={dados.cpf} onChange={(e) => setDados({ ...dados, cpf: maskCpfInput(e.target.value) })} required />}</Field>
-                  <Field label="Data de nascimento">
-                    {(id) => <Input id={id} type="date" autoComplete="bday" value={dados.birthDate} onChange={(e) => setDados({ ...dados, birthDate: e.target.value })} required className="cursor-pointer" />}
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                  <Field label="CPF" className="min-w-0">{(id) => <Input id={id} inputMode="numeric" placeholder="000.000.000-00" value={dados.cpf} onChange={(e) => setDados({ ...dados, cpf: maskCpfInput(e.target.value) })} required />}</Field>
+                  <Field label="Data de nascimento" className="min-w-0">
+                    {(id) => <Input id={id} type="date" autoComplete="bday" value={dados.birthDate} onChange={(e) => setDados({ ...dados, birthDate: e.target.value })} required className="w-full min-w-0 max-w-full cursor-pointer appearance-none [-webkit-appearance:none]" />}
                   </Field>
                 </div>
-                <Field label="Nome completo da mãe">{(id) => <Input id={id} value={dados.motherName} onChange={(e) => setDados({ ...dados, motherName: e.target.value })} required />}</Field>
                 <Field label="Celular com DDD">
                   {(id) => <Input id={id} type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(11) 98888-7777" value={dados.phone} onChange={(e) => setDados({ ...dados, phone: maskPhone(e.target.value) })} required />}
                 </Field>

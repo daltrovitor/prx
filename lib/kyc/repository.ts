@@ -83,7 +83,7 @@ function supabaseRepository(): KycRepository {
           full_name: app.fullName,
           cpf: app.cpf,
           birth_date: app.birthDate,
-          mother_name: app.motherName,
+          mother_name: app.motherName?.trim() || "Não informado",
           phone: app.phone,
           occupation: app.occupation,
           income_range: app.incomeRange,
