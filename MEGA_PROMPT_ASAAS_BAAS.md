@@ -121,7 +121,7 @@ Crie uma migration SQL em `supabase/migrations/` para registrar:
    - Rota `GET /api/bank/statement`: Retorna transações paginadas (`GET /v3/financialTransactions`).
 
 2. **Webhooks Oficiais do PRX**:
-   - **Token de Autenticação Obrigatório**: `ASAAS_WEBHOOK_AUTH_TOKEN` (`6f5189c7565286bd7b19816b5ce2453d870110e9b0b87bf1`, recebido no header `asaas-access-token`).
+   - **Token de Autenticação Obrigatório**: `ASAAS_WEBHOOK_AUTH_TOKEN` (valor só no `.env.local` e na Vercel, nunca no repositório; recebido no header `asaas-access-token`).
    - **Webhook de Eventos Financeiros (`POST /api/bank/webhooks/asaas`)**:
      - URL oficial: `https://prx.app.br/api/bank/webhooks/asaas`
      - Valida `asaas-access-token` contra `ASAAS_WEBHOOK_AUTH_TOKEN`.
