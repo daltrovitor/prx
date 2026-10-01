@@ -258,7 +258,41 @@ function Decision({
   busy: string | null;
   onDecide: (d: "approve" | "reject") => void;
 }) {
-  if (status !== "pending") return note ? <p className="text-[13px] text-muted-foreground">Observação: {note}</p> : null;
+  if (status !== "pending") {
+    return (
+      <div className="flex flex-col gap-2 rounded-2xl border border-line bg-surface/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-ink">
+            Situação: <span className={status === "approved" ? "text-success font-semibold" : "text-destructive font-semibold"}>{status === "approved" ? "Aprovado" : "Recusado"}</span>
+            {note ? <span className="font-normal text-muted-foreground"> · Motivo: {note}</span> : null}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {status === "rejected" && (
+            <Button
+              size="sm"
+              className="min-h-11 cursor-pointer"
+              disabled={busy !== null}
+              onClick={() => onDecide("approve")}
+            >
+              {busy === id ? "Salvando…" : "Reverter e Aprovar"}
+            </Button>
+          )}
+          {status === "approved" && (
+            <Button
+              size="sm"
+              variant="danger"
+              className="min-h-11 cursor-pointer"
+              disabled={busy !== null}
+              onClick={() => onDecide("reject")}
+            >
+              {busy === id ? "Salvando…" : "Reverter e Recusar"}
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <label htmlFor={`note-${id}`} className="sr-only">

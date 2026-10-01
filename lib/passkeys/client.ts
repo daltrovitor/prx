@@ -28,7 +28,7 @@ async function json<T>(res: Response): Promise<T & { error?: string }> {
 }
 
 /** Ativa a entrada por biometria neste aparelho (exige sessão ativa). */
-export async function registerPasskey(): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function registerPasskey(): Promise<{ ok: true; alreadyRegistered?: boolean } | { ok: false; error: string }> {
   try {
     const start = await fetch("/api/auth/passkeys/register", { cache: "no-store" });
     const { options, error } = await json<{ options?: PublicKeyCredentialCreationOptionsJSON }>(start);
@@ -40,11 +40,30 @@ export async function registerPasskey(): Promise<{ ok: true } | { ok: false; err
       body: JSON.stringify({ response }),
     });
     const result = await json<{ success?: boolean }>(finish);
-    if (!finish.ok || !result.success) return { ok: false, error: result.error || "Não foi possível ativar a biometria." };
+    if (!finish.ok || !result.success) {
+      if (result.error && (result.error.toLowerCase().includes("já existe") || result.error.toLowerCase().includes("already"))) {
+        updateKnownAccount({ passkey: true });
+        if (typeof window !== "undefined") {
+          localStorage.setItem("prx_bank_biometrics_accepted", "true");
+        }
+        return { ok: true, alreadyRegistered: true };
+      }
+      return { ok: false, error: result.error || "Não foi possível ativar a biometria." };
+    }
     // Guarda qual credencial é deste aparelho: a próxima entrada pede só ela.
     updateKnownAccount({ passkey: true, passkeyId: response.id });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("prx_bank_biometrics_accepted", "true");
+    }
     return { ok: true };
   } catch (err) {
+    if (err instanceof Error && err.name === "InvalidStateError") {
+      updateKnownAccount({ passkey: true });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("prx_bank_biometrics_accepted", "true");
+      }
+      return { ok: true, alreadyRegistered: true };
+    }
     return { ok: false, error: ceremonyError(err, "Não foi possível ativar a biometria.") };
   }
 }

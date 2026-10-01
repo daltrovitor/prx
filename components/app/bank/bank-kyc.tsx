@@ -55,12 +55,31 @@ function KycPending({ kyc }: { kyc: BankKycState }) {
 
   useEffect(() => {
     let alive = true;
-    void canUseBiometrics().then((ok) => {
-      const already =
-        readKnownAccount()?.passkey === true ||
-        (typeof window !== "undefined" && localStorage.getItem("prx_bank_biometrics_accepted") === "true");
-      if (alive) setCanBio(ok && !already);
-    });
+    void (async () => {
+      const ok = await canUseBiometrics();
+      const localAccepted = typeof window !== "undefined" && localStorage.getItem("prx_bank_biometrics_accepted") === "true";
+      const known = readKnownAccount()?.passkey === true;
+      if (localAccepted || known) {
+        if (alive) setCanBio(false);
+        return;
+      }
+      try {
+        const res = await fetch("/api/auth/passkeys", { cache: "no-store" });
+        if (res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { passkeys?: unknown[] };
+          if (data.passkeys && data.passkeys.length > 0) {
+            if (typeof window !== "undefined") {
+              localStorage.setItem("prx_bank_biometrics_accepted", "true");
+            }
+            if (alive) setCanBio(false);
+            return;
+          }
+        }
+      } catch {
+        // Ignora falhas de rede na checagem
+      }
+      if (alive) setCanBio(ok);
+    })();
     return () => {
       alive = false;
     };
@@ -82,7 +101,7 @@ function KycPending({ kyc }: { kyc: BankKycState }) {
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="mx-auto max-w-xl space-y-6 pb-32 sm:pb-36">
       <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
       <section className="glass space-y-4 rounded-[28px] p-6">
         <Tag>Em análise</Tag>
@@ -111,7 +130,7 @@ function KycPending({ kyc }: { kyc: BankKycState }) {
           </div>
         )}
         {bioDone && (
-          <Notice tone="success">Biometria ativada com sucesso para o PRX BANK neste aparelho.</Notice>
+          <Notice tone="success">Sua biometria está ativada e pronta para proteger o PRX BANK neste aparelho.</Notice>
         )}
       </section>
     </div>
@@ -179,6 +198,13 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
 
   async function submit() {
     const path: TeenPath | undefined = minor ? (group === "child" ? "linked" : minorPath || undefined) : undefined;
+    if (!docs.id_front) return setError("Envie a foto da frente do seu documento com foto (RG ou CNH).");
+    if (!docs.id_back) return setError("Envie a foto do verso do seu documento com foto (RG ou CNH).");
+    if (minor && minorPath === "emancipated" && !docs.emancipation_certificate) {
+      return setError("Envie a certidão de emancipação inteira.");
+    }
+    if (!termsAccepted) return setError("Aceite os termos da conta de pagamento para continuar.");
+
     const payload = {
       ...dados,
       occupation: perfil.occupation,
@@ -192,7 +218,13 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
     };
     // Mesma validação do servidor, só para mostrar o erro antes de enviar.
     const parsed = bankKycSchema.safeParse(payload);
-    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? "Confira os dados.");
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message;
+      if (!msg || msg.includes("Too small") || msg.includes("expected array")) {
+        return setError("Envie a frente e o verso do seu documento com foto.");
+      }
+      return setError(msg);
+    }
     setBusy(true);
     setError(null);
     const result = await postJson("/api/bank/kyc", payload);
@@ -287,7 +319,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
   }
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-xl pb-32 sm:pb-36">
       <p className="text-[13px] font-medium text-muted-foreground">
         Abertura de conta · passo {index + 1} de {STEPS.length}
       </p>

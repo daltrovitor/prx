@@ -167,9 +167,10 @@ export async function submitEmancipation(user: MemberRef, documents: DocumentRef
 export async function reviewEmancipation(id: string, decision: "approve" | "reject", note: string, reviewer: string): Promise<EmancipationRequest> {
   const request = await repo().getEmancipation(id);
   if (!request) throw new FamilyError("Pedido não encontrado.", 404);
-  if (request.status !== "pending") throw new FamilyError("Este pedido já foi decidido.", 409);
-  const decided = await repo().decideEmancipation(id, decision === "approve" ? "approved" : "rejected", note, reviewer);
-  if (!decided) throw new FamilyError("Este pedido acabou de ser decidido por outra pessoa.", 409);
+  const targetStatus = decision === "approve" ? "approved" : "rejected";
+  if (request.status === targetStatus) throw new FamilyError(`Este pedido já foi ${targetStatus === "approved" ? "aprovado" : "recusado"}.`, 409);
+  const decided = await repo().decideEmancipation(id, targetStatus, note, reviewer);
+  if (!decided) throw new FamilyError("Não foi possível atualizar a decisão.", 409);
   // Emancipação aprovada: conta comum, sem responsável e sem limites de menor.
   await repo().updateIdentity(request.userId, decision === "approve" ? { accountType: "member", status: "active" } : { status: "rejected" });
   return decided;
@@ -222,9 +223,10 @@ export async function submitParentApplication(user: MemberRef & { phone?: string
 export async function reviewParentApplication(id: string, decision: "approve" | "reject", note: string, reviewer: string): Promise<ParentApplication> {
   const app = await repo().getParentApplication(id);
   if (!app) throw new FamilyError("Pedido não encontrado.", 404);
-  if (app.status !== "pending") throw new FamilyError("Este pedido já foi decidido.", 409);
-  const decided = await repo().decideParentApplication(id, decision === "approve" ? "approved" : "rejected", note, reviewer);
-  if (!decided) throw new FamilyError("Este pedido acabou de ser decidido por outra pessoa.", 409);
+  const targetStatus = decision === "approve" ? "approved" : "rejected";
+  if (app.status === targetStatus) throw new FamilyError(`Este pedido já foi ${targetStatus === "approved" ? "aprovado" : "recusado"}.`, 409);
+  const decided = await repo().decideParentApplication(id, targetStatus, note, reviewer);
+  if (!decided) throw new FamilyError("Não foi possível atualizar a decisão.", 409);
   await repo().updateIdentity(app.userId, { status: decision === "approve" ? "active" : "rejected" });
   return decided;
 }

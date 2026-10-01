@@ -121,7 +121,6 @@ function supabaseRepository(): KycRepository {
       const { data, error } = await table()
         .update({ status, review_note: note, reviewed_by: reviewer, reviewed_at: new Date().toISOString() })
         .eq("id", id)
-        .eq("status", "pending")
         .select("*")
         .maybeSingle();
       fail("decidir a abertura de conta", error);
@@ -177,7 +176,7 @@ const memoryRepository: KycRepository = {
     return structuredClone(memory().filter((a) => status === "all" || a.status === status));
   },
   async decide(id, status, note, reviewer) {
-    const found = memory().find((a) => a.id === id && a.status === "pending");
+    const found = memory().find((a) => a.id === id);
     if (!found) return null;
     Object.assign(found, { status, reviewNote: note, reviewedBy: reviewer, reviewedAt: new Date().toISOString() });
     return structuredClone(found);

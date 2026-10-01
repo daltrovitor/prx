@@ -77,6 +77,70 @@ function useScrolled(threshold = 8): boolean {
   return scrolled;
 }
 
+/** Detecta quando o teclado virtual está aberto (formulários no mobile) para não empurrar a barra para cima dos botões. */
+function useIsVirtualKeyboardOpen(): boolean {
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onFocusIn = (e: FocusEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (
+        el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT" ||
+          el.isContentEditable)
+      ) {
+        setIsOpen(true);
+      }
+    };
+
+    const onFocusOut = () => {
+      setTimeout(() => {
+        const active = document.activeElement as HTMLElement | null;
+        if (
+          !active ||
+          (active.tagName !== "INPUT" &&
+            active.tagName !== "TEXTAREA" &&
+            active.tagName !== "SELECT" &&
+            !active.isContentEditable)
+        ) {
+          setIsOpen(false);
+        }
+      }, 150);
+    };
+
+    window.addEventListener("focusin", onFocusIn);
+    window.addEventListener("focusout", onFocusOut);
+
+    const vv = window.visualViewport;
+    const onResize = () => {
+      if (vv && window.innerHeight) {
+        if (vv.height < window.innerHeight * 0.8) {
+          setIsOpen(true);
+        } else if (
+          !document.activeElement ||
+          (document.activeElement.tagName !== "INPUT" &&
+            document.activeElement.tagName !== "TEXTAREA")
+        ) {
+          setIsOpen(false);
+        }
+      }
+    };
+    vv?.addEventListener("resize", onResize);
+
+    return () => {
+      window.removeEventListener("focusin", onFocusIn);
+      window.removeEventListener("focusout", onFocusOut);
+      vv?.removeEventListener("resize", onResize);
+    };
+  }, []);
+
+  return isOpen;
+}
+
 function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) {
   useThemeScope("app");
   const { tab, go } = useAppNav();
@@ -89,6 +153,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
   const lenis = useLenis();
   const previousTab = useRef(tab);
   const scrolled = useScrolled();
+  const isKeyboardOpen = useIsVirtualKeyboardOpen();
 
   useEffect(() => {
     if (previousTab.current === tab) return;
@@ -289,7 +354,12 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
       </div>
 
       {/* Floating Bottom Navigation Dock (mobile e tablet) */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+      <div
+        className={cn(
+          "pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-all duration-200 ease-out lg:hidden",
+          isKeyboardOpen && "pointer-events-none translate-y-24 opacity-0"
+        )}
+      >
         <ObsidianDock
           items={NAV_ITEMS}
           active={tab === "profile" ? null : tab}

@@ -114,12 +114,15 @@ async function guardianReady(userId: string, birthDate: string): Promise<boolean
 export async function reviewBankKyc(id: string, decision: "approve" | "reject", note: string, reviewer: string): Promise<BankKycApplication> {
   const app = await kycRepo().get(id);
   if (!app) throw new FamilyError("Pedido não encontrado.", 404);
-  if (app.status !== "pending") throw new FamilyError("Este pedido já foi decidido.", 409);
+  const targetStatus: KycStatus = decision === "approve" ? "approved" : "rejected";
+  if (app.status === targetStatus) {
+    throw new FamilyError(`Este pedido já foi ${targetStatus === "approved" ? "aprovado" : "recusado"}.`, 409);
+  }
   if (decision === "approve" && app.riskFlags.includes("minor") && !(await guardianReady(app.userId, app.birthDate))) {
     throw new FamilyError("Menor de idade: aprove só depois que o responsável aceitar o vínculo na Conta Pai (ou a emancipação ser aprovada).", 409);
   }
-  const decided = await kycRepo().decide(id, decision === "approve" ? "approved" : "rejected", note, reviewer);
-  if (!decided) throw new FamilyError("Este pedido acabou de ser decidido por outra pessoa.", 409);
+  const decided = await kycRepo().decide(id, targetStatus, note, reviewer);
+  if (!decided) throw new FamilyError("Não foi possível atualizar a decisão do pedido.", 409);
   return decided;
 }
 

@@ -75,7 +75,10 @@ export const bankKycSchema = z
     /** Pessoa politicamente exposta (Resolução COAF 40/2021): exige diligência reforçada, não bloqueia. */
     pep: z.boolean(),
     address: kycAddressSchema,
-    documents: z.array(documentRefSchema).min(2).max(6),
+    documents: z
+      .array(documentRefSchema, { error: "Envie os documentos com foto solicitados." })
+      .min(2, "Envie a frente e o verso do seu documento com foto (RG ou CNH).")
+      .max(6, "Máximo de 6 documentos permitidos."),
     /** Menores de 18: vínculo com o responsável ou emancipação (16–17). */
     minorPath: z.enum(TEEN_PATHS).optional(),
     parentEmail: z.string().trim().toLowerCase().email("Informe o e-mail do responsável.").max(160).optional().or(z.literal("")),

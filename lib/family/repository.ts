@@ -302,7 +302,6 @@ function supabaseRepository(): FamilyRepository {
         .from("family_parent_applications")
         .update({ status, review_note: note, reviewed_by: reviewer, reviewed_at: now() })
         .eq("id", id)
-        .eq("status", "pending")
         .select("*")
         .maybeSingle();
       fail("decidir o pedido de Conta Pai", error);
@@ -340,7 +339,6 @@ function supabaseRepository(): FamilyRepository {
         .from("family_emancipation_requests")
         .update({ status, review_note: note, reviewed_by: reviewer, reviewed_at: now() })
         .eq("id", id)
-        .eq("status", "pending")
         .select("*")
         .maybeSingle();
       fail("decidir o pedido de emancipação", error);
@@ -534,7 +532,7 @@ const memoryRepository: FamilyRepository = {
     return clone(memory().parentApps.filter((a) => status === "all" || a.status === status));
   },
   async decideParentApplication(id, status, note, reviewer) {
-    const found = memory().parentApps.find((a) => a.id === id && a.status === "pending");
+    const found = memory().parentApps.find((a) => a.id === id);
     if (!found) return null;
     Object.assign(found, { status, reviewNote: note, reviewedBy: reviewer, reviewedAt: now() });
     return clone(found);
@@ -557,7 +555,7 @@ const memoryRepository: FamilyRepository = {
     return clone(memory().emancipations.filter((a) => status === "all" || a.status === status));
   },
   async decideEmancipation(id, status, note, reviewer) {
-    const found = memory().emancipations.find((a) => a.id === id && a.status === "pending");
+    const found = memory().emancipations.find((a) => a.id === id);
     if (!found) return null;
     Object.assign(found, { status, reviewNote: note, reviewedBy: reviewer, reviewedAt: now() });
     return clone(found);
